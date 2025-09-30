@@ -1,3 +1,4 @@
+import styles from './Login.module.css'
 import { useNavigate } from "react-router-dom"
 
 export default function Login () {
@@ -5,7 +6,7 @@ export default function Login () {
 
     return (
         <>
-            <p>Login</p>
+            <p className={styles.loginText}>Login</p>
             <button onClick={()=>{navigate("/dashboard")}}>Dash</button>
         </>
     )
