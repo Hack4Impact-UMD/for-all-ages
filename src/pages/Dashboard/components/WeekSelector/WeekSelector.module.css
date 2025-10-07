@@ -1,0 +1,60 @@
+.container {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    background-color: #ffffff;
+    padding: 0.75rem 1.5rem;
+    border-radius: 1.5rem;
+    color: #0f6bb1;
+    border: 2px solid #0f6bb1;
+}
+
+.weekList {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2.5rem;
+    flex: 1 1 auto;
+}
+
+.weekButton {
+    background: transparent;
+    border: none;
+    color: inherit;
+    font-size: 1.15rem;
+    font-weight: 600;
+    padding: 0.4rem 1.1rem;
+    border-radius: 0.9rem;
+    cursor: pointer;
+    transition: background-color 150ms ease, color 150ms ease;
+}
+
+.weekButton:hover {
+    background-color: rgba(15, 107, 177, 0.12);
+}
+
+.activeWeek {
+    background-color: #296032;
+    color: #ffffff;
+}
+
+.arrowButton {
+    background: transparent;
+    border: none;
+    color: inherit;
+    font-size: 1.15rem;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.75rem;
+    transition: background-color 150ms ease, color 150ms ease;
+}
+
+.arrowButton:hover:not(:disabled) {
+    background-color: rgba(15, 107, 177, 0.12);
+}
+
+.arrowButton:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
