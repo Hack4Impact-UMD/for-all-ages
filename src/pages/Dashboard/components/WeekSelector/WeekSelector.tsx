@@ -1,4 +1,5 @@
-import styles from './WeekSelector.module.css'
+// import styles from './WeekSelector.module.css'
+import styles from './WeekSelectorGlassy.module.css'
 
 interface WeekSelectorProps {
     weeks: string[]

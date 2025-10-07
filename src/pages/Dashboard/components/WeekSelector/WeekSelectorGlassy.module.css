@@ -1,0 +1,65 @@
+.container {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.55), rgba(223, 239, 255, 0.25));
+    padding: 0.85rem 1.6rem;
+    border-radius: 1.6rem;
+    color: #0f5da3;
+    border: 1px solid rgba(255, 255, 255, 0.55);
+    box-shadow: 0 18px 36px rgba(15, 93, 163, 0.18);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+}
+
+.weekList {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2.5rem;
+    flex: 1 1 auto;
+}
+
+.weekButton {
+    background: transparent;
+    border: none;
+    color: inherit;
+    font-size: 1.15rem;
+    font-weight: 600;
+    padding: 0.45rem 1.2rem;
+    border-radius: 1rem;
+    cursor: pointer;
+    transition: background-color 200ms ease, color 200ms ease, box-shadow 200ms ease;
+}
+
+.weekButton:hover {
+    background-color: rgba(15, 107, 177, 0.18);
+    box-shadow: 0 8px 22px rgba(15, 93, 163, 0.18);
+}
+
+.activeWeek {
+    background: linear-gradient(135deg, rgba(41, 96, 50, 0.92), rgba(28, 74, 36, 0.92));
+    color: #f5fff5;
+    box-shadow: 0 10px 26px rgba(28, 74, 36, 0.35);
+}
+
+.arrowButton {
+    background: transparent;
+    border: none;
+    color: inherit;
+    font-size: 1.15rem;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 0.35rem 0.55rem;
+    border-radius: 0.8rem;
+    transition: background-color 200ms ease, color 200ms ease;
+}
+
+.arrowButton:hover:not(:disabled) {
+    background-color: rgba(15, 107, 177, 0.18);
+}
+
+.arrowButton:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
