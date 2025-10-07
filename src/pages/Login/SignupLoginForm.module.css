@@ -1,0 +1,91 @@
+.form {
+  background: white;
+  border-radius: 45px;
+  padding: 2.5rem;
+  font-family: 'Merriweather', serif;
+  width: 400px;
+  max-width: 90vw;
+}
+
+.tabs {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  justify-content: center;
+}
+
+.separator {
+  color: #127BBE;
+  font-size: 2rem;
+}
+
+.tabs button {
+  padding: 0.3rem 0.3rem;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: gray;
+  font-size: 2rem;
+  text-decoration: none;
+}
+
+.tabs .active {
+  color: #127BBE;
+  text-decoration: underline;
+  background: none;
+  font-weight: bold;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  width: 100%;
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+label {
+  font-family: 'Merriweather', serif;
+  text-align: left;
+  color: #127BBE;
+  font-size: 1.5rem;
+  margin-bottom: 0;
+  width: fit-content;
+}
+
+input {
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 2px;
+  background: #E8F4FD;
+  color: #000;
+  font-size: 0.9rem;
+}
+
+form button {
+  padding: 0.8rem;
+  background: #127BBE;
+  color: white;
+  border: none;
+  border-radius: 35px;
+  cursor: pointer;
+  font-size: 2rem;
+  width: 150px;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+form button:disabled {
+  background: #ccc;
+}
+
+.error {
+  color: red;
+  font-size: 0.875rem;
+}
+
