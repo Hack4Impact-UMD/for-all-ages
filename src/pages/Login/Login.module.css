@@ -48,19 +48,25 @@
 
 .tabs {
     display: flex;
-    justify-content: center;
     gap: 1rem;
-    margin-bottom: 2rem;
+    margin-bottom: 1rem;
+    justify-content: center;
+}
+
+.tabDivider {
+    color: #127BBE;
+    font-size: 2rem;
 }
 
 .tab {
-    background: none;
+    padding: 0.3rem 0.3rem;
     border: none;
-    font-family: 'Merriweather', serif;
-    font-size: 1.2rem;
-    color: #666;
+    background: none;
     cursor: pointer;
-    padding: 0.5rem;
+    color: gray;
+    font-size: 2rem;
+    text-decoration: none;
+    font-family: 'Merriweather', serif;
 }
 
 .tab:hover {
@@ -69,38 +75,41 @@
 
 .activeTab {
     color: #127BBE;
-    font-weight: 700;
     text-decoration: underline;
-}
-
-.tabDivider {
-    color: #ccc;
+    background: none;
+    font-weight: bold;
 }
 
 .form {
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: 0.8rem;
+    width: 100%;
 }
 
 .inputGroup {
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
+    gap: 0;
 }
 
 .label {
     font-family: 'Merriweather', serif;
-    color: #127BBE;
     text-align: left;
+    color: #127BBE;
+    font-size: 1.5rem;
+    margin-bottom: 0;
+    width: fit-content;
 }
 
 .input {
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 2px;
+    background: #E8F4FD;
+    color: #000;
+    font-size: 0.9rem;
     font-family: 'Merriweather', serif;
-    padding: 0.75rem 1rem;
-    border: none;
-    border-radius: 0.5rem;
-    background: #E8F4FB;
 }
 
 .input:focus {
@@ -109,16 +118,17 @@
 }
 
 .submitButton {
-    font-family: 'Merriweather', serif;
-    font-weight: 700;
-    color: white;
+    padding: 0.8rem;
     background: #127BBE;
+    color: white;
     border: none;
-    border-radius: 2rem;
-    padding: 0.5rem 1.5rem;
+    border-radius: 35px;
     cursor: pointer;
-    margin-top: 1rem;
-    align-self: center;
+    font-size: 2rem;
+    width: 150px;
+    max-width: 100%;
+    margin: 0 auto;
+    font-family: 'Merriweather', serif;
 }
 
 .submitButton:hover:not(.disabled) {
@@ -128,14 +138,11 @@
 .submitButton.disabled {
     background: #ccc;
     cursor: not-allowed;
-    opacity: 0.6;
 }
 
-.signupMessage {
-    font-family: 'Merriweather', serif;
-    color: #666;
-    text-align: center;
-    padding: 2rem;
+.error {
+    color: red;
+    font-size: 0.875rem;
 }
 
 @media (max-width: 900px) {
