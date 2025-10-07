@@ -1,3 +1,153 @@
-.loginText{
-    color: blue
+@import url('https://fonts.googleapis.com/css2?family=Merriweather:wght@400;700&display=swap');
+
+.container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    width: 100vw;
+    background: #127BBE;
+    padding: 2rem;
+    gap: 5rem;
+    position: fixed;
+    top: 0;
+    left: 0;
+    overflow-y: auto;
+}
+
+.logoSection,
+.formSection {
+    flex: 0 0 auto;
+    display: flex;
+    justify-content: center;
+    width: 450px;
+}
+
+.logoCard,
+.formCard {
+    background: white;
+    border-radius: 2rem;
+    padding: 2rem 3rem;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+    width: 100%;
+    max-width: 450px;
+    min-height: 350px;
+}
+
+.logoCard {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.logoImage {
+    width: 100%;
+    max-width: 280px;
+}
+
+.tabs {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.tab {
+    background: none;
+    border: none;
+    font-family: 'Merriweather', serif;
+    font-size: 1.2rem;
+    color: #666;
+    cursor: pointer;
+    padding: 0.5rem;
+}
+
+.tab:hover {
+    color: #127BBE;
+}
+
+.activeTab {
+    color: #127BBE;
+    font-weight: 700;
+    text-decoration: underline;
+}
+
+.tabDivider {
+    color: #ccc;
+}
+
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.inputGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.label {
+    font-family: 'Merriweather', serif;
+    color: #127BBE;
+    text-align: left;
+}
+
+.input {
+    font-family: 'Merriweather', serif;
+    padding: 0.75rem 1rem;
+    border: none;
+    border-radius: 0.5rem;
+    background: #E8F4FB;
+}
+
+.input:focus {
+    outline: 2px solid #127BBE;
+    background: #D9EEF9;
+}
+
+.submitButton {
+    font-family: 'Merriweather', serif;
+    font-weight: 700;
+    color: white;
+    background: #127BBE;
+    border: none;
+    border-radius: 2rem;
+    padding: 0.5rem 1.5rem;
+    cursor: pointer;
+    margin-top: 1rem;
+    align-self: center;
+}
+
+.submitButton:hover:not(.disabled) {
+    background: #0E6CAE;
+}
+
+.submitButton.disabled {
+    background: #ccc;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.signupMessage {
+    font-family: 'Merriweather', serif;
+    color: #666;
+    text-align: center;
+    padding: 2rem;
+}
+
+@media (max-width: 900px) {
+    .container {
+        flex-direction: column;
+        padding: 1rem;
+        gap: 3rem;
+    }
+    
+    .logoSection,
+    .formSection {
+        width: 100%;
+        max-width: 450px;
+    }
 }
