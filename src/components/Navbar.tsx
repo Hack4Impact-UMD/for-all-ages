@@ -19,6 +19,9 @@ export default function Navbar({ navItems = [
 
   return (
     <div className={styles.bar}>
+      <div>
+        
+      </div>
       <div className={styles.container}>
         {navItems.map((item) => {
           const isActive = location.pathname === item.path;
