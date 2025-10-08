@@ -1,7 +1,8 @@
 import './App.css'
-import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Route, Routes, Navigate } from 'react-router-dom'
 import Login from './pages/Login/Login'
-import Dashboard from './pages/Dashboard/Dashboard'
+import UserDashboard from './pages/Dashboard/Dashboard'
+import AdminDashboard from './pages/Dashboard/AdminDashboard'
 
 function App() {
   return (
@@ -9,7 +10,19 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path={"/"} element={<Login></Login>}></Route>
-          <Route path={"/dashboard"} element={<Dashboard></Dashboard>}></Route>
+
+          <Route path="/user/*">
+            <Route path="" element={<Navigate to="/user/dashboard" replace />} />
+            <Route path="dashboard" element={<UserDashboard />} />
+          </Route>
+
+          <Route path="/admin/*">
+            <Route path="" element={<Navigate to="/admin/dashboard" replace />} />
+            <Route path="dashboard" element={<AdminDashboard />} />
+          </Route>
+
+          {/* <Route path={"/user/dashboard"} element={<Dashboard></Dashboard>}></Route>
+          <Route path={"/admin/dashboard"} element={<Dashboard></Dashboard>}></Route> */}
         </Routes>
       </BrowserRouter>
     </>

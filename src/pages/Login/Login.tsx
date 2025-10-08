@@ -7,7 +7,7 @@ export default function Login () {
     return (
         <>
             <p className={styles.loginText}>Login</p>
-            <button onClick={()=>{navigate("/dashboard")}}>Dash</button>
+            <button onClick={()=>{navigate("/user/dashboard")}}>Dash</button>
         </>
     )
 }
