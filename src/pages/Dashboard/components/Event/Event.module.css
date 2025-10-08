@@ -1,0 +1,287 @@
+.event {
+  --ev-color: 26, 115, 232;
+  position: relative;
+  width: 100%;
+  border-radius: 12px;
+  background: rgba(var(--ev-color), 0.12);
+  text-align: left;
+  border: 0;
+  padding: 0;
+  outline: none;
+}
+
+.event:focus-visible {
+  box-shadow: 0 0 0 2px #0284c7;
+}
+.event.selected {
+  box-shadow: 0 0 0 2px #0284c7, 0 0 0 4px #fff;
+}
+.event.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.content {
+  display: flex;
+  gap: 8px;
+  padding: 10px;
+  align-items: flex-start;
+}
+.bar {
+  width: 4px;
+  height: 16px;
+  margin-top: 2px;
+  border-radius: 2px;
+  background: rgb(var(--ev-color));
+  flex: 0 0 auto;
+}
+
+.body {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.time {
+  font-size: 0.68rem;
+  color: #334155;
+}
+.loc {
+  margin-top: 2px;
+  font-size: 0.68rem;
+  color: #475569;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hoverCard {
+  pointer-events: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 10;
+  width: 260px;
+  transform: translateY(4px);
+  display: none;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 8px 24px rgba(2, 6, 23, 0.12);
+}
+.event:hover .hoverCard,
+.event:focus-within .hoverCard {
+  display: block;
+}
+
+.cardHead {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  background: rgb(var(--ev-color));
+}
+
+/* wrapper holds the checkbox + event block */
+.eventWrapper {
+  display: grid;
+  grid-template-columns: 20px 1fr;
+  align-items: start;
+  gap: 6px;
+}
+
+/* selection toggle */
+.select {
+  height: 16px;
+  width: 16px;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  line-height: 1;
+  background: #fff;
+  color: #fff;
+}
+.selectOn {
+  background: #0ea5e9; /* sky-500 */
+  border-color: #0ea5e9;
+}
+
+/* existing .event ... (from earlier) */
+
+/* inline title input */
+.titleInput {
+  min-width: 0;
+  flex: 1 1 auto;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: #0f172a;
+}
+
+/* tiny Save/Cancel buttons */
+.editButtons {
+  display: inline-flex;
+  gap: 6px;
+  margin-left: 6px;
+}
+.editBtn {
+  user-select: none;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.08);
+  font-size: 11px;
+  color: #0f172a;
+}
+.editBtn:hover {
+  background: rgba(0, 0, 0, 0.12);
+}
+
+/* ensure the event is a positioning context */
+.event {
+  position: relative;
+}
+
+/* edit button (hidden until hover/focus) */
+.editBtn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  opacity: 0;
+  transform: translateY(-2px);
+  transition: opacity 120ms ease, transform 120ms ease;
+  background: #0f172a; /* slate-900 */
+  color: #fff;
+  border: 0;
+  border-radius: 8px;
+  padding: 4px 8px;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.event:hover .editBtn,
+.event:focus-within .editBtn {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* modal-style popup */
+.popupBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 6, 23, 0.35); /* slate-950/35 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+.popupCard {
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  background: #fff;
+  border: 1px solid #e2e8f0; /* slate-200 */
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(2, 6, 23, 0.25);
+  padding: 16px;
+}
+
+.popupHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.popupTitle {
+  font-weight: 700;
+  font-size: 14px;
+  color: #0f172a;
+}
+
+.popupClose {
+  background: transparent;
+  border: 0;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  color: #0f172a;
+}
+
+.popupBody {
+  display: grid;
+  gap: 10px;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+}
+
+.label {
+  font-size: 12px;
+  color: #334155; /* slate-700 */
+}
+
+.input,
+.colorInput {
+  width: 100%;
+  border: 1px solid #cbd5e1; /* slate-300 */
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 14px;
+  outline: none;
+}
+
+.colorInput {
+  padding: 6px;
+  height: 36px;
+}
+
+.popupFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.btn {
+  border: 0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.btnSecondary {
+  background: #e2e8f0;
+  color: #0f172a;
+} /* slate-200 */
+.btnPrimary {
+  background: #0ea5e9;
+  color: white;
+} /* sky-500 */
