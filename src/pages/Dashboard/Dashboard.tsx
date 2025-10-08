@@ -17,19 +17,20 @@ export default function Dashboard () {
     const tasksForWeek = WEEK_TASKS[selectedWeek] ?? []
 
     return (
-        //WeekSelector component is used here
-        <div className={styles.container}>
-            <section className={''}>
-                <WeekSelector
-                    weeks={WEEK_LABELS}
-                    selectedWeekIndex={selectedWeek}
-                    onSelect={setSelectedWeek}
-                />
-            </section>
-            {/* Tasks componet is used here */}
-            <div className={styles.content}>
-                <h2 className={styles.sectionHeading}>{WEEK_LABELS[selectedWeek]}</h2>
-                <RoadmapTaskList tasks={tasksForWeek} />
+        <div className={styles.page}>
+            <div className={styles.surface}>
+                <section className={styles.selectorSection}>
+                    <WeekSelector
+                        weeks={WEEK_LABELS}
+                        selectedWeekIndex={selectedWeek}
+                        onSelect={setSelectedWeek}
+                    />
+                </section>
+
+                <section className={styles.contentSection}>
+                    <h2 className={styles.sectionHeading}>{WEEK_LABELS[selectedWeek]}</h2>
+                    <RoadmapTaskList tasks={tasksForWeek} className={styles.taskCard} />
+                </section>
             </div>
         </div>
     )

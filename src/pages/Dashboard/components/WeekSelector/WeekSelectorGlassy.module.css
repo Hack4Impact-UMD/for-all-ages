@@ -5,11 +5,13 @@
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.55), rgba(223, 239, 255, 0.25));
     padding: 0.85rem 1.6rem;
     border-radius: 1.6rem;
-    color: #0f5da3;
+    color: #234e79;
     border: 1px solid rgba(255, 255, 255, 0.55);
     box-shadow: 0 18px 36px rgba(15, 93, 163, 0.18);
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .weekList {
@@ -38,7 +40,7 @@
 }
 
 .activeWeek {
-    background: linear-gradient(135deg, rgba(41, 96, 50, 0.92), rgba(28, 74, 36, 0.92));
+    background: #21486f;
     color: #f5fff5;
     box-shadow: 0 10px 26px rgba(28, 74, 36, 0.35);
 }
