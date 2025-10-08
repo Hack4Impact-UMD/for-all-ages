@@ -6,7 +6,7 @@ export interface User {
     role: Role;
 }
 
-export interface Participant{
+export interface Participant {
     name: string
     address: string
     phone_number: string
@@ -20,21 +20,21 @@ export interface SurveyResponse {
     answer: string
 }
 
-export interface Surveys {
+export interface Survey {
     participant_id: string
     responses: SurveyResponse[]
 }
 
-export interface Matches{
+export interface Match {
     participant1_id: string
     participant2_id: string
     day_of_call: Date     //switch to luxon
     similarity: number
 }
 
-export interface Weeks{
+export interface Week {
     week: number
-    calls: {match_id: {duration: number}}[]
+    calls: {match_id: {duration: number, concerns: string}}[]
 }
 
 
