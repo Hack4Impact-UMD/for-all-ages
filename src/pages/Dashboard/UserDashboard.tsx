@@ -12,7 +12,7 @@ const WEEK_TASKS = [
     ['Prepare for final presentation', 'Share learnings with cohort', 'Celebrate completion!']
 ]
 
-export default function Dashboard () {
+export default function UserDashboard () {
     const [selectedWeek, setSelectedWeek] = useState(2)
     const tasksForWeek = WEEK_TASKS[selectedWeek] ?? []
 
