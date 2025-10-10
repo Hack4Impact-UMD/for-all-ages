@@ -2,7 +2,7 @@ import { useState } from 'react'
 import styles from './Dashboard.module.css'
 import WeekSelector from './components/WeekSelector/WeekSelector'
 import RoadmapTaskList from './components/RoadmapTaskList/RoadmapTaskList'
-
+import Navbar from '../../components/Navbar'
 const WEEK_LABELS = ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5']
 const WEEK_TASKS = [
     ['Introduce yourself in the forum', 'Review the course outline'],
@@ -18,6 +18,12 @@ export default function UserDashboard () {
 
     return (
         <div className={styles.page}>
+            <Navbar
+                navItems={[
+                    { label: "Dashboard", path: "/user/dashboard" },
+                    { label: "Profile", path: "/" }
+                ]}
+            />
             <div className={styles.surface}>
                 <section className={styles.selectorSection}>
                     <WeekSelector
