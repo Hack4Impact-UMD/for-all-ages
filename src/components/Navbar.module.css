@@ -3,11 +3,35 @@
     left: 0;
     top: 0;
     width: 100vw;
+    max-height: 50px;
     box-sizing: border-box;
     display: flex;
     justify-content: center; 
     background-color: white;
 }
+
+.logoContainer {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  left: 10px;
+  height: 100%;
+}
+
+.logoLink {
+  display: flex;
+  height: 100%;
+  align-items: center;
+}
+
+
+.logo {
+  max-height: 100%;
+  width: auto;
+  object-fit: contain;
+  display: block;
+}
+
 
 .container {
   display: flex;
