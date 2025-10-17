@@ -1,0 +1,38 @@
+.tag {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.45rem 0.9rem;
+    border-radius: 0.9rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    box-shadow: 0 8px 18px rgba(15, 93, 163, 0.12);
+    border: 1px solid transparent;
+    transition: transform 180ms ease, box-shadow 200ms ease;
+    text-align: center;
+    cursor: default;
+}
+
+.tag:hover {
+    transform: translateY(-5px) translateX(-2px);
+    box-shadow: 0 10px 24px rgba(15, 93, 163, 0.18);
+}
+
+.rose {
+    background: #fce2e5;
+    color: #a63e47;
+    border-color: rgba(166, 62, 71, 0.18);
+}
+
+.green {
+    background: #d7f1df;
+    color: #2f7041;
+    border-color: rgba(47, 112, 65, 0.18);
+}
+
+.gold {
+    background: #fbe3b1;
+    color: #8b650d;
+    border-color: rgba(139, 101, 13, 0.18);
+}

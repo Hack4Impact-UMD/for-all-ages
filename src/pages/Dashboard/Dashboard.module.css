@@ -1,3 +1,41 @@
-.dashboardText {
-    color: red
+.page {
+    min-height: 100vh;
+    width: 100%;
+    background: #3879B9;
+    display: flex;
+    justify-content: center;
+}
+
+.surface {
+    width: min(1200px, 100%);
+    padding: 120px clamp(1.5rem, 4vw, 3rem) 48px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+}
+
+.selectorSection {
+    width: 100%;
+}
+
+.contentSection {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    flex: 1;
+}
+
+.sectionHeading {
+    margin: 0;
+    font-size: clamp(1.75rem, 2vw, 2.25rem);
+    font-weight: 700;
+    color: #ffffff;
+    text-align: center;
+}
+
+.taskCard {
+    width: 100%;
+    flex: 1;
 }

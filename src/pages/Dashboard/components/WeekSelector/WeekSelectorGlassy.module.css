@@ -1,0 +1,118 @@
+.container {
+    display: flex;
+    align-items: center;
+    gap: clamp(0.6rem, 1.6vw, 1rem);
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.55), rgba(223, 239, 255, 0.25));
+    padding: clamp(0.65rem, 1.5vw, 0.85rem) clamp(1rem, 3.2vw, 1.6rem);
+    border-radius: 1.6rem;
+    color: #234e79;
+    border: 1px solid rgba(255, 255, 255, 0.55);
+    box-shadow: 0 18px 36px rgba(15, 93, 163, 0.18);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    width: 100%;
+    box-sizing: border-box;
+    flex-wrap: nowrap;
+}
+
+.weekList {
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    gap: clamp(1rem, 3vw, 2.5rem);
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.weekButton {
+    background: transparent;
+    border: none;
+    color: inherit;
+    font-size: clamp(0.95rem, 1.8vw, 1.15rem);
+    font-weight: 600;
+    padding: clamp(0.35rem, 1.3vw, 0.45rem) clamp(0.9rem, 2.4vw, 1.2rem);
+    border-radius: 1rem;
+    cursor: pointer;
+    transition: background-color 200ms ease, color 200ms ease, box-shadow 200ms ease;
+    white-space: nowrap;
+    flex: 0 1 auto;
+}
+
+.weekButton:hover {
+    background-color: rgba(15, 107, 177, 0.18);
+    box-shadow: 0 8px 22px rgba(15, 93, 163, 0.18);
+}
+
+.activeWeek {
+    background: #21486f;
+    color: #f5fff5;
+    box-shadow: 0 10px 26px rgba(28, 74, 36, 0.35);
+}
+
+.arrowButton {
+    background: transparent;
+    border: none;
+    color: inherit;
+    font-size: clamp(0.95rem, 1.8vw, 1.15rem);
+    font-weight: 700;
+    cursor: pointer;
+    padding: 0.35rem 0.55rem;
+    border-radius: 0.8rem;
+    transition: background-color 200ms ease, color 200ms ease;
+    flex: 0 0 auto;
+}
+
+.arrowButton:hover:not(:disabled) {
+    background-color: rgba(15, 107, 177, 0.18);
+}
+
+.arrowButton:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+@media (max-width: 820px) {
+    .weekList {
+        gap: clamp(0.75rem, 2vw, 1.25rem);
+    }
+}
+
+@media (max-width: 680px) {
+    .container {
+        flex-wrap: wrap;
+        justify-content: center;
+        row-gap: 0.75rem;
+    }
+
+    .weekList {
+        order: 3;
+        width: 100%;
+        flex: 1 1 100%;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        row-gap: 0.6rem;
+    }
+
+    .weekButton {
+        flex: 1 1 calc(50% - 0.5rem);
+        min-width: 120px;
+        text-align: center;
+    }
+
+    .arrowButton {
+        flex: 1 1 120px;
+        max-width: 140px;
+    }
+}
+
+@media (max-width: 460px) {
+    .weekButton {
+        flex: 1 1 100%;
+        min-width: 0;
+    }
+
+    .weekList {
+        justify-content: center;
+        column-gap: 0.5rem;
+    }
+}
