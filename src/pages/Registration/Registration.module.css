@@ -1,0 +1,186 @@
+@import url('https://fonts.googleapis.com/css2?family=Merriweather:ital,opsz,wght@0,18..144,300..900;1,18..144,300..900&display=swap');
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+#navbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  position: relative;
+  background-color: white;
+  width: 100%;
+  
+}
+
+#logo {
+  width: 9rem;
+  height: 6rem;
+  justify-self: left;
+  align-self: center;
+  margin-left: 1rem;
+  object-fit: cover;
+  object-position: 50% 30%;
+}
+
+#title {
+  background-color: #127BBE;
+  font-family: 'Merriweather', serif;
+  font-size: 35px;
+  color: white;
+  padding: 0.5rem 3rem;
+  border-radius: 50px;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: clamp(28px, 4vw, 35px);
+  padding: 0.5rem clamp(2rem, 5vw, 3rem);
+}
+
+#page {
+  background-color: #127BBE;
+  font-family: 'Merriweather', serif;
+  text-align: left;
+  padding: 2rem;
+  width: 100%;
+}
+
+:global(input), :global(select), #interests {
+  background-color: white;
+  border: none;
+  border-radius: 15px;
+  color: #127BBE;
+  font-size: 28px;
+  font-family: inherit;
+  padding: 0.5rem 1rem;
+  margin: 0;
+  width: 100%;
+}
+
+.label {
+  font-size: 32px;
+  margin-top: 2rem;
+  margin-bottom: 0.3rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+  cursor: default;
+}
+
+.sublabel {
+  font-size: 20px;
+  margin-top: 0;
+  margin-bottom: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+  cursor: default;
+}
+
+#addr_container {
+  width: 100%;
+}
+
+#addr_details {
+  display: flex;
+  justify-content: flex-start;
+  gap: 2rem;
+}
+
+#addr_details div {
+  width: 20%;
+  flex: 1;
+}
+
+.confirm {
+  display: flex;
+  gap: 0 5rem;
+  flex-wrap: wrap;
+}
+
+.confirm label {
+  width: max-content;
+
+}
+
+.dob, .pronouns {
+  width: 20rem;
+}
+
+.dob {
+  cursor: text;
+}
+
+:global(select) {
+  width: 35rem;
+  cursor: pointer;
+}
+
+:global(label) {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 28px;
+  margin-bottom: 0.4rem;
+}
+
+:global(input[type="radio"]) {
+  display: inline-block;
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: transparent;
+  padding: 0;
+}
+
+:global(input[type="radio"])::before {
+  content: '';
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  border-radius: 50%;
+  vertical-align: middle;
+  background-color: white;;
+}
+
+:global(input[type="radio"]):checked::before {
+  background-color: #127BBE;
+  border: 5px solid white;
+  padding: 0.2em; /* Adjust for the inner circle */
+  background-clip: content-box;
+}
+
+:global(input[type="radio"]):hover {
+  cursor: pointer;
+}
+
+#submit {
+  display: flex;
+  justify-self: right;
+  background-color: white;
+  color: #127BBE;
+  font-size: 40px;
+  padding: 0.4rem 1rem;
+  margin-top: 10rem;
+  border-radius: 15px;
+}
+
+#submit:hover {
+  border-color: #127BBE;
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-text-fill-color: #127BBE;
+  caret-color: #127BBE;
+  -webkit-box-shadow: 0 0 0 30px white inset;
+  box-shadow: 0 0 0 30px white inset;
+  transition: background-color 5000s ease-in-out 0s;
+}
