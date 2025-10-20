@@ -12,7 +12,7 @@
   justify-content: flex-start;
   position: relative;
   background-color: white;
-  width: 100%;
+  width: 100vw;
   
 }
 
@@ -45,7 +45,7 @@
   font-family: 'Merriweather', serif;
   text-align: left;
   padding: 2rem;
-  width: 100%;
+  width: 100vw;
 }
 
 :global(input), :global(select), #interests {
