@@ -1,5 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import styles from "./Navbar.module.css";
+import Logo from "../assets/for-all-ages-logo.svg"
 
 interface NavItem {
   label: string;
@@ -19,8 +20,10 @@ export default function Navbar({ navItems = [
 
   return (
     <div className={styles.bar}>
-      <div>
-        
+      <div className={styles.logoContainer}>
+        <Link to="/" className={styles.logoLink}>
+          <img src={Logo} alt="For All Ages Logo" className={styles.logo} />
+        </Link>
       </div>
       <div className={styles.container}>
         {navItems.map((item) => {
@@ -38,6 +41,7 @@ export default function Navbar({ navItems = [
           );
         })}
       </div>
+      <div className={styles.right}></div>
     </div>
   );
 }

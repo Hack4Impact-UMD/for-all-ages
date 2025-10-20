@@ -7,7 +7,32 @@
     display: flex;
     justify-content: center; 
     background-color: white;
+    height: 80px;
+    align-items: center;
 }
+
+.logoContainer {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  left: 10px;
+  height: 80px;
+}
+
+.logoLink {
+  display: flex;
+  height: 100%;
+  align-items: center;
+}
+
+
+.logo {
+  max-height: 100%;
+  width: auto;
+  object-fit: contain;
+  display: block;
+}
+
 
 .container {
   display: flex;
