@@ -67,13 +67,14 @@ const Registration = () => {
             <input 
               type="tel" 
               pattern="(^\+1-[0-9]{3}-[0-9]{3}-[0-9]{4}$)|(^\([0-9]{3}\) [0-9]{3}-[0-9]{4}$)"
+              placeholder='(XXX) XXX-XXXX'
               required
             />
           </label>
 
           <label className={styles.label}>
             Confirm Phone Number
-            <input type="tel" required/>
+            <input type="tel" required placeholder='(XXX) XXX-XXXX'/>
           </label>
         </div>
         

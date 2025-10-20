@@ -69,6 +69,7 @@
   align-items: flex-start;
   gap: 0.3rem;
   cursor: default;
+  color: white;
 }
 
 .sublabel {
@@ -80,6 +81,7 @@
   align-items: flex-start;
   gap: 0;
   cursor: default;
+  color:white;
 }
 
 #addr_container {
