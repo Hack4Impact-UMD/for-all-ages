@@ -1,6 +1,6 @@
 import './App.css'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
-import Login from './pages/Login/Login'
+import LoginSignup from './pages/Login/Login-Signup'
 import Dashboard from './pages/Dashboard/Dashboard'
 
 function App() {
@@ -8,7 +8,7 @@ function App() {
     <>
       <BrowserRouter>
         <Routes>
-          <Route path={"/"} element={<Login></Login>}></Route>
+          <Route path={"/"} element={<LoginSignup></LoginSignup>}></Route>
           <Route path={"/dashboard"} element={<Dashboard></Dashboard>}></Route>
         </Routes>
       </BrowserRouter>

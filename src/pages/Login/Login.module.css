@@ -1,3 +1,160 @@
-.loginText{
-    color: blue
+@import url('https://fonts.googleapis.com/css2?family=Merriweather:wght@400;700&display=swap');
+
+.container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    width: 100vw;
+    background: #127BBE;
+    padding: 2rem;
+    gap: 5rem;
+    position: fixed;
+    top: 0;
+    left: 0;
+    overflow-y: auto;
+}
+
+.logoSection,
+.formSection {
+    flex: 0 0 auto;
+    display: flex;
+    justify-content: center;
+    width: 450px;
+}
+
+.logoCard,
+.formCard {
+    background: white;
+    border-radius: 2rem;
+    padding: 2rem 3rem;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+    width: 100%;
+    max-width: 450px;
+    min-height: 350px;
+}
+
+.logoCard {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.logoImage {
+    width: 100%;
+    max-width: 280px;
+}
+
+.tabs {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    justify-content: center;
+}
+
+.tabDivider {
+    color: #127BBE;
+    font-size: 2rem;
+}
+
+.tab {
+    padding: 0.3rem 0.3rem;
+    border: none;
+    background: none;
+    cursor: pointer;
+    color: gray;
+    font-size: 2rem;
+    text-decoration: none;
+    font-family: 'Merriweather', serif;
+}
+
+.tab:hover {
+    color: #127BBE;
+}
+
+.activeTab {
+    color: #127BBE;
+    text-decoration: underline;
+    background: none;
+    font-weight: bold;
+}
+
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+    width: 100%;
+}
+
+.inputGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.label {
+    font-family: 'Merriweather', serif;
+    text-align: left;
+    color: #127BBE;
+    font-size: 1.5rem;
+    margin-bottom: 0;
+    width: fit-content;
+}
+
+.input {
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 2px;
+    background: #E8F4FD;
+    color: #000;
+    font-size: 0.9rem;
+    font-family: 'Merriweather', serif;
+}
+
+.input:focus {
+    outline: 2px solid #127BBE;
+    background: #D9EEF9;
+}
+
+.submitButton {
+    padding: 0.8rem;
+    background: #127BBE;
+    color: white;
+    border: none;
+    border-radius: 35px;
+    cursor: pointer;
+    font-size: 2rem;
+    width: 150px;
+    max-width: 100%;
+    margin: 0 auto;
+    font-family: 'Merriweather', serif;
+}
+
+.submitButton:hover:not(.disabled) {
+    background: #0E6CAE;
+}
+
+.submitButton.disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+.error {
+    color: red;
+    font-size: 0.875rem;
+}
+
+@media (max-width: 900px) {
+    .container {
+        flex-direction: column;
+        padding: 1rem;
+        gap: 3rem;
+    }
+    
+    .logoSection,
+    .formSection {
+        width: 100%;
+        max-width: 450px;
+    }
 }
