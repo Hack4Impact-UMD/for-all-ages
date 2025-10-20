@@ -1,6 +1,5 @@
 import './App.css'
 import { BrowserRouter, Route, Routes, Navigate } from 'react-router-dom'
-import Login from './pages/Login/Login'
 import UserDashboard from './pages/Dashboard/UserDashboard'
 import AdminDashboard from './pages/Dashboard/AdminDashboard'
 import LoginSignup from './pages/Login/Login-Signup'
@@ -11,7 +10,7 @@ function App() {
     <>
       <BrowserRouter>
         <Routes>
-          
+
           <Route path={"/"} element={<LoginSignup></LoginSignup>}></Route>
           <Route path={"/registration"} element={<Registration></Registration>}></Route>
 
