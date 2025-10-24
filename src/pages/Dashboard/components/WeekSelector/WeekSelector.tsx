@@ -14,28 +14,38 @@ export default function WeekSelector ({
     onSelect,
     className
 }: WeekSelectorProps) {
-    const handleArrowClick = (direction: -1 | 1) => {
-        const nextIndex = selectedWeekIndex + direction
-        if (nextIndex < 0 || nextIndex >= weeks.length) {
+    const handleArrowClick = (direction: number) => {
+        const currentPage = Math.floor(selectedWeekIndex / weekRange);
+        const nextPage = currentPage + (direction > 0 ? 1 : -1);
+
+        const newIndex = direction > 0 ? nextPage * weekRange : Math.min((nextPage + 1) * weekRange - 1, weeks.length - 1);
+
+        if (newIndex < 0 || newIndex >= weeks.length) {
             return
         }
-        onSelect(nextIndex)
+        onSelect(newIndex)
     }
+
+    const weekRange = 5;
+    const currentPage = Math.floor(selectedWeekIndex / weekRange);
+    const startIndex = currentPage * weekRange;
+    const visibleWeeks = weeks.slice(startIndex, startIndex + weekRange);
 
     return (
         <div className={`${styles.container} ${className ?? ''}`.trim()}>
             <button
                 type="button"
                 className={styles.arrowButton}
-                onClick={() => handleArrowClick(-1)}
-                disabled={selectedWeekIndex === 0}
-                aria-label="Previous week"
+                onClick={() => handleArrowClick(-5)}
+                disabled={startIndex === 0}
+                aria-label="Previous 5 weeks"
             >
                 &lt;
             </button>
             <div className={styles.weekList} role="tablist" aria-label="Select week">
-                {weeks.map((week, index) => {
-                    const isActive = index === selectedWeekIndex
+                {visibleWeeks.map((week, index) => {
+                    const actualIndex = startIndex + index;
+                    const isActive = actualIndex === selectedWeekIndex
                     return (
                         <button
                             key={week}
@@ -43,7 +53,7 @@ export default function WeekSelector ({
                             role="tab"
                             aria-selected={isActive}
                             className={`${styles.weekButton} ${isActive ? styles.activeWeek : ''}`.trim()}
-                            onClick={() => onSelect(index)}
+                            onClick={() => onSelect(actualIndex)}
                         >
                             {week}
                         </button>
@@ -53,9 +63,9 @@ export default function WeekSelector ({
             <button
                 type="button"
                 className={styles.arrowButton}
-                onClick={() => handleArrowClick(1)}
-                disabled={selectedWeekIndex === weeks.length - 1}
-                aria-label="Next week"
+                onClick={() => handleArrowClick(5)}
+                disabled={startIndex + weekRange >= weeks.length}
+                aria-label="Next 5 weeks"
             >
                 &gt;
             </button>
