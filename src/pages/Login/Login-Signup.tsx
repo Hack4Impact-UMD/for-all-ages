@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import styles from './Login.module.css'
+import { signUpUser, loginUser, saveUser } from '../../firebase-login-signup'
 
 function LoginSignup() {
   const navigate = useNavigate()
@@ -14,10 +15,30 @@ function LoginSignup() {
     confirmPassword: '' 
   })
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (tab === 'login') navigate('/dashboard')
-    else console.log('Sign Up:', form)
+    try {
+      if (tab === 'login') {
+          const user = await loginUser(form.email || form.username, form.password)
+          if (!user.emailVerified) {
+            alert('Please verify your email before logging in.')
+            return
+          } 
+          navigate('/user/dashboard')}
+      else {
+          const user = await signUpUser(form.email, form.password)
+          await saveUser(user.uid, {
+            firstName: form.firstName,
+            lastName: form.lastName,
+            email: form.email,
+          })
+          alert('Verification email sent! Please check your inbox before logging in.')
+          setTab('login')
+        }
+    } catch (err: any) {
+      console.error(err)
+      alert(err.message)
+    }
   }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
