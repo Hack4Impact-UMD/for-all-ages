@@ -1,5 +1,6 @@
 import styles from './Registration.module.css';
 import logo from '../../assets/For all Ages high res logo 2022 (1).svg'
+import { phoneNumberRegex } from '../../regex';
 
 const Registration = () => {
   return (
@@ -66,7 +67,7 @@ const Registration = () => {
             Phone Number
             <input 
               type="tel" 
-              pattern="(^\+1-[0-9]{3}-[0-9]{3}-[0-9]{4}$)|(^\([0-9]{3}\) [0-9]{3}-[0-9]{4}$)"
+              pattern={phoneNumberRegex}
               placeholder='(XXX) XXX-XXXX'
               required
             />
