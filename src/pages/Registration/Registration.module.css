@@ -176,6 +176,36 @@
   border-color: #127BBE;
 }
 
+.message {
+  color: white;
+  font-size: 1.5rem;
+}
+
+.errorText {
+  color: #FFE0E0;
+  font-size: 1rem;
+}
+
+.errorBanner {
+  margin-top: 2rem;
+  background-color: #FAD4D4;
+  color: #8B1313;
+  padding: 1rem 1.5rem;
+  border-radius: 1rem;
+  font-size: 1.1rem;
+  width: fit-content;
+}
+
+.statusBanner {
+  margin-top: 2rem;
+  background-color: #E0F2FF;
+  color: #0C4A6E;
+  padding: 1rem 1.5rem;
+  border-radius: 1rem;
+  font-size: 1.1rem;
+  width: fit-content;
+}
+
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus,
