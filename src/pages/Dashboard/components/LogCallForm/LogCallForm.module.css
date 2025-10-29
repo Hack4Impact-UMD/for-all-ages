@@ -1,0 +1,114 @@
+body, textarea {
+    font-family: 'Merriweather';
+    font-size: medium;
+}
+
+p {
+    color: #127BBE;
+    margin: 0;
+}
+
+label {
+    margin: 0;
+}
+
+h1 {
+    color: #127bbe;
+    font-family: 'Merriweather';
+    font-size: x-large;
+}
+
+button {
+    background-color: #127bbe;
+    height: 40px;
+}
+
+section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.callCompleteGroup {
+  display: flex;
+  flex-direction: column;
+  margin-left: 20px;
+}
+
+.container {
+    background: #ffffff;
+    box-shadow: 0 18px 40px rgba(15, 107, 177, 0.18);
+    border-radius: 1.75rem;
+    padding: 2rem 2.5rem;
+    width: 100%;
+    min-height: 320px;
+    box-sizing: border-box;
+    gap: 1.5rem;
+}
+
+.columns {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  width: 100%;
+  padding: 1rem;
+  gap: 1.5rem;
+}
+
+.left, .right {
+    flex: 1;
+    width: 100%;
+    text-align: left;    
+}
+
+.meetingNotesInput,
+.durationInput {
+  background-color: #127BBE24;
+  color: #000;
+  border-radius: 5px;
+  padding: 8px 12px;
+  font-size: 1rem;
+  font-weight: normal;
+  border: 0px;
+  color-scheme: light;
+  outline: none;
+  align-items: left;
+}
+
+.meetingNotesInput {
+    width: 100%;
+    min-height: 232px;
+    resize: none;
+    text-align: left;
+    vertical-align: top;
+    box-sizing: border-box;
+}
+
+.durationInput {
+    max-width: 587px;
+}
+
+.starRating {
+    display: flex;
+    margin: 0;
+    gap: 0.2rem;
+    line-height: 1;
+    align-items: center;
+}
+
+
+:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.starRating.disabled span {
+    cursor: default;
+    opacity: 0.7;
+}
+
+.required {
+  color: red;
+  font-size: smaller;
+}

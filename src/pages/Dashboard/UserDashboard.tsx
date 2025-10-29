@@ -2,6 +2,7 @@ import { useState } from 'react'
 import styles from './Dashboard.module.css'
 import WeekSelector from './components/WeekSelector/WeekSelector'
 import RoadmapTaskList from './components/RoadmapTaskList/RoadmapTaskList'
+import LogCallForm from './components/LogCallForm/LogCallForm'
 import Navbar from '../../components/Navbar'
 const WEEK_LABELS = ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5']
 const WEEK_TASKS = [
@@ -35,7 +36,8 @@ export default function UserDashboard () {
 
                 <section className={styles.contentSection}>
                     <h2 className={styles.sectionHeading}>{WEEK_LABELS[selectedWeek]}</h2>
-                    <RoadmapTaskList tasks={tasksForWeek} className={styles.taskCard} />
+                    <LogCallForm />
+                    {/* <RoadmapTaskList tasks={tasksForWeek} className={styles.taskCard} /> */}
                 </section>
             </div>
         </div>
