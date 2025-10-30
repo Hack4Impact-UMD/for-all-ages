@@ -3,7 +3,7 @@ import styles from './Dashboard.module.css'
 import WeekSelector from './components/WeekSelector/WeekSelector'
 import RoadmapTaskList from './components/RoadmapTaskList/RoadmapTaskList'
 import Navbar from '../../components/Navbar'
-const WEEK_LABELS = ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5', 'Week 6', 'Week 7', 'Week 8', 'Week 9', 'Week 10', 'Week 11', 'Week 12', 'Week 13', 'Week 14', 'Week 15', 'Week 16', 'Week 17', 'Week 18', 'Week 19', 'Week 20']
+const WEEKS = 20
 const WEEK_TASKS = [
     ['Introduce yourself in the forum', 'Review the course outline'],
     ['Complete assessment checklist', 'Upload supporting documents'],
@@ -27,14 +27,14 @@ export default function UserDashboard () {
             <div className={styles.surface}>
                 <section className={styles.selectorSection}>
                     <WeekSelector
-                        weeks={WEEK_LABELS}
+                        weeks={Array.from({ length: WEEKS }, (_, i) => `Week ${i + 1}`)}
                         selectedWeekIndex={selectedWeek}
                         onSelect={setSelectedWeek}
                     />
                 </section>
 
                 <section className={styles.contentSection}>
-                    <h2 className={styles.sectionHeading}>{WEEK_LABELS[selectedWeek]}</h2>
+                    <h2 className={styles.sectionHeading}>Week {selectedWeek+1}</h2>
                     <RoadmapTaskList tasks={tasksForWeek} className={styles.taskCard} />
                 </section>
             </div>
