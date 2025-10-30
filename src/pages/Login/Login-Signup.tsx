@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
-import { FirebaseError } from "firebase/app";
-import {
-  createUserWithEmailAndPassword,
-  sendEmailVerification,
-  signInWithEmailAndPassword,
-  updateProfile,
-} from "firebase/auth";
+// Firebase SDK usage moved behind service helpers
 import { useNavigate } from "react-router-dom";
 import styles from "./Login.module.css";
 import { auth } from "../../firebase";
 import { useAuth } from "../../auth/AuthProvider";
+import {
+  friendlyAuthError,
+  loginWithEmailPassword,
+  signupWithEmailPassword,
+  resendVerificationEmail,
+} from "../../services/auth";
 
 type Tab = "login" | "signup";
 
@@ -22,28 +22,7 @@ const initialSignupState = {
   confirmPassword: "",
 };
 
-// Converts Firebase auth errors into friendly messages
-const friendlyAuthError = (error: unknown) => {
-  if (error instanceof FirebaseError) {
-    switch (error.code) {
-      case "auth/email-already-in-use":
-        return "That email is already registered. Try logging in instead.";
-      case "auth/invalid-email":
-        return "Please enter a valid email address.";
-      case "auth/invalid-credential":
-      case "auth/wrong-password":
-      case "auth/user-not-found":
-        return "Invalid email or password. Please try again.";
-      case "auth/weak-password":
-        return "Please choose a stronger password (at least 6 characters).";
-      case "auth/too-many-requests":
-        return "Too many attempts. Please wait a moment before trying again.";
-      default:
-        break;
-    }
-  }
-  return "Something went wrong. Please try again.";
-};
+// Error mapping moved to shared util
 // The main LoginSignup componentx
 function LoginSignup() {
   
@@ -121,7 +100,7 @@ function LoginSignup() {
     setStatusMessage(null);
     setLoginLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, loginForm.email.trim(), loginForm.password);
+      await loginWithEmailPassword(loginForm.email, loginForm.password);
     } catch (err) {
       setError(friendlyAuthError(err));
     } finally {
@@ -140,19 +119,12 @@ function LoginSignup() {
     setStatusMessage(null);
     setSignupLoading(true);
     try {
-      // Create the user account
-      const credential = await createUserWithEmailAndPassword(
-        auth,
-        signupForm.email.trim(),
-        signupForm.password,
-      );
-      // Set the display name
-      const displayName = `${signupForm.firstName} ${signupForm.lastName}`.trim();
-      if (displayName) {
-        await updateProfile(credential.user, { displayName });
-      }
-      // Send email verification
-      await sendEmailVerification(credential.user);
+      await signupWithEmailPassword({
+        firstName: signupForm.firstName,
+        lastName: signupForm.lastName,
+        email: signupForm.email,
+        password: signupForm.password,
+      });
       setStatusMessage(
         "We sent a verification email. Please verify your address and then return here to continue.",
       );
@@ -172,7 +144,7 @@ function LoginSignup() {
     setError(null);
     setResendLoading(true);
     try {
-      await sendEmailVerification(user);
+      await resendVerificationEmail(user);
       setStatusMessage("Verification email re-sent. Please check your inbox.");
     } catch (err) {
       setError(friendlyAuthError(err));
