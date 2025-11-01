@@ -101,6 +101,8 @@ function LoginSignup() {
     setLoginLoading(true);
     try {
       await loginWithEmailPassword(loginForm.email, loginForm.password);
+      // Reload user to get fresh emailVerified status
+      await refreshUser();
     } catch (err) {
       setError(friendlyAuthError(err));
     } finally {
