@@ -5,6 +5,8 @@ import styles from "./Registration.module.css";
 import logo from "../../assets/For all Ages high res logo 2022 (1).svg";
 import { useAuth } from "../../auth/AuthProvider";
 import { db } from "../../firebase";
+import { phoneNumberRegex } from '../../regex';
+
 
 // Defines the shape of the registration form state
 type RegistrationFormState = {
@@ -45,7 +47,6 @@ const buildInitialState = (email?: string): RegistrationFormState => ({
   interests: "",
   teaPreference: "",
 });
-
 
 const Registration = () => {
   const navigate = useNavigate();
@@ -271,13 +272,10 @@ const Registration = () => {
         <div className={styles.confirm}>
           <label className={styles.label}>
             Phone Number
-            <input
-              type="tel"
-              name="phone"
-              pattern="(^\+1-[0-9]{3}-[0-9]{3}-[0-9]{4}$)|(^\([0-9]{3}\) [0-9]{3}-[0-9]{4}$)"
-              placeholder="(XXX) XXX-XXXX"
-              value={form.phone}
-              onChange={handleInputChange}
+            <input 
+              type="tel" 
+              pattern={phoneNumberRegex}
+              placeholder='(XXX) XXX-XXXX'
               required
             />
           </label>

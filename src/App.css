@@ -1,7 +1,8 @@
-html,
+/* This messes up the registration page zoom */
+/* html,
 body {
   height: 100%;
-}
+} */
 
 body {
   margin: 0;
