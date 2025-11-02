@@ -357,43 +357,7 @@ npm run ingest -- --file data/Tea@3\ JotForm\ Examples.xlsx
 npm run dev
 ```
 
-## Troubleshooting
-
-### "XLSX.readFile is not a function"
-✅ **Fixed!** This was an import issue. Make sure you're using the latest code.
-
-### "GEMINI_API_KEY not set"
-- Create a `.env` file in the `matching` folder
-- Add your Gemini API key from https://aistudio.google.com/apikey
-- Make sure it's the actual Gemini key, not a Pinecone key
-
-### "PINECONE_API_KEY not set"
-- Add your Pinecone API key to `.env`
-- Get it from https://app.pinecone.io/
-
-### "API key not valid" for Gemini
-- Your Gemini key might be incorrect
-- Get a fresh key from https://aistudio.google.com/apikey
-- Make sure it's a Gemini key (long string), not a Pinecone key (starts with `pcsk_`)
-
-### "404 error" when creating Pinecone index
-- Check your `PINECONE_ENVIRONMENT` in `.env` - should be just the region (e.g., `us-east-1`)
-- Or create the index manually in Pinecone dashboard:
-  - Name: `tea-mate-matching`
-  - Dimensions: `768`
-  - Metric: `cosine`
-
-### "File not found"
-- Check the file path is correct
-- Use quotes if path has spaces: `"data/Tea@3 JotForm Examples.xlsx"`
-- Use absolute path if needed: `/full/path/to/file.xlsx`
-
-### Embedding generation fails
-- Check your Gemini API key is valid
-- Check your internet connection
-- The service will auto-retry on rate limits
-
-## What's Next?
+## Next Step's
 
 After successful ingestion, your data is stored in Pinecone. Future phases will include:
 
@@ -417,7 +381,3 @@ After successful ingestion, your data is stored in Pinecone. Future phases will 
 - **Pinecone Docs**: https://docs.pinecone.io/
 - **Pinecone Dashboard**: https://app.pinecone.io/
 - **Gemini API Key**: https://aistudio.google.com/apikey
-
-## License
-
-Part of the Tea @ 3 program by For All Ages.
