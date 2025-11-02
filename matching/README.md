@@ -10,19 +10,7 @@ This service takes participant data from Excel files, converts their profiles in
 
 Follow these steps to get everything running on your local machine:
 
-### Step 1: Prerequisites
-
-Make sure you have installed:
-- **Node.js 18+** ([Download here](https://nodejs.org/))
-- **npm** (comes with Node.js)
-
-Verify installation:
-```bash
-node --version  # Should show v18 or higher
-npm --version   # Should show 9 or higher
-```
-
-### Step 2: Get API Keys
+### Step 1: Get API Keys
 
 You'll need two API keys:
 
@@ -42,7 +30,7 @@ You'll need two API keys:
 
 **Important**: Keep these keys secure! Don't share them publicly.
 
-### Step 3: Install Dependencies
+### Step 2: Install Dependencies
 
 1. Navigate to the matching folder:
 ```bash
@@ -61,7 +49,7 @@ This installs:
 - Pinecone vector database client
 - Other dependencies
 
-### Step 4: Configure Environment Variables
+### Step 3: Configure Environment Variables
 
 1. Create a `.env` file in the `matching` folder:
 ```bash
@@ -89,7 +77,7 @@ LOG_LEVEL=info
 
 **Note**: The `PINECONE_ENVIRONMENT` should just be the region name (e.g., `us-east-1`), not `us-east-1-aws`.
 
-### Step 5: Build the Project
+### Step 4: Build the Project
 
 Compile TypeScript code to JavaScript:
 ```bash
