@@ -121,6 +121,7 @@ export default function LogCallForm( { weekNumber }: LogCallFormProps) {
             value={formData.duration ?? ""}
             onChange={(e) => {updateField("duration", Number(e.target.value))}}
             disabled={disabled}
+            min="0"
           />
           </section>
 
@@ -160,7 +161,7 @@ export default function LogCallForm( { weekNumber }: LogCallFormProps) {
       <div>
         {formData.mode=='edit' ? (
           <button
-          disabled = {formData.callComplete == undefined || formData.duration == undefined || formData.satisfactionScore == undefined}
+          disabled = {formData.callComplete == undefined || !formData.duration|| formData.duration <= 0 || formData.satisfactionScore == undefined}
             onClick={() => updateField("mode", "saved")}
           >Submit Log</button>
         ) : (
