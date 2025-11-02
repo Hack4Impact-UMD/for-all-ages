@@ -1,13 +1,36 @@
 import styles from "./LogCallForm.module.css";
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Radio, RadioGroup , FormControlLabel, Typography } from "@mui/material";
 
-export default function LogCallForm() {
-  const [callComplete, setCallComplete] = useState<boolean | undefined>(undefined);
-  const [duration, setDuration] = useState<number | undefined>(undefined);
-  const [satisfactionScore, setSatisfactionScore] = useState<number|undefined>(undefined);
-  const [meetingNotes, setMeetingNotes] = useState<string>('');
-  const [mode, setMode] = useState<'edit' | 'saved'>('edit');
+const defaultForm = {
+  callComplete: undefined as boolean | undefined,
+  duration: undefined as number | undefined,
+  satisfactionScore: undefined as number | undefined,
+  meetingNotes: "" as string,
+  mode: "edit" as "edit" | "saved",
+};
+
+
+interface LogCallFormProps {
+  weekNumber: number;
+};
+
+export default function LogCallForm( { weekNumber }: LogCallFormProps) {
+  const [weeklyForms, setWeeklyForms] = useState<{ [week: number]: typeof defaultForm }>({});
+  const [formData, setFormData] = useState(defaultForm);
+
+  useEffect(() => {
+    setFormData(weeklyForms[weekNumber] || {...defaultForm});
+  }, [weekNumber]);
+
+  const updateField = (field: string, value: any) => {
+    const updated = { ...formData, [field]: value };
+    setFormData(updated);
+    setWeeklyForms((prev) => ({ ...prev, [weekNumber]: {...updated} }));
+  };
+
+  const disabled = formData.mode === "saved";
+
 
   return (
     <div className={`${styles.container}`}>
@@ -19,16 +42,15 @@ export default function LogCallForm() {
           <section>
             <p>Was a call completed this week? <span className={styles.required}>*</span></p>
             <RadioGroup
-              className={`${styles.callCompleteGroup} ${mode==='saved' ? styles.disabled : ''}`}
-              value={callComplete === undefined ? "" : callComplete ? "yes" : "no"}
-              onChange={(e) => setCallComplete(e.target.value === "yes")}
-              aria-label="callComplete"
+              className={`${styles.callCompleteGroup} ${formData.mode==='saved' ? styles.disabled : ''}`}
+              value={formData.callComplete === undefined ? "" : formData.callComplete ? "yes" : "no"}
+              onChange={(e) => updateField("callComplete", e.target.value === "yes")}
               name="callComplete"
               sx={{ gap: 0.5 }}
             >
               <FormControlLabel
                 value="yes"
-                disabled={mode === 'saved'} 
+                disabled={disabled} 
                 control={
                   <Radio
                     sx={{
@@ -59,7 +81,7 @@ export default function LogCallForm() {
 
               <FormControlLabel
                 value="no"
-                disabled={mode === 'saved'} 
+                disabled={disabled} 
                 control={
                   <Radio
                     sx={{
@@ -96,25 +118,25 @@ export default function LogCallForm() {
           <input
             type="number"
             className={styles.durationInput}
-            value={duration}
-            onChange={(e) => {setDuration(Number(e.target.value))}}
-            disabled={mode === 'saved'}
+            value={formData.duration ?? ""}
+            onChange={(e) => {updateField("duration", Number(e.target.value))}}
+            disabled={disabled}
           />
           </section>
 
           {/* Satisfaction Rating for the Call */}
           <section>
             <p>How satisfied were you with this call? <span className={styles.required}>*</span></p>
-            <div className={`${styles.starRating} ${mode==='saved' ? styles.disabled : ''}`}>
+            <div className={`${styles.starRating} ${disabled ? styles.disabled : ''}`}>
               {[1, 2, 3, 4, 5].map((star) => (
                 <span
                   key={star}
                   style={{
                     cursor: "pointer",
                     fontSize: "2.5rem",
-                    color: star <= (satisfactionScore ?? 0) ? "#127bbe" : "#ccc",
+                    color: star <= (formData.satisfactionScore ?? 0) ? "#127bbe" : "#ccc",
                   }}
-                  onClick={() => {if (mode !== 'saved') setSatisfactionScore(star)}}
+                  onClick={() => {if (!disabled) updateField("satisfactionScore", formData.satisfactionScore == star ? undefined : star)}}
                 >
                   ★
                 </span>
@@ -128,22 +150,22 @@ export default function LogCallForm() {
           <p>Any Meeting Notes:</p>
           <textarea
             className={styles.meetingNotesInput}
-            value={meetingNotes}
-            onChange={(e) => setMeetingNotes(e.target.value)}
-            disabled={mode === 'saved'}
+            value={formData.meetingNotes}
+            onChange={(e) => updateField("meetingNotes", e.target.value)}
+            disabled={disabled}
           />
         </div>
       </div>
 
       <div>
-        {mode=='edit' ? (
+        {formData.mode=='edit' ? (
           <button
-          disabled = {callComplete == undefined || duration == undefined || satisfactionScore == undefined}
-            onClick={() => setMode('saved')}
+          disabled = {formData.callComplete == undefined || formData.duration == undefined || formData.satisfactionScore == undefined}
+            onClick={() => updateField("mode", "saved")}
           >Submit Log</button>
         ) : (
           <button
-            onClick={() => setMode('edit')}
+            onClick={() => updateField("mode", "edit")}
           >Edit Log</button>
         )}
       </div>
