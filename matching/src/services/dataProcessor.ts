@@ -12,10 +12,7 @@ export async function parseExcelFile(filePath: string): Promise<ParticipantData[
   try {
     logger.info(`Reading Excel file: ${filePath}`);
     
-    // Read the workbook
     const workbook = XLSX.readFile(filePath);
-    
-    // Get the first sheet (JotForm typically exports to Sheet1)
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
     
@@ -23,7 +20,6 @@ export async function parseExcelFile(filePath: string): Promise<ParticipantData[
       throw new Error(`No sheet found in Excel file: ${filePath}`);
     }
     
-    // Convert sheet to JSON with header row
     const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet);
     
     if (rows.length === 0) {
@@ -33,25 +29,20 @@ export async function parseExcelFile(filePath: string): Promise<ParticipantData[
     
     logger.info(`Found ${rows.length} rows in Excel file`);
     
-    // Process and validate each row
     const participants: ParticipantData[] = [];
     let processedCount = 0;
     let errorCount = 0;
     
     for (let i = 0; i < rows.length; i++) {
       try {
-        // Validate row structure
         const validatedRow = JotFormRowSchema.parse(rows[i]);
         const participant = transformToParticipantData(validatedRow, i + 1);
-        
-        // Validate transformed participant
         const validatedParticipant = ParticipantDataSchema.parse(participant);
         participants.push(validatedParticipant);
         processedCount++;
       } catch (error) {
         errorCount++;
         logger.error(`Error processing row ${i + 1}:`, error instanceof Error ? error.message : String(error));
-        // Continue processing other rows
       }
     }
     
@@ -70,12 +61,10 @@ export async function parseExcelFile(filePath: string): Promise<ParticipantData[
 function transformToParticipantData(row: JotFormRow, rowIndex: number): ParticipantData {
   const type = row['Young or Older'] === 'Y' ? 'young' : 'older';
   
-  // Generate participant ID (using email if available, otherwise name + row index)
   const participantId = row['E-mail'] 
     ? `participant_${row['E-mail'].replace(/[@.]/g, '_')}` 
     : `participant_${row['Full Name'].replace(/\s+/g, '_')}_${rowIndex}`;
   
-  // Extract address components
   const address = row['Street Address'] ? {
     street: row['Street Address'],
     streetLine2: row['Street Address Line 2'],

@@ -18,7 +18,6 @@ export async function initializeIndex(): Promise<void> {
   logger.info(`Checking Pinecone index: ${indexName}`);
   
   try {
-    // Check if index exists
     const indexes = await client.listIndexes();
     const indexExists = indexes.indexes?.some(idx => idx.name === indexName);
     
@@ -27,10 +26,8 @@ export async function initializeIndex(): Promise<void> {
       return;
     }
     
-    // Create index if it doesn't exist
     logger.info(`Creating index ${indexName} with ${EMBEDDING_DIMENSIONS} dimensions...`);
     
-    // Extract region from environment (remove -aws suffix if present)
     let region = process.env.PINECONE_ENVIRONMENT || 'us-east-1';
     region = region.replace('-aws', '').replace('-gcp', '').replace('-azure', '');
     
@@ -49,8 +46,6 @@ export async function initializeIndex(): Promise<void> {
     });
     
     logger.info(`Index ${indexName} created successfully`);
-    
-    // Wait for index to be ready
     await waitForIndexReady(indexName);
     
   } catch (error) {
@@ -89,7 +84,6 @@ async function waitForIndexReady(indexName: string, maxWaitMs: number = 60000): 
         return;
       }
     } catch (error) {
-      // Index might not be ready yet
       logger.debug(`Index not ready yet, waiting...`);
       await new Promise(resolve => setTimeout(resolve, 2000));
     }
@@ -115,7 +109,6 @@ export async function upsertEmbeddings(
   
   logger.info(`Upserting ${participants.length} embeddings to index ${indexName}`);
   
-  // Process in batches
   for (let i = 0; i < participants.length; i += BATCH_SIZE) {
     const batch = participants.slice(i, i + BATCH_SIZE);
     const batchEmbeddings = embeddings.slice(i, i + BATCH_SIZE);

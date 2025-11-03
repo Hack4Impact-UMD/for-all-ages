@@ -33,7 +33,6 @@ export function initializeGeminiClient(): GoogleGenerativeAI {
  */
 export async function generateEmbedding(text: string): Promise<number[]> {
   try {
-    // Ensure client is initialized (for logging)
     initializeGeminiClient();
     const apiKey = process.env.GEMINI_API_KEY;
     
@@ -43,8 +42,6 @@ export async function generateEmbedding(text: string): Promise<number[]> {
     
     logger.debug(`Generating embedding for text (length: ${text.length})`);
     
-    // Use Gemini REST API for embeddings
-    // Using the embedContent endpoint for text-embedding-004
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${apiKey}`,
       {
@@ -67,9 +64,6 @@ export async function generateEmbedding(text: string): Promise<number[]> {
     }
     
     const data = await response.json() as { embedding?: { values?: number[] } };
-    
-    // Extract embedding vector from response
-    // Response structure: { embedding: { values: number[] } }
     const embedding = data.embedding?.values;
     
     if (!embedding || !Array.isArray(embedding) || embedding.length === 0) {
@@ -82,7 +76,6 @@ export async function generateEmbedding(text: string): Promise<number[]> {
   } catch (error) {
     logger.error(`Error generating embedding: ${error instanceof Error ? error.message : String(error)}`);
     
-    // Retry logic for rate limiting
     if (error instanceof Error && (
       error.message.includes('rate limit') || 
       error.message.includes('429')
@@ -113,19 +106,16 @@ export async function generateEmbeddingsBatch(
     logger.info(`Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(texts.length / batchSize)}`);
     
     try {
-      // Process batch in parallel with Promise.all
       const batchPromises = batch.map(text => generateEmbedding(text));
       const batchResults = await Promise.all(batchPromises);
       embeddings.push(...batchResults);
       
-      // Delay between batches to respect rate limits
       if (i + batchSize < texts.length) {
         await new Promise(resolve => setTimeout(resolve, delayMs));
       }
       
     } catch (error) {
       logger.error(`Error processing batch starting at index ${i}:`, error);
-      // Continue with next batch
       throw error;
     }
   }
