@@ -1,0 +1,171 @@
+.pageTitle {
+    margin: 0 0 32px 0;
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #ffffff;
+    text-align: center;
+}
+
+.cardRow {
+    display: flex;
+    gap: 24px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+}
+
+.card {
+    background: white;
+    border-radius: 16px;
+    padding: 24px;
+    flex: 1;
+    min-width: 280px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.cardWide {
+    background: white;
+    border-radius: 16px;
+    padding: 24px;
+    flex: 1;
+    min-width: 280px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    min-height: 250px;
+}
+
+.cardTitle {
+    margin: 0 0 20px 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #127BBE;
+    text-align: center;
+}
+
+.chartContainer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+    margin-top: 16px;
+}
+
+.legendItem {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.legendColor {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+}
+
+.legendText {
+    font-size: 0.875rem;
+    color: #3879B9;
+}
+
+.qualityContent {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.averageRating {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+}
+
+.stars {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.starFilled {
+    color: #127BBE;
+    font-size: 2rem !important;
+}
+
+.starEmpty {
+    color: #E0E0E0;
+    font-size: 2rem !important;
+}
+
+.ratingText {
+    margin: 0;
+    font-size: 1rem;
+    color: #3879B9;
+    font-weight: 500;
+}
+
+.ratingBars {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.ratingRow {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.ratingLabel {
+    font-size: 0.875rem;
+    color: #3879B9;
+    min-width: 60px;
+    font-weight: bold;
+}
+
+.barContainer {
+    flex: 1;
+    height: 20px;
+    background: #E0E0E0;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.barFill {
+    height: 100%;
+    background: #127BBE;
+    border-radius: 10px;
+    transition: width 0.3s ease;
+}
+
+.percentage {
+    font-size: 0.875rem;
+    color: #3879B9;
+    min-width: 40px;
+    text-align: right;
+    font-weight: bold;
+}
+
+.emptyState {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 200px;
+    color: #999;
+    font-size: 1.125rem;
+}
+
+@media (max-width: 1024px) {
+    .cardRow {
+        flex-direction: column;
+    }
+    
+    .card {
+        min-width: 100%;
+    }
+}
+
