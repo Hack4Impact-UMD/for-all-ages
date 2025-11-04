@@ -67,7 +67,7 @@ export default function LogCallForm( { weekNumber }: LogCallFormProps) {
                         color: "#0f6bb1",
                       },
                       "&.Mui-disabled .MuiSvgIcon-root": {
-                        opacity: 0.6,
+                        opacity: 0.3,
                       }
                     }}
                   />
@@ -98,7 +98,7 @@ export default function LogCallForm( { weekNumber }: LogCallFormProps) {
                         color: "#0f6bb1",
                       },
                       "&.Mui-disabled .MuiSvgIcon-root": {
-                        opacity: 0.6,
+                        opacity: 0.3,
                       }
                     }}
                   />

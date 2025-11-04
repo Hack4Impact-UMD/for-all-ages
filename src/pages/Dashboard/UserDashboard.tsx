@@ -36,7 +36,7 @@ export default function UserDashboard () {
 
                 <section className={styles.contentSection}>
                     <h2 className={styles.sectionHeading}>Week {selectedWeek+1}</h2>
-                    <RoadmapTaskList tasks={tasksForWeek} className={styles.taskCard} />
+                    <LogCallForm weekNumber={selectedWeek+1} />
                 </section>
             </div>
         </div>

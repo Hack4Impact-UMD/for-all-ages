@@ -99,13 +99,13 @@ section {
 
 
 :disabled {
-    opacity: 0.7;
+    opacity: 0.3;
     cursor: not-allowed;
 }
 
 .starRating.disabled span {
     cursor: default;
-    opacity: 0.7;
+    opacity: 0.3;
 }
 
 .required {
