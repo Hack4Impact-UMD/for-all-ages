@@ -67,15 +67,15 @@ const Registration = () => {
             Phone Number
             <input 
               type="tel" 
-              pattern={phoneNumberRegex}
-              placeholder='(XXX) XXX-XXXX'
+              pattern={phoneNumberRegex.source}
+              placeholder='XXX-XXX-XXXX'
               required
             />
           </label>
 
           <label className={styles.label}>
             Confirm Phone Number
-            <input type="tel" required placeholder='(XXX) XXX-XXXX'/>
+            <input type="tel" required placeholder='XXX-XXX-XXXX'/>
           </label>
         </div>
         
