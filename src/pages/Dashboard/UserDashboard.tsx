@@ -2,6 +2,7 @@ import { useState } from 'react'
 import styles from './Dashboard.module.css'
 import WeekSelector from './components/WeekSelector/WeekSelector'
 import RoadmapTaskList from './components/RoadmapTaskList/RoadmapTaskList'
+import LogCallForm from './components/LogCallForm/LogCallForm'
 import Navbar from '../../components/Navbar'
 const WEEKS = 20
 const WEEK_TASKS = [
@@ -35,7 +36,7 @@ export default function UserDashboard () {
 
                 <section className={styles.contentSection}>
                     <h2 className={styles.sectionHeading}>Week {selectedWeek+1}</h2>
-                    <RoadmapTaskList tasks={tasksForWeek} className={styles.taskCard} />
+                    <LogCallForm weekNumber={selectedWeek+1} />
                 </section>
             </div>
         </div>
