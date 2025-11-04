@@ -4,7 +4,9 @@ import UserDashboard from './pages/Dashboard/UserDashboard'
 import AdminDashboard from './pages/Dashboard/AdminDashboard'
 import LoginSignup from './pages/Login/Login-Signup'
 import Registration from './pages/Registration/Registration'
+import Profile from './pages/Profile/Profile'
 import RecapPage from './pages/Recap/RecapPage'
+
 
 function App() {
   return (
@@ -14,6 +16,7 @@ function App() {
 
           <Route path={"/"} element={<LoginSignup></LoginSignup>}></Route>
           <Route path={"/registration"} element={<Registration></Registration>}></Route>
+          <Route path={"/profile"} element={<Profile></Profile>}></Route>
 
           <Route path="/user/*">
             <Route path="" element={<Navigate to="/user/dashboard" replace />} />
