@@ -12,7 +12,7 @@ interface UserProfile {
   phone: string;
   birthday: string;
   address: string;
-  interests: string[];
+  interests: string;
   startDate: string;
   endDate: string;
   status: string;
@@ -34,7 +34,7 @@ const Profile = () => {
     phone: "(321) 654-6767",
     birthday: "01/08/1995",
     address: "7901 Regents Drive, College Park, MD 20742",
-    interests: ["Reading", "Running", "Crocheting"],
+    interests: "Reading, Running, Crocheting",
     startDate: "September 15, 2025",
     endDate: "December 1, 2025",
     status: "Participant",
@@ -175,14 +175,11 @@ const Profile = () => {
               {editingField === "interests" ? (
                 <textarea
                   name="interests"
-                  value={user.interests.join(", ")}
+                  value={user.interests}
                   onChange={(e) =>
                     setUser({
                       ...user,
                       interests: e.target.value
-                        .split(",")
-                        .map((i) => i.trim())
-                        .filter((i) => i.length > 0),
                     })
                   }
                   rows={3}
@@ -202,7 +199,7 @@ const Profile = () => {
                     />
                   </div>
                   <span className={styles.boxValue}>
-                    {user.interests.join(", ")}
+                    {user.interests}
                   </span>
                 </div>
               )}
