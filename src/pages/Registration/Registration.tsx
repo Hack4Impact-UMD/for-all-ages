@@ -275,6 +275,9 @@ const Registration = () => {
             <input 
               type="tel" 
               pattern={phoneNumberRegex}
+              name="phone"
+              value={form.phone}
+              onChange={handleInputChange}
               placeholder='(XXX) XXX-XXXX'
               required
             />
