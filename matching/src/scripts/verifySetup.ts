@@ -1,43 +1,25 @@
 /**
- * Verification script to test Gemini embeddings and Pinecone connectivity
+ * Verification script to test Pinecone embeddings and Pinecone connectivity
  */
 import 'dotenv/config';
-import { initializeGeminiClient, generateEmbedding } from '../services/embeddingService.js';
+import { generateEmbedding } from '../services/embeddingService.js';
 import { getPineconeClient, getIndexName } from '../config/pinecone.config.js';
 import { initializeIndex, checkIndexStatus } from '../services/vectorService.js';
 import { logger } from '../utils/logger.js';
 
 /**
- * Test Gemini API connection and embedding generation
+ * Test Pinecone Inference connection and embedding generation
  */
-async function testGemini(): Promise<boolean> {
+async function testEmbeddings(): Promise<boolean> {
   try {
-    logger.info('\n=== Testing Gemini API ===');
-    
-    const apiKey = process.env.GEMINI_API_KEY;
+    logger.info('\n=== Testing Pinecone Inference (Embeddings) ===');
+    const apiKey = process.env.PINECONE_API_KEY;
     if (!apiKey) {
-      logger.error('❌ GEMINI_API_KEY not set in environment');
+      logger.error('❌ PINECONE_API_KEY not set in environment');
       return false;
     }
-    
-    // Check if key looks valid (Gemini keys usually don't start with 'pcsk')
-    if (apiKey.startsWith('pcsk_')) {
-      logger.warn('⚠️  WARNING: Gemini API key appears to be a Pinecone key format!');
-      logger.warn('   Gemini keys usually look different. Please verify you have the correct key.');
-    }
-    
-    logger.info('✓ GEMINI_API_KEY is set');
-    logger.info('  Attempting to initialize Gemini client...');
-    
-    try {
-      initializeGeminiClient();
-      logger.info('✓ Gemini client initialized');
-    } catch (error) {
-      logger.error(`❌ Failed to initialize Gemini client: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
-    }
-    
-    logger.info('  Testing embedding generation...');
+    logger.info('✓ PINECONE_API_KEY is set');
+    logger.info('  Testing embedding generation via Pinecone Inference...');
     const testText = 'This is a test text for embedding generation.';
     
     try {
@@ -53,17 +35,12 @@ async function testGemini(): Promise<boolean> {
         return false;
       }
     } catch (error) {
-      logger.error(`❌ Failed to generate embedding: ${error instanceof Error ? error.message : String(error)}`);
-      if (error instanceof Error && error.message.includes('401')) {
-        logger.error('   This usually means the API key is invalid or unauthorized');
-      } else if (error instanceof Error && error.message.includes('404')) {
-        logger.error('   This might mean the embedding model endpoint has changed');
-      }
+      logger.error(`❌ Failed to generate embedding via Pinecone: ${error instanceof Error ? error.message : String(error)}`);
       return false;
     }
     
   } catch (error) {
-    logger.error(`❌ Gemini test failed: ${error instanceof Error ? error.message : String(error)}`);
+    logger.error(`❌ Embeddings test failed: ${error instanceof Error ? error.message : String(error)}`);
     return false;
   }
 }
@@ -155,8 +132,7 @@ async function verifySetup(): Promise<void> {
   const envVars = {
     'PINECONE_API_KEY': process.env.PINECONE_API_KEY ? '✓ Set' : '❌ Missing',
     'PINECONE_INDEX_NAME': process.env.PINECONE_INDEX_NAME || 'tea-mate-matching (default)',
-    'PINECONE_ENVIRONMENT': process.env.PINECONE_ENVIRONMENT || 'us-east-1-aws (default)',
-    'GEMINI_API_KEY': process.env.GEMINI_API_KEY ? '✓ Set' : '❌ Missing',
+    'PINECONE_ENVIRONMENT': process.env.PINECONE_ENVIRONMENT || 'us-east-1 (default)',
     'LOG_LEVEL': process.env.LOG_LEVEL || 'info (default)',
   };
   
@@ -164,8 +140,8 @@ async function verifySetup(): Promise<void> {
     logger.info(`  ${key}: ${value}`);
   });
   
-  // Test Gemini
-  const geminiOk = await testGemini();
+  // Test Embeddings
+  const embeddingsOk = await testEmbeddings();
   
   // Test Pinecone
   const pineconeOk = await testPinecone();
@@ -174,11 +150,11 @@ async function verifySetup(): Promise<void> {
   logger.info('\n========================================');
   logger.info('Verification Summary');
   logger.info('========================================');
-  logger.info(`Gemini API:     ${geminiOk ? '✅ PASS' : '❌ FAIL'}`);
+  logger.info(`Embeddings API: ${embeddingsOk ? '✅ PASS' : '❌ FAIL'}`);
   logger.info(`Pinecone DB:    ${pineconeOk ? '✅ PASS' : '❌ FAIL'}`);
   logger.info('========================================');
   
-  if (geminiOk && pineconeOk) {
+  if (embeddingsOk && pineconeOk) {
     logger.info('\n✅ All systems ready! You can proceed with data ingestion.');
     process.exit(0);
   } else {

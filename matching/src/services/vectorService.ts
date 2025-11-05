@@ -5,7 +5,7 @@ import { getPineconeClient, getIndexName } from '../config/pinecone.config.js';
 import { logger } from '../utils/logger.js';
 import type { ParticipantData } from '../utils/validator.js';
 
-const EMBEDDING_DIMENSIONS = 768; // Gemini text-embedding-004 dimensions
+const EMBEDDING_DIMENSIONS = 1024; // llama-text-embed-v2 default dimensions
 const BATCH_SIZE = 100; // Pinecone's max batch size
 
 /**
@@ -115,16 +115,43 @@ export async function upsertEmbeddings(
     
     logger.info(`Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(participants.length / BATCH_SIZE)}`);
     
-    const vectors = batch.map((participant, idx) => ({
-      id: participant.participantId,
-      values: batchEmbeddings[idx],
-      metadata: {
+    const vectors = batch.map((participant, idx) => {
+      const metadata: Record<string, string | number> = {
         name: participant.name,
         type: participant.type,
-        email: participant.email || '',
-        interests_summary: participant.interests?.substring(0, 100) || '', // Truncate for metadata
-      },
-    }));
+      };
+      
+      // Add new format fields
+      if (participant.freeResponse) {
+        metadata.free_response = participant.freeResponse.substring(0, 200);
+      }
+      if (participant.q1 !== undefined) {
+        metadata.q1 = participant.q1;
+      }
+      if (participant.q2 !== undefined) {
+        metadata.q2 = participant.q2;
+      }
+      if (participant.q3 !== undefined) {
+        metadata.q3 = participant.q3;
+      }
+      if (participant.idealMatch) {
+        metadata.ideal_match = participant.idealMatch;
+      }
+      
+      // Add legacy format fields (for backward compatibility)
+      if (participant.email) {
+        metadata.email = participant.email;
+      }
+      if (participant.interests) {
+        metadata.interests_summary = participant.interests.substring(0, 100);
+      }
+      
+      return {
+        id: participant.participantId,
+        values: batchEmbeddings[idx],
+        metadata,
+      };
+    });
     
     try {
       await index.upsert(vectors);

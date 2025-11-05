@@ -1,9 +1,9 @@
 /**
- * Data processor for Excel files - parses JotForm Excel exports
+ * Data processor for Excel files - parses both simplified and JotForm Excel exports
  */
 import XLSX from 'xlsx';
 import { logger } from '../utils/logger.js';
-import { JotFormRowSchema, ParticipantDataSchema, type ParticipantData, type JotFormRow } from '../utils/validator.js';
+import { SimplifiedRowSchema, JotFormRowSchema, ParticipantDataSchema, type ParticipantData, type SimplifiedRow, type JotFormRow } from '../utils/validator.js';
 
 /**
  * Parse Excel file and extract participant data
@@ -33,10 +33,22 @@ export async function parseExcelFile(filePath: string): Promise<ParticipantData[
     let processedCount = 0;
     let errorCount = 0;
     
+    // Detect format by checking for 'id' column (simplified format)
+    const isSimplifiedFormat = rows.length > 0 && 'id' in rows[0];
+    logger.info(`Detected format: ${isSimplifiedFormat ? 'Simplified' : 'JotForm (legacy)'}`);
+    
     for (let i = 0; i < rows.length; i++) {
       try {
-        const validatedRow = JotFormRowSchema.parse(rows[i]);
-        const participant = transformToParticipantData(validatedRow, i + 1);
+        let participant: ParticipantData;
+        
+        if (isSimplifiedFormat) {
+          const validatedRow = SimplifiedRowSchema.parse(rows[i]);
+          participant = transformSimplifiedToParticipantData(validatedRow);
+        } else {
+          const validatedRow = JotFormRowSchema.parse(rows[i]);
+          participant = transformJotFormToParticipantData(validatedRow, i + 1);
+        }
+        
         const validatedParticipant = ParticipantDataSchema.parse(participant);
         participants.push(validatedParticipant);
         processedCount++;
@@ -56,9 +68,25 @@ export async function parseExcelFile(filePath: string): Promise<ParticipantData[
 }
 
 /**
- * Transform JotForm row data to ParticipantData structure
+ * Transform simplified row data to ParticipantData structure
  */
-function transformToParticipantData(row: JotFormRow, rowIndex: number): ParticipantData {
+function transformSimplifiedToParticipantData(row: SimplifiedRow): ParticipantData {
+  return {
+    participantId: row.id,
+    type: row.type,
+    name: row.name,
+    freeResponse: row['free-response'],
+    q1: row.Q1,
+    q2: row.Q2,
+    q3: row.Q3,
+    idealMatch: row.ideal_match,
+  };
+}
+
+/**
+ * Transform JotForm row data to ParticipantData structure (legacy)
+ */
+function transformJotFormToParticipantData(row: JotFormRow, rowIndex: number): ParticipantData {
   const type = row['Young or Older'] === 'Y' ? 'young' : 'older';
   
   const participantId = row['E-mail'] 

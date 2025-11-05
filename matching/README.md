@@ -1,34 +1,33 @@
 # Tea @ 3 Matching Service
 
-AI-based matching service for pairing college students ("Young") with older adults ("Older") based on semantic similarity of their interests, motivations, and preferences.
+AI-based matching service for pairing participants based on semantic similarity of their profiles and numeric preferences.
 
 ## What Does This Do?
 
-This service takes participant data from Excel files, converts their profiles into AI embeddings (vector representations), and stores them in a vector database. This allows us to find participants with similar interests and motivations for the Tea @ 3 program.
+This service takes participant data from Excel files, converts their free-response text into AI embeddings (vector representations), and stores them in a vector database along with numeric preference scores. This enables both semantic similarity matching and preference-based filtering for the Tea @ 3 program.
+
+### Supported Excel Formats
+- **New Simplified Format**: `id`, `type`, `name`, `free-response`, `Q1`, `Q2`, `Q3`, `ideal_match`
+- **Legacy JotForm Format**: Full JotForm Excel exports (auto-detected)
 
 ## Complete Setup Guide (Local Machine)
 
 Follow these steps to get everything running on your local machine:
 
-### Step 1: Get API Keys
+### Step 1: Get API Key
 
-You'll need two API keys:
+You'll need a Pinecone API key:
 
-#### A. Pinecone API Key (Vector Database)
+#### Pinecone API Key (Vector Database & Embeddings)
 
 1. Go to https://www.pinecone.io/ and sign up for a free account
 2. Once logged in, go to https://app.pinecone.io/
 3. Navigate to **API Keys** section
 4. Copy your API key (it starts with `pcsk_`)
 
-#### B. Gemini API Key (AI Embeddings)
+**Important**: Keep your API key secure! Don't share it publicly.
 
-1. Go to https://aistudio.google.com/apikey
-2. Sign in with your Google account
-3. Click **"Create API Key"**
-4. Copy the API key (it's a long string, different format from Pinecone)
-
-**Important**: Keep these keys secure! Don't share them publicly.
+**Note**: This service uses Pinecone's self-hosted embedding model (`llama-text-embed-v2`), so no additional API keys are needed.
 
 ### Step 2: Install Dependencies
 
@@ -45,7 +44,6 @@ npm install
 This installs:
 - TypeScript compiler
 - Excel file parser (xlsx)
-- Google Gemini API client
 - Pinecone vector database client
 - Other dependencies
 
@@ -59,21 +57,18 @@ touch .env
 # Or use any text editor to create .env file
 ```
 
-2. Open the `.env` file and add your API keys:
+2. Open the `.env` file and add your API key:
 ```env
 # Pinecone Configuration
 PINECONE_API_KEY=your_pinecone_api_key_here
 PINECONE_INDEX_NAME=tea-mate-matching
 PINECONE_ENVIRONMENT=us-east-1
 
-# Gemini API Configuration  
-GEMINI_API_KEY=your_gemini_api_key_here
-
 # Optional: Logging level (debug, info, warn, error)
 LOG_LEVEL=info
 ```
 
-**Replace the placeholder values** with your actual API keys from Step 2.
+**Replace the placeholder value** with your actual Pinecone API key from Step 1.
 
 **Note**: The `PINECONE_ENVIRONMENT` should just be the region name (e.g., `us-east-1`), not `us-east-1-aws`.
 
@@ -96,7 +91,7 @@ npm run verify
 
 This will:
 - ✅ Check if environment variables are set
-- ✅ Test Gemini API connection and generate a test embedding
+- ✅ Test Pinecone Inference API connection and generate a test embedding
 - ✅ Test Pinecone connection and check/create the index
 - ✅ Report any issues
 
@@ -109,11 +104,11 @@ Tea @ 3 Matching Service - Setup Verification
 === Environment Variables ===
   PINECONE_API_KEY: ✓ Set
   PINECONE_INDEX_NAME: tea-mate-matching
-  GEMINI_API_KEY: ✓ Set
+  PINECONE_ENVIRONMENT: us-east-1 (default)
 
-=== Testing Gemini API ===
+=== Testing Pinecone Inference (Embeddings) ===
 ✓ Successfully generated embedding
-  - Dimensions: 768
+  - Dimensions: 1024
 
 === Testing Pinecone ===
 ✓ Pinecone client initialized
@@ -122,12 +117,12 @@ Tea @ 3 Matching Service - Setup Verification
 ========================================
 Verification Summary
 ========================================
-Gemini API:     ✅ PASS
+Embeddings API: ✅ PASS
 Pinecone DB:    ✅ PASS
 ```
 
 If you see errors:
-- **Gemini API FAIL**: Check your `GEMINI_API_KEY` is correct (get it from https://aistudio.google.com/apikey)
+- **Embeddings API FAIL**: Check your `PINECONE_API_KEY` is correct and has access to the Inference API
 - **Pinecone FAIL**: Check your `PINECONE_API_KEY` and region settings
 
 ### Step 7: Run Data Ingestion
@@ -135,7 +130,7 @@ If you see errors:
 Once verification passes, you can process your Excel file:
 
 ```bash
-npm run ingest -- --file data/Tea@3\ JotForm\ Examples.xlsx
+npm run ingest -- --file data/tea3_sample_v2.xlsx
 ```
 
 Or if your file is in a different location:
@@ -144,11 +139,19 @@ npm run ingest -- --file "path/to/your/file.xlsx"
 ```
 
 **What happens**:
-1. Reads your Excel file
-2. Parses participant data
-3. Creates profile texts from interests and motivations
-4. Generates AI embeddings (768-dimensional vectors)
-5. Stores everything in Pinecone vector database
+1. Auto-detects Excel format (simplified or legacy JotForm)
+2. Reads your Excel file and extracts participant data
+3. Uses IDs from Excel file directly (no auto-generation)
+4. Creates profile text from free-response field
+5. Generates AI embeddings using Pinecone's llama-text-embed-v2 model (1024-dimensional vectors)
+6. Stores embeddings + Q1/Q2/Q3 numeric values in Pinecone vector database
+
+### Step 8: Clear Database (Optional)
+
+To delete all stored vectors and start fresh:
+```bash
+npm run delete-all
+```
 
 **Expected Output**:
 ```
@@ -156,23 +159,22 @@ npm run ingest -- --file "path/to/your/file.xlsx"
 Step 1: Validating file path...
 ✓ File path validated
 Step 2: Parsing Excel file...
-✓ Parsed 8 participants
-  - Young: 0
-  - Older: 8
+Detected format: Simplified
+✓ Parsed 20 participants
 Step 3: Creating participant profile texts...
-✓ Created 8 profile texts
+✓ Created 20 profile texts
 Step 4: Initializing Pinecone index...
 ✓ Pinecone index ready
 Step 5: Generating embeddings...
-✓ Generated 8 embeddings
-  - Embedding dimensions: 768
+✓ Generated 20 embeddings
+  - Embedding dimensions: 1024
 Step 6: Upserting embeddings to Pinecone...
 ✓ Embeddings stored in Pinecone
 Step 7: Checking index status...
-✓ Index status: 8 total vectors
+✓ Index status: 20 total vectors
 
 === Data Ingestion Complete ===
-Successfully processed and stored 8 participants
+Successfully processed and stored 20 participants
 ```
 
 ## How It Works (Technical Details)
@@ -180,126 +182,141 @@ Successfully processed and stored 8 participants
 ### The Complete Pipeline
 
 ```
-Excel File (JotForm Export)
+Excel File (Simplified or JotForm Format)
     ↓
 Step 1: File Validation
     → Checks if file exists and is readable
     ↓
 Step 2: Data Processing (dataProcessor.ts)
+    → Auto-detects format (checks for 'id' column)
     → Parses Excel using xlsx library
     → Extracts rows into structured data
     → Validates with Zod schemas
-    → Separates "Young" (Y) vs "Older" (O) participants
+    → Uses ID from Excel file directly
     ↓
 Step 3: Text Processing (textProcessor.ts)
-    → Combines participant fields into structured text:
-      "Profile:
-       Interests and About Me: [interests]
-       Motivation: [why interested]
-       Language: [language preference]
-       Tea Preference: [tea type]
-       College: [if student]"
+    → For new format: Uses free-response field
+    → For legacy format: Combines interests/motivation
+    → Creates profile text for embedding
     ↓
 Step 4: Pinecone Index Setup (vectorService.ts)
     → Connects to Pinecone with API key
     → Creates index if it doesn't exist
-    → Configures: 768 dimensions, cosine similarity
+    → Configures: 1024 dimensions, cosine similarity
     ↓
 Step 5: Embedding Generation (embeddingService.ts)
-    → Calls Gemini API (text-embedding-004 model)
-    → Sends participant profile text
-    → Receives 768-dimensional vector
-    → Processes in batches (10 at a time) with delays
-    → Handles rate limits automatically
+    → Uses Pinecone SDK inference.embed() method
+    → Sends profile text to llama-text-embed-v2 model
+    → Receives 1024-dimensional vector
+    → Processes in batches (96 at a time) for speed
     ↓
 Step 6: Vector Storage (vectorService.ts)
     → Upserts embeddings to Pinecone
     → Stores with metadata:
-       - participantId
-       - name, type, email
-       - interests summary
+       - participantId (from Excel)
+       - name, type
+       - free_response summary
+       - q1, q2, q3 (numeric values)
+       - ideal_match
     → Batches upserts (100 vectors per request)
     ↓
 Step 7: Verification
     → Checks final index status
     → Reports total vectors stored
     ↓
-Complete! Data ready for matching queries
+Complete! Data ready for semantic and numeric matching
 ```
 
 ### Key Components Explained
 
 #### 1. **dataProcessor.ts** - Excel File Parser
 - Uses `xlsx` library to read Excel files
-- Handles JotForm's specific column structure (26 columns)
+- Auto-detects format (simplified vs JotForm)
 - Validates data with Zod schemas
 - Transforms raw data into structured `ParticipantData` objects
 
-**Key Fields Extracted**:
-- `Young or Older`: "Y" or "O"
-- `Full Name`, `E-mail`, `Phone Number`
-- `Tell us about you! Include any interests...`: Main matching field
-- `Please tell us why you are interested...`: Motivation
-- `What language do you use for casual conversation?`: Language
-- `What type of tea do you prefer?`: Tea preference
+**New Simplified Format Fields**:
+- `id`: Participant ID (used directly)
+- `type`: Participant type (student/teacher/etc.)
+- `name`: Full name
+- `free-response`: Text for embedding generation
+- `Q1`, `Q2`, `Q3`: Numeric preference scores
+- `ideal_match`: Preferred match ID
+
+**Legacy JotForm Fields**: Still supported for backward compatibility
 
 #### 2. **textProcessor.ts** - Profile Text Creator
-- Combines matching-relevant fields into structured text
-- Creates a unified profile string for each participant
-- This text becomes the input for embedding generation
+- Uses `free-response` field for new format
+- Combines interests/motivation for legacy format
+- Creates unified profile string for embedding generation
 
-**Example Output**:
+**Example Output (New Format)**:
 ```
 Profile:
-Interests and About Me: I am a retired attorney. I enjoy traveling, gardening...
-Motivation: I was paired with an international student this past year...
-Language: English
-Tea Preference: Variety
+About: Hikes most weekends. Boba hunts. Sci fi. Board games. Friendly, flexible schedule.
 ```
 
 #### 3. **embeddingService.ts** - AI Embedding Generator
-- Connects to Google's Gemini API
-- Uses `text-embedding-004` model (768 dimensions)
+- Uses Pinecone SDK's `inference.embed()` method
+- Uses `llama-text-embed-v2` model (1024 dimensions)
 - Sends participant profile text
-- Receives vector representation (array of 768 numbers)
-- Each number represents a semantic feature
-- Implements rate limiting (batches of 10, 500ms delay)
-- Auto-retries on rate limit errors
+- Receives vector representation (array of 1024 numbers)
+- Processes in batches of 96 for optimal performance
+- Built-in error handling and retry logic
 
 **Why Embeddings?**
-Embeddings convert text into numerical vectors that capture meaning. Similar interests produce similar vectors, enabling similarity search.
+Embeddings convert text into numerical vectors that capture meaning. Similar profiles produce similar vectors, enabling semantic similarity matching.
 
 #### 4. **vectorService.ts** - Pinecone Database Manager
 - Manages connection to Pinecone vector database
 - Creates index with specifications:
-  - **Dimensions**: 768 (matches Gemini embeddings)
+  - **Dimensions**: 1024 (matches llama-text-embed-v2 embeddings)
   - **Metric**: Cosine similarity (measures angle between vectors)
   - **Type**: Serverless (cloud-hosted)
-- Upserts embeddings with metadata
-- Stores participant info for future matching queries
+- Upserts embeddings with comprehensive metadata
+- Stores both semantic vectors and numeric preferences
+
+**Stored Metadata**:
+```javascript
+{
+  name: "Participant Name",
+  type: "student",
+  free_response: "Hikes most weekends...", // First 200 chars
+  q1: 3,    // Numeric preference
+  q2: 8,    // Numeric preference  
+  q3: 9,    // Numeric preference
+  ideal_match: "S1"
+}
+```
 
 #### 5. **verifySetup.ts** - Setup Verification
-- Tests Gemini API by generating a test embedding
-- Tests Pinecone connection and index access
+- Tests Pinecone SDK connection and embedding generation
+- Tests Pinecone database access and index status
 - Reports detailed status of each component
 - Helps identify configuration issues early
+
+#### 6. **deleteAllVectors.ts** - Database Cleanup
+- Deletes all vectors from the Pinecone index
+- Shows before/after statistics
+- Useful for testing and data refresh
 
 ### What Gets Stored in Pinecone?
 
 For each participant, we store:
 
 **Vector (Embedding)**:
-- 768 numbers representing the semantic meaning of their profile
+- 1024 numbers representing the semantic meaning of their profile
 - Used for similarity calculations
 
 **Metadata**:
 - `name`: Participant's full name
-- `type`: "young" or "older" (for filtering matches)
-- `email`: Contact email
-- `interests_summary`: First 100 characters of interests
+- `type`: Participant type (student/teacher/etc.)
+- `free_response`: First 200 characters of free-response text
+- `q1`, `q2`, `q3`: Numeric preference scores
+- `ideal_match`: Preferred match ID
 
 **ID**:
-- Unique identifier (usually based on email or name)
+- Uses exact ID from Excel file (e.g., "T1", "S1")
 
 ## Project Structure
 
@@ -310,21 +327,22 @@ matching/
 │   ├── config/
 │   │   └── pinecone.config.ts   # Pinecone client setup
 │   ├── services/
-│   │   ├── dataProcessor.ts     # Excel parsing & validation
-│   │   ├── embeddingService.ts  # Gemini API integration
+│   │   ├── dataProcessor.ts     # Excel parsing & validation (auto-detect format)
+│   │   ├── embeddingService.ts  # Pinecone SDK integration
 │   │   └── vectorService.ts     # Pinecone operations
 │   ├── utils/
 │   │   ├── textProcessor.ts    # Create profile texts
-│   │   ├── validator.ts         # Zod validation schemas
+│   │   ├── validator.ts         # Zod validation schemas (new + legacy)
 │   │   └── logger.ts            # Logging utility
 │   └── scripts/
 │       ├── ingestData.ts        # Main ingestion pipeline
-│       └── verifySetup.ts       # Setup verification
+│       ├── verifySetup.ts       # Setup verification
+│       └── deleteAllVectors.ts  # Database cleanup
 ├── data/
-│   └── Tea@3 JotForm Examples.xlsx  # Sample Excel file
+│   └── tea3_sample_v2.xlsx      # New simplified format sample
 ├── dist/                         # Compiled JavaScript
-├── package.json                   # Dependencies
-├── tsconfig.json                  # TypeScript config
+├── package.json                   # Dependencies & scripts
+├── tsconfig.json                  # TypeScript config (optimized)
 ├── .env                           # Your API keys (create this)
 └── README.md                      # This file
 ```
@@ -335,37 +353,61 @@ matching/
 # Build TypeScript to JavaScript
 npm run build
 
+# Clean build (no cache)
+npm run build:clean
+
 # Verify setup (test API keys and connections)
 npm run verify
 
 # Run data ingestion
-npm run ingest -- --file data/Tea@3\ JotForm\ Examples.xlsx
+npm run ingest -- --file data/tea3_sample_v2.xlsx
 
-# Development mode (watch for changes)
+# Delete all vectors from database
+npm run delete-all
+
+# Development mode with auto-rebuild
 npm run dev
+npm run dev:fast
 ```
 
-## Next Step's
+## Next Steps
 
 After successful ingestion, your data is stored in Pinecone. Future phases will include:
 
 - **Similarity Search**: Find participants with similar interests
-- **Matching Algorithm**: Pair "Young" with "Older" based on similarity scores
-- **Frontend Integration**: Connect to React app for admin dashboard
-- **Cloud Database**: Migrate from Excel to Firestore/PostgreSQL
+- **Preference Filtering**: Filter matches based on Q1/Q2/Q3 scores
+- **Match Scoring**: Combine semantic similarity with preference alignment
+- **Match Dashboard**: Web interface for reviewing and approving matches
+
+## Recent Updates
+
+### ✅ Fixed Embedding Service (Nov 2024)
+- **Issue**: REST API calls to Pinecone were failing (404 errors)
+- **Solution**: Migrated to use Pinecone SDK's built-in `pc.inference.embed()` method
+- **Result**: More reliable, faster, and officially recommended approach
+
+### ✅ Added New Excel Format Support (Nov 2024)
+- **New Format**: `id`, `type`, `name`, `free-response`, `Q1`, `Q2`, `Q3`, `ideal_match`
+- **Auto-Detection**: Automatically detects format (simplified vs legacy)
+- **Enhanced Storage**: Stores both semantic embeddings and numeric preferences
+- **Backward Compatible**: Still supports legacy JotForm format
+
+### ✅ Performance Optimizations (Nov 2024)
+- **Incremental Compilation**: Build caching for ~50% faster rebuilds
+- **Build Time**: From ~1.5s to ~0.5s for incremental builds
+- **New Commands**: `build:clean`, `dev:fast`, `delete-all`
 
 ## Technologies Used
 
 - **TypeScript**: Type-safe development
 - **xlsx (SheetJS)**: Excel file parsing
 - **Zod**: Runtime data validation
-- **@google/generative-ai**: Google Gemini API client
-- **@pinecone-database/pinecone**: Pinecone vector database
+- **@pinecone-database/pinecone**: Pinecone vector database and Inference API
 - **dotenv**: Environment variable management
 
 ## Getting Help
 
-- **Gemini API Docs**: https://ai.google.dev/docs
 - **Pinecone Docs**: https://docs.pinecone.io/
+- **Pinecone Inference API**: https://docs.pinecone.io/reference/api/2025-10/inference/generate-embeddings
+- **Pinecone Models**: https://docs.pinecone.io/models/llama-text-embed-v2
 - **Pinecone Dashboard**: https://app.pinecone.io/
-- **Gemini API Key**: https://aistudio.google.com/apikey

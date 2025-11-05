@@ -11,12 +11,14 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "noEmit": false,
-    "declaration": true,
+    "declaration": false,
+    "incremental": true,
+    "tsBuildInfoFile": "./dist/.tsbuildinfo",
     "lib": ["ES2022"],
     "types": ["node"],
     "allowSyntheticDefaultImports": true
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"]
 }
 

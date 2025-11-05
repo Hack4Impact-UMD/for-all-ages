@@ -4,7 +4,21 @@
 import { z } from 'zod';
 
 /**
- * Schema matching the JotForm Excel structure
+ * Schema matching the new simplified Excel structure
+ */
+export const SimplifiedRowSchema = z.object({
+  'id': z.string().min(1),
+  'type': z.string().min(1),
+  'name': z.string().min(1),
+  'free-response': z.string().optional(),
+  'Q1': z.coerce.number().optional(),
+  'Q2': z.coerce.number().optional(),
+  'Q3': z.coerce.number().optional(),
+  'ideal_match': z.string().optional(),
+});
+
+/**
+ * Schema matching the JotForm Excel structure (legacy)
  */
 export const JotFormRowSchema = z.object({
   'Young or Older': z.enum(['Y', 'O', 'y', 'o']).transform(val => val.toUpperCase()),
@@ -37,8 +51,14 @@ export const JotFormRowSchema = z.object({
  */
 export const ParticipantDataSchema = z.object({
   participantId: z.string(),
-  type: z.enum(['young', 'older']),
+  type: z.string(),
   name: z.string(),
+  freeResponse: z.string().optional(),
+  q1: z.number().optional(),
+  q2: z.number().optional(),
+  q3: z.number().optional(),
+  idealMatch: z.string().optional(),
+  // Legacy fields (optional for backward compatibility)
   email: z.string().optional(),
   phoneNumber: z.string().optional(),
   dateOfBirth: z.date().optional(),
@@ -57,6 +77,7 @@ export const ParticipantDataSchema = z.object({
   }).optional(),
 });
 
+export type SimplifiedRow = z.infer<typeof SimplifiedRowSchema>;
 export type JotFormRow = z.infer<typeof JotFormRowSchema>;
 export type ParticipantData = z.infer<typeof ParticipantDataSchema>;
 

@@ -34,9 +34,7 @@ async function main(): Promise<void> {
       throw new Error('PINECONE_API_KEY environment variable is not set');
     }
     
-    if (!process.env.GEMINI_API_KEY) {
-      throw new Error('GEMINI_API_KEY environment variable is not set');
-    }
+    // Using Pinecone-hosted embeddings; no Gemini key required
     
     // Parse command line arguments
     const { filePath } = parseArgs();
