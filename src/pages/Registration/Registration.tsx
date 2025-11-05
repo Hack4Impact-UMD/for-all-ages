@@ -274,7 +274,7 @@ const Registration = () => {
             Phone Number
             <input 
               type="tel" 
-              pattern={phoneNumberRegex}
+              // pattern={phoneNumberRegex}
               name="phone"
               value={form.phone}
               onChange={handleInputChange}
