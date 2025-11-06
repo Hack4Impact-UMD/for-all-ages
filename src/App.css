@@ -56,3 +56,13 @@ body {
 .read-the-docs {
   color: #888;
 }
+
+.route-loading {
+  min-height: 60vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  color: #127bbe;
+  font-weight: 600;
+}
