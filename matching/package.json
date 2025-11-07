@@ -9,6 +9,7 @@
     "build:clean": "rm -rf dist/ && tsc",
     "start": "node dist/index.js",
     "ingest": "node dist/index.js",
+    "match": "node dist/scripts/runMatching.js",
     "verify": "node dist/scripts/verifySetup.js",
     "delete-all": "node dist/scripts/deleteAllVectors.js",
     "dev": "tsc --watch",
@@ -17,6 +18,7 @@
   "dependencies": {
     "@pinecone-database/pinecone": "^4.0.1",
     "dotenv": "^16.4.5",
+    "munkres-js": "^1.2.2",
     "xlsx": "^0.18.5",
     "zod": "^3.23.8"
   },
@@ -25,4 +27,3 @@
     "typescript": "~5.8.3"
   }
 }
-

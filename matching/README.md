@@ -225,7 +225,73 @@ Step 7: Verification
     → Reports total vectors stored
     ↓
 Complete! Data ready for semantic and numeric matching
+
+### Matching Pipeline (After Ingestion)
+
 ```
+Pinecone (embeddings + Q1/Q2/Q3)
+    ↓
+1) Retrieve participants (students vs seniors)
+    ↓
+2) Score all pairs (student × senior)
+   - FRQ similarity = cosine(embeddings) ∈ [0,1]
+   - Quant similarity = 1 − SSD(Q1..Q3)/maxSSD ∈ [0,1]
+   - Final = frqWeight × FRQ + quantWeight × Quant (defaults 0.7/0.3)
+    ↓
+3) Match with Hungarian algorithm (optimal assignment)
+    ↓
+4) Post‑process results
+   - Confidence labels (high/medium/low)
+   - Stats (avg, min, max, std dev)
+    ↓
+5) Export results (CSV, JSON, summary)
+```
+
+#### Scoring & Matching Details (with example)
+
+- FRQ (free‑response) similarity: `cosine(embedding_student, embedding_senior)`
+- Quant similarity (Q1–Q3): `SSD = Σ(Qi_s − Qi_t)^2`, `quant = 1 − SSD / maxSSD`
+- Final score: `final = frqWeight × FRQ + quantWeight × Quant`
+
+Example:
+- FRQ = 0.76, Quant = 0.90, Weights = 0.7 / 0.3
+- Final = 0.7×0.76 + 0.3×0.90 = 0.532 + 0.27 = 0.802 → high confidence (> 0.8)
+
+The Hungarian algorithm then finds the one‑to‑one assignment that maximizes the total final score across all pairs.
+
+### Quick Commands (Essentials)
+
+```bash
+# Build TypeScript to JavaScript
+npm run build
+
+# Verify environment and Pinecone connectivity
+npm run verify
+
+# Ingest your Excel file
+npm run ingest -- --file data/Tea3_sample_v3.xlsx
+
+# Run matching (Hungarian algorithm)
+npm run match
+```
+
+### Tweaking Weights (FRQ vs Q1–Q3)
+
+The final score is `final = frqWeight × FRQ + quantWeight × Quant` with defaults `0.7/0.3`.
+
+- Emphasize Q1–Q3 more (often yields more high‑confidence matches if Quant similarity is strong):
+  ```bash
+  npm run match -- --frq-weight 0.3 --quant-weight 0.7
+  ```
+- Balanced influence:
+  ```bash
+  npm run match -- --frq-weight 0.5 --quant-weight 0.5
+  ```
+
+Notes:
+- Weights must sum to 1.0.
+- Confidence levels: High (>0.8), Medium (0.6–0.8), Low (≤0.6).
+- If many matches are Medium, try increasing `quantWeight` or enriching free‑response text.
 
 ### Key Components Explained
 
