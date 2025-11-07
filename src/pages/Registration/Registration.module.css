@@ -13,10 +13,11 @@
   position: relative;
   background-color: white;
   width: 100vw;
-  
+  height: 2.5rem;
+  font-size: 30px;
 }
 
-#logo {
+/* #logo {
   width: 9rem;
   height: 6rem;
   justify-self: left;
@@ -38,7 +39,7 @@
   transform: translateX(-50%);
   font-size: clamp(28px, 4vw, 35px);
   padding: 0.5rem clamp(2rem, 5vw, 3rem);
-}
+} */
 
 #page {
   background-color: #127BBE;
