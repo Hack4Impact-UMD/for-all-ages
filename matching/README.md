@@ -436,33 +436,6 @@ npm run dev
 npm run dev:fast
 ```
 
-## Next Steps
-
-After successful ingestion, your data is stored in Pinecone. Future phases will include:
-
-- **Similarity Search**: Find participants with similar interests
-- **Preference Filtering**: Filter matches based on Q1/Q2/Q3 scores
-- **Match Scoring**: Combine semantic similarity with preference alignment
-- **Match Dashboard**: Web interface for reviewing and approving matches
-
-## Recent Updates
-
-### ✅ Fixed Embedding Service (Nov 2024)
-- **Issue**: REST API calls to Pinecone were failing (404 errors)
-- **Solution**: Migrated to use Pinecone SDK's built-in `pc.inference.embed()` method
-- **Result**: More reliable, faster, and officially recommended approach
-
-### ✅ Added New Excel Format Support (Nov 2024)
-- **New Format**: `id`, `type`, `name`, `free-response`, `Q1`, `Q2`, `Q3`, `ideal_match`
-- **Auto-Detection**: Automatically detects format (simplified vs legacy)
-- **Enhanced Storage**: Stores both semantic embeddings and numeric preferences
-- **Backward Compatible**: Still supports legacy JotForm format
-
-### ✅ Performance Optimizations (Nov 2024)
-- **Incremental Compilation**: Build caching for ~50% faster rebuilds
-- **Build Time**: From ~1.5s to ~0.5s for incremental builds
-- **New Commands**: `build:clean`, `dev:fast`, `delete-all`
-
 ## Technologies Used
 
 - **TypeScript**: Type-safe development
