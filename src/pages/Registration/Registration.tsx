@@ -197,8 +197,6 @@ const Registration = () => {
   return (
     <>
       <div id={styles.navbar}>
-        {/* <img id={styles.logo} src={logo} alt="For All Ages Logo" /> */}
-        {/* <p id={styles.title}>Registration Form</p> */}
         <Navbar navItems={[{label: "Registration Form", path: "/registration"}]}/>
       </div>
 
