@@ -1,0 +1,481 @@
+/* ============================================================================
+   PAGE OVERRIDES
+   ============================================================================ */
+
+.rematchingPage {
+    min-height: 100vh;
+    height: auto;
+}
+
+.rematchingSurface {
+    padding-bottom: 3rem;
+    color: #0f6bb1; /* Standard blue color for all text */
+}
+
+/* ============================================================================
+   PAGE HEADER
+   ============================================================================ */
+
+.pageTitle,
+.pageSubtitle {
+  margin: 0;
+  color: #ffffff;
+  text-align: center;
+  line-height: 0.8;
+}
+.pageTitle {
+    font-size: clamp(2rem, 3vw, 2.5rem);
+    font-weight: 700;
+}
+
+.pageSubtitle {
+    font-family: Verdana, sans-serif;
+    font-size: clamp(1.1rem, 2vw, 1.6rem);
+    font-weight: 400;
+    color: #ffffff;
+    margin-bottom: 1rem;
+}
+
+/* ============================================================================
+   STATISTICS SECTION
+   ============================================================================ */
+
+.statistics {
+    justify-content: stretch;
+    display: flex;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+    justify-content: center;
+
+}
+
+.statCard {
+    background: #ffffff;
+    flex: 1;
+    min-width: 0;
+    border-radius: 1rem;
+    padding: 1.5rem 2rem;
+    box-shadow: 0 8px 24px rgba(15, 107, 177, 0.15);
+
+    text-align: center;
+}
+
+.statNumber {
+    font-family: Verdana, sans-serif;
+}
+
+/* ============================================================================
+   THREE COLUMN LAYOUT
+   ============================================================================ */
+
+.columnsContainer {
+    display: grid;
+    grid-template-columns: 1fr 1.2fr 1fr;
+    gap: 2rem;
+    width: 100%;
+}
+
+/* ============================================================================
+   COLUMN STYLES
+   ============================================================================ */
+
+.column {
+    background: #ffffff;
+    border-radius: 1.5rem;
+    padding: 1.5rem;
+    box-shadow: 0 8px 24px rgba(15, 107, 177, 0.15);
+    display: flex;
+    flex-direction: column;
+    min-height: 500px;
+    height: auto;
+    text-align: left;
+}
+
+.columnHeader {
+    padding-bottom: 1rem;
+}
+
+.columnTitle {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+.columnSubtitle {
+    margin: 0 0 1rem;
+    font-size: 0.9rem;
+    font-weight: 400;
+}
+
+.searchContainer {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.searchIcon {
+    position: absolute;
+    left: 0.75rem;
+    z-index: 1;
+}
+
+.searchInput {
+    width: 100%;
+    padding: 0.75rem 0.75rem 0.75rem 2.75rem;
+    border: 2px solid rgba(15, 107, 177, 0.2);
+    border-radius: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.searchInput:focus {
+    outline: none;
+    border-color: #0f6bb1;
+}
+
+/* ============================================================================
+   PARTICIPANT LIST
+   ============================================================================ */
+
+.participantsList {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    flex: 1;
+    padding-right: 0.5rem;
+    overflow-y: auto;
+    min-height: 200px;
+}
+
+.participantsList::-webkit-scrollbar {
+    width: 8px;
+}
+
+.participantsList::-webkit-scrollbar-track {
+    background: rgba(15, 107, 177, 0.05);
+    border-radius: 4px;
+}
+
+.participantsList::-webkit-scrollbar-thumb {
+    background: rgba(15, 107, 177, 0.3);
+    border-radius: 4px;
+}
+
+.participantsList::-webkit-scrollbar-thumb:hover {
+    background: rgba(15, 107, 177, 0.5);
+}
+
+.participantCard {
+    font-family: Verdana, sans-serif;
+    padding: 1rem;
+    border: none;
+    border-radius: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: left;
+    background: #f5f5f5;
+}
+
+.participantCard:hover {
+    box-shadow: 0 4px 12px rgba(15, 107, 177, 0.15);
+    transform: translateY(-2px);
+}
+
+
+.participantCard.studentCard.selected {
+    color: #2e7d32;
+    background: #e8f5e9;
+    border: 3px solid #2e7d32;
+    box-shadow: 0 4px 16px rgba(46, 125, 50, 0.25);
+}
+
+.participantCard.adultCard.selected {
+    color: #EAB419;
+    background: #fff9c4;
+    border:  3px solid #EAB419;
+    box-shadow: 0 4px 16px rgba(245, 127, 23, 0.25);
+}
+
+.participantName {
+    font-size: 1.1rem;
+
+}
+.participantSchool {
+    font-size: 0.95rem;
+
+}
+
+.interests {
+    margin-top: 0.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: flex-start;
+}
+
+.interestTag {
+    padding: 0.35rem 0.75rem;
+    background: rgba(15, 107, 177, 0.1);
+    border-radius: 1rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.studentInterests .interestTag,
+.adultInterests .interestTag {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.6rem;
+    color: white;
+}
+
+.studentInterests .interestTag {
+    background: #2C6133;
+}
+
+.adultInterests .interestTag {
+    background: #EAB419;
+
+}
+
+.emptyState {
+    text-align: center;
+    color: #999;
+    padding: 2rem;
+    font-style: italic;
+}
+
+/* ============================================================================
+   MATCH DETAILS COLUMN
+   ============================================================================ */
+
+.matchContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    flex: 1;
+}
+
+.selectedCard {
+    padding: 1rem;
+    border-radius: 0.75rem;
+    cursor: pointer;
+    background: #ffffff;
+    transition: all 0.2s;
+    position: relative;
+    text-align: left;
+    min-height: 120px;
+    font-family: Verdana, sans-serif;
+}
+
+.selectedStudentCard {
+    border: 2px solid #2e7d32;
+}
+
+.selectedStudentCard:hover:not(.emptyCard) {
+    box-shadow: 0 4px 12px rgba(46, 125, 50, 0.2);
+}
+
+.selectedAdultCard {
+    border: 2px solid #EAB419;
+}
+
+.selectedAdultCard:hover:not(.emptyCard) {
+    box-shadow: 0 4px 12px rgba(245, 127, 23, 0.2);
+}
+
+.emptyCard {
+    opacity: 0.6;
+}
+
+.emptyCardContent {
+    color: #999;
+    font-style: italic;
+    margin-top: 0.5rem;
+}
+
+.selectedLabel,
+.commonInterestsLabel {
+    position: absolute;
+    top: 0.75rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.selectedLabel {
+    right: 0.75rem;
+    font-family: Verdana, sans-serif;
+    color: white;
+    padding: 0.35rem 0.75rem;
+    border-radius: 1rem;
+    font-size: 0.7rem;
+    font-weight: 500;
+}
+
+
+.studentLabel {
+  background: #2C6133; 
+}
+
+.adultLabel {
+  background: #EAB419; 
+}
+
+.commonInterestsLabel {
+    left: 0.75rem;
+}
+
+.selectedName {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0.5rem 0;
+}
+
+.matchCircle {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 150px;
+    height: 150px;
+    margin: 1rem auto;
+    background: transparent;
+    border: none;
+    border-radius: 50%;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s;
+    aspect-ratio: 1;
+    flex-shrink: 0;
+}
+
+.confidencePercentage {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    line-height: 1;
+}
+
+.confidenceLabel {
+    font-size: 1rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    line-height: 1;
+}
+
+.coffeeIcon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0.5rem 0;
+}
+
+.commonInterestsCard {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1rem;
+    background: #ffffff;
+    border: 2px solid #0f6bb1;
+    border-radius: 0.75rem;
+    min-height: 100px;
+    position: relative;
+    text-align: left;
+}
+
+.commonInterests {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    min-height: 2rem;
+    margin-top: 2rem;
+}
+
+.commonInterestTag {
+    padding: 0.5rem 1rem;
+    background: #0f6bb1;
+    color: #ffffff;
+    border-radius: 1rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    
+}
+
+.emptyInterests {
+    color: #999;
+    font-style: italic;
+    padding: 0.5rem 0;
+}
+
+.buttonContainer {
+    display: flex;
+    gap: 1rem;
+    margin-top: auto;
+}
+
+.confirmButton,
+.findDifferentButton {
+    padding: 0.875rem 1.5rem;
+    color: #ffffff;
+    border: none;
+    border-radius: 0.75rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex: 1;
+    white-space: nowrap;
+}
+
+.confirmButton {
+    background: #0f6bb1;
+}
+
+.confirmButton:hover:not(.disabled) {
+    background: #0d5a95;
+    box-shadow: 0 4px 16px rgba(15, 107, 177, 0.3);
+    transform: translateY(-2px);
+}
+
+.confirmButton.disabled,
+.findDifferentButton:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.findDifferentButton {
+    background: #9e9e9e;
+}
+
+.findDifferentButton:hover:not(:disabled) {
+    background: #757575;
+    box-shadow: 0 4px 16px rgba(158, 158, 158, 0.3);
+    transform: translateY(-2px);
+}
+
+/* ============================================================================
+   RESPONSIVE DESIGN
+   ============================================================================ */
+
+@media (max-width: 1200px) {
+    .columnsContainer {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+
+    .column {
+        max-height: 400px;
+    }
+}
+
+@media (max-width: 768px) {
+    .statistics {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .statCard {
+        width: 100%;
+        max-width: 300px;
+    }
+}
