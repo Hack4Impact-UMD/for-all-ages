@@ -16,6 +16,7 @@ function RouteLoader() {
 function RegistrationGate() {
   const { user, loading, emailVerified, participant, participantLoading } = useAuth();
   const location = useLocation();
+  const role = (participant as { role?: string | null } | null)?.role ?? null;
 
   if (loading || participantLoading) {
     return <RouteLoader />;
@@ -27,6 +28,10 @@ function RegistrationGate() {
 
   if (!emailVerified) {
     return <Navigate to="/" replace />;
+  }
+
+  if (role && isAdminRole(role)) {
+    return <Navigate to="/admin/" replace />;
   }
 
   if (participant && (participant as { type?: string }).type === "Participant") {
@@ -59,6 +64,40 @@ function ParticipantGate() {
   return <Outlet />;
 }
 
+function isAdminRole(role?: string | null) {
+  if (!role) return false;
+  const normalised = role.toLowerCase();
+  return normalised === "admin" || normalised === "subadmin" || normalised === "sub-admin";
+}
+
+function AdminGate() {
+  const { user, loading, emailVerified, participant, participantLoading } = useAuth();
+  const location = useLocation();
+
+  if (loading || participantLoading) {
+    return <RouteLoader />;
+  }
+
+  if (!user) {
+    return <Navigate to="/" replace state={{ from: location }} />;
+  }
+
+  if (!emailVerified) {
+    return <Navigate to="/" replace />;
+  }
+
+  const role = (participant as { role?: string | null } | null)?.role ?? null;
+
+  if (!participant || !isAdminRole(role)) {
+    const destination =
+      (participant as { type?: string } | null)?.type === "Participant"
+        ? "/user/dashboard"
+        : "/";
+    return <Navigate to={destination} replace />;
+  }
+
+  return <Outlet />;
+}
 
 
 function App() {
@@ -77,7 +116,7 @@ function App() {
             <Route path="dashboard" element={<UserDashboard />} />
           </Route>
 
-          <Route path="/admin/*">
+          <Route path="/admin/*" element={<AdminGate />}>
             <Route path="" element={<Navigate to="/admin/dashboard" replace />} />
             <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="recap" element={<RecapPage />} />

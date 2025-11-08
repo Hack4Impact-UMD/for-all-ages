@@ -48,7 +48,7 @@ type BannerState = {
 };
 
 const NAV_ITEMS = [
-  { label: "Main", path: "/admin/main" },
+  { label: "Main", path: "/admin/creator" },
   { label: "Dashboard", path: "/admin/dashboard" },
   { label: "Profile", path: "/profile" },
 ];
