@@ -242,22 +242,78 @@
 
 .radioGroup {
     display: grid;
-    gap: 0.5rem;
+    gap: 0.75rem;
     margin-top: 0.4rem;
 }
 
 .radioOption {
-    display: flex;
-    align-items: center;
-    gap: 0.55rem;
-    font-weight: 500;
-    color: #0f172a;
+    position: relative;
+    display: block;
 }
 
-.radioOption input {
-    width: 18px;
-    height: 18px;
-    accent-color: #127bbe;
+.radioInput {
+    position: absolute;
+    opacity: 0;
+    inset: 0;
+}
+
+.radioContent {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.65rem 0.95rem;
+    border: 1px solid rgba(15, 107, 177, 0.35);
+    border-radius: 18px;
+    background: rgba(15, 107, 177, 0.05);
+    font-weight: 600;
+    color: #0f172a;
+    transition: border-color 150ms ease, background 150ms ease, box-shadow 150ms ease;
+}
+
+.radioOption:hover .radioContent {
+    border-color: rgba(15, 107, 177, 0.6);
+    box-shadow: 0 5px 15px rgba(15, 107, 177, 0.18);
+}
+
+.radioVisual {
+    width: 20px;
+    height: 20px;
+    border-radius: 999px;
+    border: 2px solid rgba(15, 107, 177, 0.5);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 150ms ease, background 150ms ease;
+}
+
+.radioVisual::after {
+    content: "";
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    background: #127bbe;
+    transform: scale(0);
+    transition: transform 150ms ease;
+}
+
+.radioInput:checked + .radioContent {
+    border-color: #127bbe;
+    background: rgba(18, 123, 190, 0.12);
+    box-shadow: 0 10px 25px rgba(18, 123, 190, 0.25);
+}
+
+.radioInput:checked + .radioContent .radioVisual {
+    border-color: #127bbe;
+    background: rgba(18, 123, 190, 0.08);
+}
+
+.radioInput:checked + .radioContent .radioVisual::after {
+    transform: scale(1);
+}
+
+.radioText {
+    font-weight: 600;
+    color: inherit;
 }
 
 .subField {

@@ -597,24 +597,32 @@ function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps) {
             <div className={styles.radioGroup}>
               <label className={styles.radioOption}>
                 <input
+                  className={styles.radioInput}
                   type="radio"
                   name="role"
                   value="Admin"
                   checked={form.role === "Admin"}
                   onChange={handleInputChange}
                 />
-                <span>Admin</span>
+                <span className={styles.radioContent}>
+                  <span className={styles.radioVisual} aria-hidden="true" />
+                  <span className={styles.radioText}>Admin</span>
+                </span>
               </label>
 
               <label className={styles.radioOption}>
                 <input
+                  className={styles.radioInput}
                   type="radio"
                   name="role"
                   value="Subadmin"
                   checked={form.role === "Subadmin"}
                   onChange={handleInputChange}
                 />
-                <span>Sub-admin</span>
+                <span className={styles.radioContent}>
+                  <span className={styles.radioVisual} aria-hidden="true" />
+                  <span className={styles.radioText}>Sub-admin</span>
+                </span>
               </label>
             </div>
 
