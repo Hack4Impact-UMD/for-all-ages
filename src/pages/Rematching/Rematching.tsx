@@ -188,8 +188,8 @@ const INITIAL_APPROVED_MATCHES: ApprovedMatch[] = [
 ];
 
 const NAV_ITEMS = [
-  { label: "Dashboard", path: "/admin/dashboard" },
-  { label: "Rematching", path: "/admin/rematching" },
+  { label: "Main", path: "/admin/main" },
+  { label: "Dashboard", path: "/admin/rematching" },
   { label: "Profile", path: "/admin/profile" },
 ];
 
@@ -690,3 +690,4 @@ function SelectedParticipantCard({
     </div>
   );
 }
+
