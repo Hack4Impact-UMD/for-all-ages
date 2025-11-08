@@ -3,6 +3,7 @@ import { BrowserRouter, Route, Routes, Navigate, Outlet, useLocation } from "rea
 import { useAuth } from "./auth/AuthProvider";
 import UserDashboard from "./pages/Dashboard/UserDashboard";
 import AdminDashboard from "./pages/Dashboard/AdminDashboard";
+import AdminCreator from "./pages/Dashboard/AdminCreator";
 import LoginSignup from "./pages/Login/Login-Signup";
 import Registration from "./pages/Registration/Registration";
 import Profile from './pages/Profile/Profile'
@@ -80,6 +81,7 @@ function App() {
             <Route path="" element={<Navigate to="/admin/dashboard" replace />} />
             <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="recap" element={<RecapPage />} />
+            <Route path="creator" element={<AdminCreator />} />
           </Route>
 
           {/* <Route path={"/user/dashboard"} element={<Dashboard></Dashboard>}></Route>
