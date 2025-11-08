@@ -11,7 +11,8 @@ import { friendlyAuthError } from "../utils/firebaseErrors";
 export { friendlyAuthError };
 
 export async function loginWithEmailPassword(email: string, password: string) {
-  return signInWithEmailAndPassword(auth, email.trim(), password);
+  const normalizedEmail = email.trim().toLowerCase();
+  return signInWithEmailAndPassword(auth, normalizedEmail, password);
 }
 
 export async function signupWithEmailPassword(params: {
@@ -21,7 +22,8 @@ export async function signupWithEmailPassword(params: {
   password: string;
 }) {
   const { firstName, lastName, email, password } = params;
-  const credential = await createUserWithEmailAndPassword(auth, email.trim(), password);
+  const normalizedEmail = email.trim().toLowerCase();
+  const credential = await createUserWithEmailAndPassword(auth, normalizedEmail, password);
   const displayName = `${firstName} ${lastName}`.trim();
   if (displayName) {
     await updateProfile(credential.user, { displayName });
@@ -39,5 +41,4 @@ export async function refreshCurrentUser() {
   await auth.currentUser.reload();
   return auth.currentUser;
 }
-
 
