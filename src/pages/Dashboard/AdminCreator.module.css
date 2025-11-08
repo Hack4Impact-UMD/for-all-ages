@@ -184,6 +184,8 @@
     border: 4px solid #0f6bb1;
     box-shadow: 0 24px 60px rgba(15, 107, 177, 0.35);
     padding: 1.75rem;
+    max-height: min(90vh, 640px);
+    overflow-y: auto;
 }
 
 .modalHeader {
@@ -434,5 +436,6 @@
     .modalCard {
         border-width: 3px;
         padding: 1.4rem;
+        max-height: calc(100vh - 2rem);
     }
 }
