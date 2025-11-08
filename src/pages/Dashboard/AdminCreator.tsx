@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
-import { collection, onSnapshot, query, where, type Unsubscribe } from "firebase/firestore";
+import { collection, getDocs, onSnapshot, query, where, type Unsubscribe } from "firebase/firestore";
 import { FirebaseError } from "firebase/app";
 import layoutStyles from "./Dashboard.module.css";
 import styles from "./AdminCreator.module.css";
 import Navbar from "../../components/Navbar";
 import { db } from "../../firebase";
-import { inviteAdminAccount } from "../../services/adminAccounts";
+import { assignAdminRoleToExistingUser, inviteAdminAccount } from "../../services/adminAccounts";
 import { friendlyAuthError } from "../../services/auth";
 import type { Role } from "../../types";
 
@@ -339,6 +339,11 @@ function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps) {
   });
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [existingAccountPrompt, setExistingAccountPrompt] = useState<{
+    participantId: string;
+    email: string;
+    currentRole?: Role | null;
+  } | null>(null);
   const firstInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -361,6 +366,10 @@ function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps) {
   }, [onClose]);
 
   // Handle input changes for the form fields
+  const dismissExistingPrompt = useCallback(() => {
+    setExistingAccountPrompt(null);
+  }, []);
+
   const handleInputChange = (event: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = event.target;
     setForm((prev) => {
@@ -372,12 +381,17 @@ function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps) {
           university: roleValue === "Admin" ? "" : prev.university,
         };
       }
-
-      return {
+      const nextState = {
         ...prev,
         [name]: value,
       } as AddAdminFormState;
+      return nextState;
     });
+
+    if (name === "email" && existingAccountPrompt) {
+      dismissExistingPrompt();
+    }
+
     if (error) {
       setError(null);
     }
@@ -391,6 +405,43 @@ function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps) {
     trimmedEmail.length > 0 &&
     (form.role !== "Subadmin" || form.university.trim().length > 0);
   const canSubmit = allRequiredFilled && emailValid && !submitting;
+
+  // =====TESTING===
+  // should check for existing account and prepare prompt
+  const prepareExistingAccountPrompt = useCallback(
+    async (email: string) => {
+      try {
+        const snapshot = await getDocs(
+          query(collection(db, "participants"), where("email", "==", email))
+        );
+
+        if (snapshot.empty) {
+          setExistingAccountPrompt(null);
+          setError(
+            "That email already has an account, but no profile was found. Ask them to sign in before assigning roles."
+          );
+          return false;
+        }
+
+        const docSnap = snapshot.docs[0];
+        setExistingAccountPrompt({
+          participantId: docSnap.id,
+          email,
+          currentRole: (docSnap.data().role as Role | undefined) ?? null,
+        });
+        setError(
+          "An account with this email already exists. Promote them to the selected role?"
+        );
+        return true;
+      } catch (lookupError) {
+        console.error("Failed to look up existing account", lookupError);
+        setExistingAccountPrompt(null);
+        setError("We couldn't check for an existing account. Please try again.");
+        return false;
+      }
+    },
+    []
+  );
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -409,7 +460,6 @@ function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps) {
     setError(null);
 
     try {
-      console.log("===============here===========");
       await inviteAdminAccount({
         firstName: form.firstName.trim(),
         lastName: form.lastName.trim(),
@@ -426,10 +476,47 @@ function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps) {
       onSuccess(successMessage);
     } catch (err) {
       if (err instanceof FirebaseError) {
+        if (err.code === "auth/email-already-in-use") {
+          const prepared = await prepareExistingAccountPrompt(trimmedEmail);
+          if (prepared) {
+            return;
+          }
+        }
         setError(friendlyAuthError(err));
       } else {
         setError("We couldn’t create that admin. Please try again.");
       }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleExistingAccountPromotion = async () => {
+    if (!existingAccountPrompt) return;
+
+    setSubmitting(true);
+    setError(null);
+
+    try {
+      await assignAdminRoleToExistingUser({
+        participantId: existingAccountPrompt.participantId,
+        firstName: form.firstName.trim() || undefined,
+        lastName: form.lastName.trim() || undefined,
+        role: form.role,
+        university: form.role === "Subadmin" ? form.university.trim() : undefined,
+      });
+
+      const roleLabel = form.role === "Subadmin" ? "Sub-admin" : "Admin";
+      const displayName = `${form.firstName.trim()} ${form.lastName.trim()}`.replace(
+        /\s+/g,
+        " "
+      );
+      const successMessage = `Updated ${displayName || existingAccountPrompt.email} to ${roleLabel}.`;
+      onSuccess(successMessage);
+      setExistingAccountPrompt(null);
+    } catch (promotionError) {
+      console.error("Failed to update existing account", promotionError);
+      setError("We couldn't update the existing account. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -549,6 +636,42 @@ function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps) {
           </div>
 
           {error ? <div className={styles.errorMessage}>{error}</div> : null}
+
+          {existingAccountPrompt ? (
+            <div className={styles.existingPrompt}>
+              <p className={styles.existingPromptText}>
+                <strong>{existingAccountPrompt.email}</strong>{" "}
+                {existingAccountPrompt.currentRole
+                  ? `is currently set as ${existingAccountPrompt.currentRole}.`
+                  : "already has an account."}
+              </p>
+              <p className={styles.existingPromptText}>
+                Promote them to{" "}
+                <strong>{form.role === "Subadmin" ? "Sub-admin" : "Admin"}</strong>?
+              </p>
+              <div className={styles.existingPromptActions}>
+                <button
+                  type="button"
+                  className={styles.promptCancel}
+                  onClick={() => {
+                    dismissExistingPrompt();
+                    setError(null);
+                  }}
+                  disabled={submitting}
+                >
+                  No, keep current role
+                </button>
+                <button
+                  type="button"
+                  className={styles.promptConfirm}
+                  onClick={handleExistingAccountPromotion}
+                  disabled={submitting}
+                >
+                  {submitting ? "Updating…" : "Yes, update"}
+                </button>
+              </div>
+            </div>
+          ) : null}
 
           <div className={styles.modalActions}>
             <button

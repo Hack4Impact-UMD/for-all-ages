@@ -60,11 +60,6 @@ export async function inviteAdminAccount(params: InviteAdminParams) {
 
     const timestamp = serverTimestamp();
     const participantRef = doc(db, "participants", credential.user.uid);
-
-
-    console.log("HEREREKNKLGSNklJDFSLKJDFSLKJDFS********************************");
-
-
     await setDoc(
       participantRef,
       {
@@ -94,4 +89,32 @@ export async function inviteAdminAccount(params: InviteAdminParams) {
     // Delete the secondary app to free up resources
     await deleteApp(secondaryApp);
   }
+}
+
+export async function assignAdminRoleToExistingUser(params: {
+  participantId: string;
+  firstName?: string;
+  lastName?: string;
+  role: AdminRole;
+  university?: string | null;
+}) {
+  const displayName = `${params.firstName ?? ""} ${params.lastName ?? ""}`
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const payload: Record<string, unknown> = {
+    role: params.role,
+    university: params.role === "Subadmin" ? params.university ?? null : null,
+    updatedAt: serverTimestamp(),
+    status: "Active",
+  };
+
+  if (displayName) {
+    payload.displayName = displayName;
+  }
+  if (params.firstName) payload.firstName = params.firstName;
+  if (params.lastName) payload.lastName = params.lastName;
+
+  const docRef = doc(db, "participants", params.participantId);
+  await setDoc(docRef, payload, { merge: true });
 }

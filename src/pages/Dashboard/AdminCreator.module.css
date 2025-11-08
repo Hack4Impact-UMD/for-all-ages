@@ -274,6 +274,66 @@
     font-weight: 500;
 }
 
+.existingPrompt {
+    background: rgba(15, 107, 177, 0.08);
+    border: 1px solid rgba(15, 107, 177, 0.35);
+    border-radius: 16px;
+    padding: 0.9rem 1rem;
+    display: grid;
+    gap: 0.4rem;
+    color: #0f172a;
+}
+
+.existingPromptText {
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+.existingPromptActions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+}
+
+.promptCancel,
+.promptConfirm {
+    border: none;
+    border-radius: 999px;
+    padding: 0.5rem 1.3rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+
+.promptCancel {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+.promptCancel:hover:not(:disabled) {
+    background: #cbd5e1;
+}
+
+.promptConfirm {
+    background: linear-gradient(135deg, #127bbe 0%, #1f8ed8 100%);
+    color: #ffffff;
+    box-shadow: 0 12px 24px rgba(18, 123, 190, 0.3);
+}
+
+.promptConfirm:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 16px 32px rgba(18, 123, 190, 0.4);
+}
+
+.promptCancel:disabled,
+.promptConfirm:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
 .modalActions {
     display: flex;
     justify-content: flex-end;
