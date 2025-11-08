@@ -4,12 +4,24 @@ import styles from "./Rematching.module.css";
 import layoutStyles from "../Dashboard/Dashboard.module.css";
 import Navbar from "../../components/Navbar";
 import type { Participant as BaseParticipant } from "../../types";
+import ParticipantCard from "./components/ParticipantCard/ParticipantCard";
+import SelectedParticipantCard from "./components/SelectedParticipantCard/SelectedParticipantCard";
+import MatchConfidenceCircle from "./components/MatchConfidenceCircle/MatchConfidenceCircle";
+import {
+  INITIAL_STUDENTS,
+  INITIAL_ADULTS,
+  INITIAL_APPROVED_MATCHES,
+} from "./data";
+
+// ============================================================================
+// TYPES
+// ============================================================================
 
 /**
  * Extended Participant type for rematching functionality.
  * Adds fields needed for the matching process: id, type, interests array, and school.
  */
-interface RematchingParticipant extends BaseParticipant {
+export interface RematchingParticipant extends BaseParticipant {
   id: string;
   type: "student" | "adult";
   interests: string[];
@@ -18,174 +30,16 @@ interface RematchingParticipant extends BaseParticipant {
 
 /**
  * Simplified match type for tracking approved matches in the rematching interface.
- * Maps to the Match type from types.ts but uses participant IDs directly.
+ * Maps to the Match type from the main types.ts but uses participant IDs directly.
  */
-interface ApprovedMatch {
+export interface ApprovedMatch {
   studentId: string;
   adultId: string;
 }
 
 // ============================================================================
-// DUMMY DATA
+// CONSTANTS
 // ============================================================================
-
-/**
- * Initial dummy data for students pending matches.
- */
-const INITIAL_STUDENTS: RematchingParticipant[] = [
-  {
-    id: "s1",
-    name: "Alice Johnson",
-    type: "student",
-    interests: ["Reading", "Music", "Art", "Photography"],
-    school: "Stanford University",
-    address: "",
-    phone_number: "",
-    email: "",
-    dob: new Date(),
-    pronouns: "",
-  },
-  {
-    id: "s2",
-    name: "Bob Smith",
-    type: "student",
-    interests: ["Sports", "Cooking", "Music"],
-    school: "UC Berkeley",
-    address: "",
-    phone_number: "",
-    email: "",
-    dob: new Date(),
-    pronouns: "",
-  },
-  {
-    id: "s3",
-    name: "Charlie Brown",
-    type: "student",
-    interests: ["Art", "Reading", "Writing", "History"],
-    school: "Harvard University",
-    address: "",
-    phone_number: "",
-    email: "",
-    dob: new Date(),
-    pronouns: "",
-  },
-  {
-    id: "s4",
-    name: "Diana Prince",
-    type: "student",
-    interests: ["Music", "Dancing", "Photography"],
-    school: "Yale University",
-    address: "",
-    phone_number: "",
-    email: "",
-    dob: new Date(),
-    pronouns: "",
-  },
-  {
-    id: "s5",
-    name: "Eve Wilson",
-    type: "student",
-    interests: ["Cooking", "Sports", "Travel"],
-    school: "MIT",
-    address: "",
-    phone_number: "",
-    email: "",
-    dob: new Date(),
-    pronouns: "",
-  },
-  {
-    id: "s6",
-    name: "Frank Miller",
-    type: "student",
-    interests: ["Reading", "Writing", "History"],
-    school: "Princeton University",
-    address: "",
-    phone_number: "",
-    email: "",
-    dob: new Date(),
-    pronouns: "",
-  },
-];
-
-/**
- * Initial dummy data for adults pending matches.
- */
-const INITIAL_ADULTS: RematchingParticipant[] = [
-  {
-    id: "a1",
-    name: "Grace Lee",
-    type: "adult",
-    interests: ["Reading", "Music", "Art", "Photography", "Writing"],
-    address: "",
-    phone_number: "",
-    email: "",
-    dob: new Date(),
-    pronouns: "",
-  },
-  {
-    id: "a2",
-    name: "Henry Davis",
-    type: "adult",
-    interests: ["Sports", "Cooking", "Music", "Travel"],
-    address: "",
-    phone_number: "",
-    email: "",
-    dob: new Date(),
-    pronouns: "",
-  },
-  {
-    id: "a3",
-    name: "Ivy Chen",
-    type: "adult",
-    interests: ["Art", "Photography", "Reading"],
-    address: "",
-    phone_number: "",
-    email: "",
-    dob: new Date(),
-    pronouns: "",
-  },
-  {
-    id: "a4",
-    name: "Jack Taylor",
-    type: "adult",
-    interests: ["Music", "Writing", "History"],
-    address: "",
-    phone_number: "",
-    email: "",
-    dob: new Date(),
-    pronouns: "",
-  },
-  {
-    id: "a5",
-    name: "Karen White",
-    type: "adult",
-    interests: ["Cooking", "Travel", "Photography"],
-    address: "",
-    phone_number: "",
-    email: "",
-    dob: new Date(),
-    pronouns: "",
-  },
-  {
-    id: "a6",
-    name: "Leo Martinez",
-    type: "adult",
-    interests: ["Sports", "Reading", "Music"],
-    address: "",
-    phone_number: "",
-    email: "",
-    dob: new Date(),
-    pronouns: "",
-  },
-];
-
-/**
- * Initial approved matches count.
- */
-const INITIAL_APPROVED_MATCHES: ApprovedMatch[] = [
-  { studentId: "s7", adultId: "a7" },
-  { studentId: "s8", adultId: "a8" },
-];
 
 const NAV_ITEMS = [
   { label: "Main", path: "/admin/main" },
@@ -477,49 +331,6 @@ function ParticipantColumn({
 }
 
 /**
- * Participant Card Component
- * Displays a single participant with their name, school (for students), and interests.
- */
-interface ParticipantCardProps {
-  participant: RematchingParticipant;
-  isSelected: boolean;
-  onClick: () => void;
-  isStudentColumn: boolean;
-}
-
-function ParticipantCard({
-  participant,
-  isSelected,
-  onClick,
-  isStudentColumn,
-}: ParticipantCardProps) {
-  return (
-    <div
-      className={`${styles.participantCard} ${
-        isSelected ? styles.selected : ""
-      } ${isStudentColumn ? styles.studentCard : styles.adultCard}`}
-      onClick={onClick}
-    >
-      <div className={styles.participantName}>{participant.name}</div>
-      {isStudentColumn && participant.school && (
-        <div className={styles.participantSchool}>{participant.school}</div>
-      )}
-      <div
-        className={`${styles.interests} ${
-          isStudentColumn ? styles.studentInterests : styles.adultInterests
-        }`}
-      >
-        {participant.interests.map((interest, idx) => (
-          <span key={idx} className={styles.interestTag}>
-            {interest}
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/**
  * Match Details Column Component
  * Displays selected participants, confidence percentage, common interests, and confirm button.
  */
@@ -553,12 +364,7 @@ function MatchDetailsColumn({
         </p>
       </div>
       {/* Confidence Circle */}
-      <div className={styles.matchCircle}>
-        <div className={styles.confidencePercentage}>
-          {confidencePercentage !== null ? `${confidencePercentage}%` : "—%"}
-        </div>
-        <div className={styles.confidenceLabel}>Match</div>
-      </div>
+      <MatchConfidenceCircle confidencePercentage={confidencePercentage} />
       <div className={styles.matchContainer}>
         {/* Student Card - Always visible */}
         <SelectedParticipantCard
@@ -622,71 +428,6 @@ function MatchDetailsColumn({
           </button>
         </div>
       </div>
-    </div>
-  );
-}
-
-/**
- * Selected Participant Card Component
- * Displays a selected participant in the match details column.
- * Clicking deselects the participant. Always visible, even when empty.
- */
-interface SelectedParticipantCardProps {
-  label: string;
-  participant: RematchingParticipant | null;
-  onDeselect: () => void;
-  type: "student" | "adult";
-}
-
-function SelectedParticipantCard({
-  label,
-  participant,
-  onDeselect,
-  type,
-}: SelectedParticipantCardProps) {
-  const isEmpty = !participant;
-
-  return (
-    <div
-      className={`${styles.selectedCard} ${
-        type === "student"
-          ? styles.selectedStudentCard
-          : styles.selectedAdultCard
-      } ${isEmpty ? styles.emptyCard : ""}`}
-      onClick={isEmpty ? undefined : onDeselect}
-      style={{ cursor: isEmpty ? "default" : "pointer" }}
-    >
-      <div
-        className={`${styles.selectedLabel} ${
-          type === "student" ? styles.studentLabel : styles.adultLabel
-        }`}
-      >
-        {label}
-      </div>
-
-      {participant ? (
-        <>
-          <div className={styles.selectedName}>{participant.name}</div>
-          {type === "student" && participant.school && (
-            <div className={styles.participantSchool}>{participant.school}</div>
-          )}
-          <div
-            className={`${styles.interests} ${
-              type === "student"
-                ? styles.studentInterests
-                : styles.adultInterests
-            }`}
-          >
-            {participant.interests.map((interest, idx) => (
-              <span key={idx} className={styles.interestTag}>
-                {interest}
-              </span>
-            ))}
-          </div>
-        </>
-      ) : (
-        <div className={styles.emptyCardContent}>—</div>
-      )}
     </div>
   );
 }

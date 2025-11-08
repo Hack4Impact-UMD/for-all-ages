@@ -1,6 +1,4 @@
-/* ============================================================================
-   PAGE OVERRIDES
-   ============================================================================ */
+/* Page overrides */
 
 .rematchingPage {
     min-height: 100vh;
@@ -12,9 +10,7 @@
     color: #0f6bb1; /* Standard blue color for all text */
 }
 
-/* ============================================================================
-   PAGE HEADER
-   ============================================================================ */
+/* page header */
 
 .pageTitle,
 .pageSubtitle {
@@ -36,9 +32,7 @@
     margin-bottom: 1rem;
 }
 
-/* ============================================================================
-   STATISTICS SECTION
-   ============================================================================ */
+/* Statistic sections */
 
 .statistics {
     justify-content: stretch;
@@ -64,9 +58,7 @@
     font-family: Verdana, sans-serif;
 }
 
-/* ============================================================================
-   THREE COLUMN LAYOUT
-   ============================================================================ */
+/* 3 column layout */
 
 .columnsContainer {
     display: grid;
@@ -76,9 +68,7 @@
     align-items: stretch;
 }
 
-/* ============================================================================
-   COLUMN STYLES
-   ============================================================================ */
+/* column styles */
 
 .column {
     background: #ffffff;
@@ -132,9 +122,7 @@
     border-color: #0f6bb1;
 }
 
-/* ============================================================================
-   PARTICIPANT LIST
-   ============================================================================ */
+/* participant list */
 
 .participantsList {
     display: flex;
@@ -164,78 +152,6 @@
     background: rgba(15, 107, 177, 0.5);
 }
 
-.participantCard {
-    font-family: Verdana, sans-serif;
-    padding: 1rem;
-    border: none;
-    border-radius: 0.75rem;
-    cursor: pointer;
-    transition: all 0.2s;
-    text-align: left;
-    background: #f5f5f5;
-}
-
-.participantCard:hover {
-    box-shadow: 0 4px 12px rgba(15, 107, 177, 0.15);
-    transform: translateY(-2px);
-}
-
-
-.participantCard.studentCard.selected {
-    color: #2e7d32;
-    background: #e8f5e9;
-    border: 3px solid #2e7d32;
-    box-shadow: 0 4px 16px rgba(46, 125, 50, 0.25);
-}
-
-.participantCard.adultCard.selected {
-    color: #EAB419;
-    background: #fff9c4;
-    border:  3px solid #EAB419;
-    box-shadow: 0 4px 16px rgba(245, 127, 23, 0.25);
-}
-
-.participantName {
-    font-size: 1.1rem;
-
-}
-.participantSchool {
-    font-size: 0.95rem;
-
-}
-
-.interests {
-    margin-top: 0.5rem;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    justify-content: flex-start;
-}
-
-.interestTag {
-    padding: 0.35rem 0.75rem;
-    background: rgba(15, 107, 177, 0.1);
-    border-radius: 1rem;
-    font-size: 0.85rem;
-    font-weight: 500;
-}
-
-.studentInterests .interestTag,
-.adultInterests .interestTag {
-    font-size: 0.75rem;
-    padding: 0.25rem 0.6rem;
-    color: white;
-}
-
-.studentInterests .interestTag {
-    background: #2C6133;
-}
-
-.adultInterests .interestTag {
-    background: #EAB419;
-
-}
-
 .emptyState {
     text-align: center;
     color: #999;
@@ -243,9 +159,7 @@
     font-style: italic;
 }
 
-/* ============================================================================
-   MATCH DETAILS COLUMN
-   ============================================================================ */
+/* match details column */
 
 .matchContainer {
     display: flex;
@@ -253,107 +167,13 @@
     gap: 1.5rem;
 }
 
-.selectedCard {
-    padding: 1rem;
-    border-radius: 0.75rem;
-    cursor: pointer;
-    background: #ffffff;
-    transition: all 0.2s;
-    position: relative;
-    text-align: left;
-    min-height: 120px;
-    font-family: Verdana, sans-serif;
-}
-
-.selectedStudentCard {
-    border: 2px solid #2e7d32;
-}
-
-.selectedStudentCard:hover:not(.emptyCard) {
-    box-shadow: 0 4px 12px rgba(46, 125, 50, 0.2);
-}
-
-.selectedAdultCard {
-    border: 2px solid #EAB419;
-}
-
-.selectedAdultCard:hover:not(.emptyCard) {
-    box-shadow: 0 4px 12px rgba(245, 127, 23, 0.2);
-}
-
-.emptyCard {
-    opacity: 0.6;
-}
-
-.emptyCardContent {
-    color: #999;
-    font-style: italic;
-    margin-top: 0.5rem;
-}
-
-.selectedLabel,
 .commonInterestsLabel {
     position: absolute;
     top: 0.75rem;
+    left: 0.75rem;
     font-size: 0.85rem;
     font-weight: 600;
     letter-spacing: 0.5px;
-}
-
-.selectedLabel {
-    right: 0.75rem;
-    font-family: Verdana, sans-serif;
-    color: white;
-    padding: 0.35rem 0.75rem;
-    border-radius: 1rem;
-    font-size: 0.7rem;
-    font-weight: 500;
-}
-
-.studentLabel {
-    background: #2C6133;
-}
-
-.adultLabel {
-    background: #EAB419;
-}
-
-.selectedName {
-    font-size: 1.1rem;
-    font-weight: 600;
-    margin: 0.5rem 0;
-}
-
-.matchCircle {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    width: 150px;
-    height: 150px;
-    margin: 1rem auto;
-    margin-bottom: 2rem;
-    background: transparent;
-    border: none;
-    border-radius: 50%;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    transition: all 0.2s;
-    aspect-ratio: 1;
-    flex-shrink: 0;
-}
-
-.confidencePercentage {
-    font-size: 2.5rem;
-    margin-bottom: 0.5rem;
-    line-height: 1;
-    font-family: Verdana, sans-serif;
-}
-
-.confidenceLabel {
-    font-size: 1rem;
-    letter-spacing: 1px;
-    line-height: 1;
-    font-family: Verdana, sans-serif;
 }
 
 .coffeeIcon {
@@ -447,9 +267,7 @@
     transform: translateY(-2px);
 }
 
-/* ============================================================================
-   RESPONSIVE DESIGN
-   ============================================================================ */
+/* responsize design */
 
 @media (max-width: 1200px) {
     .columnsContainer {
