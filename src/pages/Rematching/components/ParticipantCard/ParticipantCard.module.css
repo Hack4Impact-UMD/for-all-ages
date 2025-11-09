@@ -1,0 +1,81 @@
+.participantCard {
+    font-family: Verdana, sans-serif;
+    padding: 1rem;
+    border: none;
+    border-radius: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: left;
+    background: #f5f5f5;
+}
+
+.participantCard:hover {
+    box-shadow: 0 4px 12px rgba(15, 107, 177, 0.15);
+    transform: translateY(-2px);
+}
+
+.studentCard {
+    /* Modifier class for student cards */
+}
+
+.adultCard {
+    /* Modifier class for adult cards */
+}
+
+.selected {
+    /* Modifier class for selected state */
+}
+
+.participantCard.studentCard.selected {
+    color: #2e7d32;
+    background: #e8f5e9;
+    border: 3px solid #2e7d32;
+    box-shadow: 0 4px 16px rgba(46, 125, 50, 0.25);
+}
+
+.participantCard.adultCard.selected {
+    color: #EAB419;
+    background: #fff9c4;
+    border:  3px solid #EAB419;
+    box-shadow: 0 4px 16px rgba(245, 127, 23, 0.25);
+}
+
+.participantName {
+    font-size: 1.1rem;
+}
+
+.participantSchool {
+    font-size: 0.95rem;
+}
+
+.interests {
+    margin-top: 0.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: flex-start;
+}
+
+.interestTag {
+    padding: 0.35rem 0.75rem;
+    background: rgba(15, 107, 177, 0.1);
+    border-radius: 1rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.studentInterests .interestTag,
+.adultInterests .interestTag {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.6rem;
+    color: white;
+}
+
+.studentInterests .interestTag {
+    background: #2C6133;
+}
+
+.adultInterests .interestTag {
+    background: #EAB419;
+}
+

@@ -7,6 +7,7 @@ import LoginSignup from "./pages/Login/Login-Signup";
 import Registration from "./pages/Registration/Registration";
 import Profile from './pages/Profile/Profile'
 import RecapPage from './pages/Recap/RecapPage'
+import Rematching from './pages/Rematching/Rematching';
 
 function RouteLoader() {
   return <div className="route-loading">Loading...</div>;
@@ -80,6 +81,7 @@ function App() {
             <Route path="" element={<Navigate to="/admin/dashboard" replace />} />
             <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="recap" element={<RecapPage />} />
+            <Route path="rematching" element={<Rematching />} /> 
           </Route>
 
           {/* <Route path={"/user/dashboard"} element={<Dashboard></Dashboard>}></Route>
