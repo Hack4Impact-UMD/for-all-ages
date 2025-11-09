@@ -182,8 +182,20 @@
 }
 
 .errorText {
-  color: #FFE0E0;
-  font-size: 1rem;
+  color:#f9caca;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.helpText {
+  color: #E0F2FF;
+  font-size: 0.9rem;
+  /* font-style: italic; */
+  margin-top: 0.2rem;
+}
+
+:global(ul) {
+  margin: 0.2rem 0;
 }
 
 .errorBanner {
