@@ -98,6 +98,9 @@ const Registration = () => {
     }));
   };
 
+  const isPhoneInvalid = form.phone !== "" && !phoneNumberRegex.test(form.phone);
+  const isConfirmPhoneInvalid = form.confirmPhone !== "" && !phoneNumberRegex.test(form.confirmPhone);
+  
   const isPhoneMismatch =
     form.phone !== "" && form.confirmPhone !== "" && form.phone !== form.confirmPhone;
 
@@ -123,7 +126,9 @@ const Registration = () => {
     Boolean(form.interests) &&
     Boolean(form.teaPreference) &&
     !isPhoneMismatch &&
-    !isEmailMismatch;
+    !isEmailMismatch &&
+    !isPhoneInvalid &&
+    !isConfirmPhoneInvalid;
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -273,14 +278,26 @@ const Registration = () => {
           <label className={styles.label}>
             Phone Number
             <input 
-              type="tel" 
-              // pattern={phoneNumberRegex}
+              type="tel"
               name="phone"
               value={form.phone}
               onChange={handleInputChange}
               placeholder='(XXX) XXX-XXXX'
               required
             />
+            {isPhoneInvalid && 
+              <span className={styles.errorText}>
+                Please enter a valid phone number format.
+              </span>
+            }
+            <span className={styles.helpText}>
+              Valid phone number formats: <br/>
+              <ul>
+                <li>123-456-7890</li>
+                <li>(123) 456-7890</li>
+                <li>+1 (123) 456-7890</li>
+              </ul>
+            </span>
           </label>
 
           <label className={styles.label}>
@@ -293,7 +310,11 @@ const Registration = () => {
               onChange={handleInputChange}
               required
             />
-            {isPhoneMismatch && <span className={styles.errorText}>Phone numbers must match.</span>}
+            {isPhoneMismatch && 
+              <span className={styles.errorText}>
+                Phone numbers must match.
+              </span>
+            }
           </label>
         </div>
 
