@@ -85,9 +85,11 @@ const ADMIN_WEEK_SCHEDULES: Record<DayKey, PersonAssignment[]>[] = [
 ]
 
 const NAV_ITEMS = [
-    { label: 'Main', path: '/admin/creator' },
     { label: 'Dashboard', path: '/admin/dashboard' },
-    { label: 'Profile', path: '/profile' }
+    { label: 'Recap', path: '/admin/recap' },
+    { label: 'Match', path: '/admin/rematching' },
+    { label: 'Profile', path: '/profile' },
+    { label: 'Accounts Portal', path: '/admin/creator' },
 ]
 
 export default function AdminDashboard () {

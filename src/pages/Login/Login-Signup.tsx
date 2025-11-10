@@ -186,7 +186,7 @@ function LoginSignup() {
       <div className={styles.logoSection}>
         <div className={styles.logoCard}>
           <img 
-            src="/faa logo.png" 
+            src="/for-all-ages/faa logo.png" 
             alt="For All Ages Logo" 
             className={styles.logoImage}
           />
