@@ -43,25 +43,32 @@ const PreProgram = () => {
 
   const navigate = useNavigate();
 
-  const handleMatch = () => {
-    if (buttonLabel === "Create match") {
-      const sortedMatches = dummyMatches
-        .map((m) => {
-          if (m.name2 === "N/A") return { ...m, status: "No Match" };
-          if (m.confidence && m.confidence >= 80)
-            return { ...m, status: "Approved" };
-          return { ...m, status: "Pending" };
-        })
-        .sort((a, b) => {
-          const order = { Pending: 1, "No Match": 2, Approved: 3 };
-          return order[a.status || "Pending"] - order[b.status || "Pending"];
-        });
-      setMatches(sortedMatches);
-      setButtonLabel("Rematch");
-    } else {
-      navigate("/admin/rematching");
-    }
-  };
+const handleMatch = () => {
+  if (buttonLabel === "Create match") {
+    const order: Record<NonNullable<Match["status"]>, number> = {
+      Pending: 1,
+      "No Match": 2,
+      Approved: 3,
+    };
+
+    const sortedMatches: Match[] = dummyMatches
+      .map((m): Match => {
+        let status: Match["status"] = "Pending";
+
+        if (m.name2 === "N/A") status = "No Match";
+        else if (m.confidence && m.confidence >= 80) status = "Approved";
+
+        return { ...m, status };
+      })
+      .sort((a, b) => order[a.status ?? "Pending"] - order[b.status ?? "Pending"]);
+
+    setMatches(sortedMatches);
+    setButtonLabel("Rematch");
+  } else {
+    navigate("/admin/rematching");
+  }
+};
+
 
   const handleStatusChange = (index: number, newStatus: Match["status"]) => {
     const updated = [...matches];

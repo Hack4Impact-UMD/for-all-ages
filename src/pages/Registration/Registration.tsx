@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 import styles from "./Registration.module.css";
-import logo from "../../assets/For all Ages high res logo 2022 (1).svg";
+// import logo from "../../assets/For all Ages high res logo 2022 (1).svg";
 import { useAuth } from "../../auth/AuthProvider";
 import { db } from "../../firebase";
 import { phoneNumberRegex } from '../../regex';
