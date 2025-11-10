@@ -6,6 +6,7 @@ import logo from "../../assets/For all Ages high res logo 2022 (1).svg";
 import { useAuth } from "../../auth/AuthProvider";
 import { db } from "../../firebase";
 import { phoneNumberRegex } from '../../regex';
+import Navbar from "../../components/Navbar";
 
 
 // Defines the shape of the registration form state
@@ -201,8 +202,7 @@ const Registration = () => {
   return (
     <>
       <div id={styles.navbar}>
-        <img id={styles.logo} src={logo} alt="For All Ages Logo" />
-        <p id={styles.title}>Registration Form</p>
+        <Navbar navItems={[{label: "Registration Form", path: "/registration"}]}/>
       </div>
 
       <form id={styles.page} onSubmit={handleSubmit}>

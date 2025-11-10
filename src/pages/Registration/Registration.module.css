@@ -13,31 +13,8 @@
   position: relative;
   background-color: white;
   width: 100vw;
-  
-}
-
-#logo {
-  width: 9rem;
-  height: 6rem;
-  justify-self: left;
-  align-self: center;
-  margin-left: 1rem;
-  object-fit: cover;
-  object-position: 50% 30%;
-}
-
-#title {
-  background-color: #127BBE;
-  font-family: 'Merriweather', serif;
-  font-size: 35px;
-  color: white;
-  padding: 0.5rem 3rem;
-  border-radius: 50px;
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: clamp(28px, 4vw, 35px);
-  padding: 0.5rem clamp(2rem, 5vw, 3rem);
+  height: 2.5rem;
+  font-size: 30px;
 }
 
 #page {
