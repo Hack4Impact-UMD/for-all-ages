@@ -1,20 +1,30 @@
 import "./App.css";
-import { BrowserRouter, Route, Routes, Navigate, Outlet, useLocation } from "react-router-dom";
+import {
+  BrowserRouter,
+  Route,
+  Routes,
+  Navigate,
+  Outlet,
+  useLocation,
+} from "react-router-dom";
 import { useAuth } from "./auth/AuthProvider";
 import UserDashboard from "./pages/Dashboard/UserDashboard";
 import AdminDashboard from "./pages/Dashboard/AdminDashboard";
 import AdminCreator from "./pages/Dashboard/AdminCreator";
 import LoginSignup from "./pages/Login/Login-Signup";
 import Registration from "./pages/Registration/Registration";
-import Profile from './pages/Profile/Profile'
-import RecapPage from './pages/Recap/RecapPage'
+import Profile from "./pages/Profile/Profile";
+import RecapPage from "./pages/Recap/RecapPage";
+import Rematching from "./pages/Rematching/Rematching";
+import PreProgram from "./pages/PreProgram/PreProgram";
 
 function RouteLoader() {
   return <div className="route-loading">Loading...</div>;
 }
 
 function RegistrationGate() {
-  const { user, loading, emailVerified, participant, participantLoading } = useAuth();
+  const { user, loading, emailVerified, participant, participantLoading } =
+    useAuth();
   const location = useLocation();
   const role = (participant as { role?: string | null } | null)?.role ?? null;
 
@@ -42,7 +52,8 @@ function RegistrationGate() {
 }
 
 function ParticipantGate() {
-  const { user, loading, emailVerified, participant, participantLoading } = useAuth();
+  const { user, loading, emailVerified, participant, participantLoading } =
+    useAuth();
   const location = useLocation();
 
   if (loading || participantLoading) {
@@ -57,7 +68,10 @@ function ParticipantGate() {
     return <Navigate to="/" replace />;
   }
 
-  if (!participant || (participant as { type?: string }).type !== "Participant") {
+  if (
+    !participant ||
+    (participant as { type?: string }).type !== "Participant"
+  ) {
     return <Navigate to="/registration" replace />;
   }
 
@@ -121,13 +135,15 @@ function App() {
             <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="recap" element={<RecapPage />} />
             <Route path="creator" element={<AdminCreator />} />
+            <Route path="main" element={<PreProgram />} />
+            <Route path="rematching" element={<Rematching />} />
           </Route>
 
           {/* <Route path={"/user/dashboard"} element={<Dashboard></Dashboard>}></Route>
           <Route path={"/admin/dashboard"} element={<Dashboard></Dashboard>}></Route> */}
-        </Routes>
-      </BrowserRouter>
-  )
+      </Routes>
+    </BrowserRouter>
+  );
 }
 
 export default App;
