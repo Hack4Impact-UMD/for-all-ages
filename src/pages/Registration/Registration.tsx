@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 import styles from "./Registration.module.css";
-import logo from "../../assets/For all Ages high res logo 2022 (1).svg";
 import { useAuth } from "../../auth/AuthProvider";
 import { db } from "../../firebase";
 import { phoneNumberRegex } from '../../regex';
@@ -20,13 +19,14 @@ type RegistrationFormState = {
   phone: string;
   confirmPhone: string;
   email: string;
-  confirmEmail: string;
   dateOfBirth: string;
   pronouns: string;
   heardAbout: string;
   university: string;
   interests: string;
   teaPreference: string;
+  preferredContactMethods: string[];
+  preferenceScores: Record<string, number>;
 };
 
 // Builds the initial state for the registration form
@@ -40,13 +40,14 @@ const buildInitialState = (email?: string): RegistrationFormState => ({
   phone: "",
   confirmPhone: "",
   email: email ?? "",
-  confirmEmail: email ?? "",
   dateOfBirth: "",
   pronouns: "",
   heardAbout: "",
   university: "",
   interests: "",
   teaPreference: "",
+  preferredContactMethods: [],
+  preferenceScores: {},
 });
 
 const Registration = () => {
@@ -71,7 +72,6 @@ const Registration = () => {
       setForm((prev) => ({
         ...prev,
         email: prev.email || user.email || "",
-        confirmEmail: prev.confirmEmail || user.email || "",
       }));
     }
   }, [user?.email]);
@@ -99,16 +99,32 @@ const Registration = () => {
     }));
   };
 
+  // Handles multi-select checkbox changes for preferred contact methods
+  const handleContactMethodChange = (method: string, checked: boolean) => {
+    setForm((prev) => ({
+      ...prev,
+      preferredContactMethods: checked
+        ? [...prev.preferredContactMethods, method]
+        : prev.preferredContactMethods.filter((m) => m !== method),
+    }));
+  };
+
+  // Handles slider changes for preference scores
+  const handlePreferenceScoreChange = (questionId: string, value: number) => {
+    setForm((prev) => ({
+      ...prev,
+      preferenceScores: {
+        ...prev.preferenceScores,
+        [questionId]: value,
+      },
+    }));
+  };
+
   const isPhoneInvalid = form.phone !== "" && !phoneNumberRegex.test(form.phone);
   const isConfirmPhoneInvalid = form.confirmPhone !== "" && !phoneNumberRegex.test(form.confirmPhone);
   
   const isPhoneMismatch =
     form.phone !== "" && form.confirmPhone !== "" && form.phone !== form.confirmPhone;
-
-  const isEmailMismatch =
-    form.email !== "" &&
-    form.confirmEmail !== "" &&
-    form.email.trim().toLowerCase() !== form.confirmEmail.trim().toLowerCase();
 
   const allRequiredFilled =
     Boolean(form.addressLine1) &&
@@ -119,15 +135,14 @@ const Registration = () => {
     Boolean(form.phone) &&
     Boolean(form.confirmPhone) &&
     Boolean(form.email) &&
-    Boolean(form.confirmEmail) &&
     Boolean(form.dateOfBirth) &&
     Boolean(form.pronouns) &&
     Boolean(form.heardAbout) &&
     Boolean(form.university) &&
     Boolean(form.interests) &&
     Boolean(form.teaPreference) &&
+    form.preferredContactMethods.length > 0 &&
     !isPhoneMismatch &&
-    !isEmailMismatch &&
     !isPhoneInvalid &&
     !isConfirmPhoneInvalid;
 
@@ -136,10 +151,6 @@ const Registration = () => {
     if (!user) return;
     if (isPhoneMismatch) {
       setError("Phone numbers must match.");
-      return;
-    }
-    if (isEmailMismatch) {
-      setError("Emails must match.");
       return;
     }
 
@@ -169,6 +180,8 @@ const Registration = () => {
       university: form.university,
       interests: form.interests,
       teaPreference: form.teaPreference,
+      preferredContactMethods: form.preferredContactMethods,
+      preferenceScores: form.preferenceScores,
       displayName: user.displayName ?? null,
       updatedAt: timestamp,
     };
@@ -329,19 +342,38 @@ const Registration = () => {
               required
             />
           </label>
-
-          <label className={styles.label}>
-            Confirm Email
-            <input
-              type="email"
-              name="confirmEmail"
-              value={form.confirmEmail}
-              onChange={handleInputChange}
-              required
-            />
-            {isEmailMismatch && <span className={styles.errorText}>Emails must match.</span>}
-          </label>
         </div>
+
+        <label className={styles.label}>
+          Preferred Method of Contact (Select all that apply)
+          <div className={styles.checkboxGroup}>
+            <label className={styles.checkboxLabel}>
+              <input
+                type="checkbox"
+                checked={form.preferredContactMethods.includes("Phone")}
+                onChange={(e) => handleContactMethodChange("Phone", e.target.checked)}
+              />
+              Phone
+            </label>
+            <label className={styles.checkboxLabel}>
+              <input
+                type="checkbox"
+                checked={form.preferredContactMethods.includes("Email")}
+                onChange={(e) => handleContactMethodChange("Email", e.target.checked)}
+              />
+              Email
+            </label>
+            <label className={styles.checkboxLabel}>
+              <input
+                type="checkbox"
+                checked={form.preferredContactMethods.includes("Portal notification")}
+                onChange={(e) => handleContactMethodChange("Portal notification", e.target.checked)}
+              />
+              Portal notification
+            </label>
+          </div>
+        </label>
+
 
         <label className={styles.label}>
           Date of Birth
@@ -459,6 +491,28 @@ const Registration = () => {
             />
             Variety
           </label>
+        </label>
+
+        <label className={styles.label}>
+          Prefer indoor movie (1) - Prefer outdoor camping (5)
+          <div className={styles.sliderContainer}>
+            <input
+              type="range"
+              min="1"
+              max="5"
+              step="1"
+              value={form.preferenceScores["indoor_outdoor"] || 3}
+              onChange={(e) => handlePreferenceScoreChange("indoor_outdoor", parseInt(e.target.value))}
+              className={styles.slider}
+            />
+            <div className={styles.sliderLabels}>
+              <span>1</span>
+              <span>2</span>
+              <span>3</span>
+              <span>4</span>
+              <span>5</span>
+            </div>
+          </div>
         </label>
 
         {error && <div className={styles.errorBanner}>{error}</div>}
