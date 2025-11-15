@@ -84,7 +84,7 @@ const Registration = () => {
       return;
     }
     if (participant && (participant as { type?: string }).type === "Participant") {
-      navigate("/user/dashboard", { replace: true });
+      navigate("/user/waiting", { replace: true });
     }
   }, [authLoading, participantLoading, user, emailVerified, participant, navigate]);
 
@@ -182,7 +182,7 @@ const Registration = () => {
       const dataToWrite = participant ? payload : { ...payload, createdAt: timestamp };
       await setDoc(docRef, dataToWrite, { merge: true });
       setStatus("Registration complete! Redirecting to your dashboard...");
-      navigate("/user/dashboard", { replace: true });
+      navigate("/user/waiting", { replace: true });
     } catch (err) {
       console.error("Failed to save participant profile", err);
       setError("We couldn't save your registration right now. Please try again.");

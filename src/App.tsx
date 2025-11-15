@@ -17,6 +17,7 @@ import Profile from "./pages/Profile/Profile";
 import RecapPage from "./pages/Recap/RecapPage";
 import Rematching from "./pages/Rematching/Rematching";
 import PreProgram from "./pages/PreProgram/PreProgram";
+import Waiting from "./pages/Waiting/Waiting";
 
 function RouteLoader() {
   return <div className="route-loading">Loading...</div>;
@@ -120,6 +121,8 @@ function App() {
       <Routes>
         <Route path="/" element={<LoginSignup />} />
         <Route path="/registration" element={<RegistrationGate />} />
+        <Route path="/waiting" element={<Waiting />} />
+
 
           <Route path={"/"} element={<LoginSignup></LoginSignup>}></Route>
           <Route path={"/registration"} element={<Registration></Registration>}></Route>
