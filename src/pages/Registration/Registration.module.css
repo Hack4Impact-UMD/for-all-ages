@@ -13,31 +13,8 @@
   position: relative;
   background-color: white;
   width: 100vw;
-  
-}
-
-#logo {
-  width: 9rem;
-  height: 6rem;
-  justify-self: left;
-  align-self: center;
-  margin-left: 1rem;
-  object-fit: cover;
-  object-position: 50% 30%;
-}
-
-#title {
-  background-color: #127BBE;
-  font-family: 'Merriweather', serif;
-  font-size: 35px;
-  color: white;
-  padding: 0.5rem 3rem;
-  border-radius: 50px;
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: clamp(28px, 4vw, 35px);
-  padding: 0.5rem clamp(2rem, 5vw, 3rem);
+  height: 2.5rem;
+  font-size: 30px;
 }
 
 #page {
@@ -174,6 +151,48 @@
 
 #submit:hover {
   border-color: #127BBE;
+}
+
+.message {
+  color: white;
+  font-size: 1.5rem;
+}
+
+.errorText {
+  color:#f9caca;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.helpText {
+  color: #E0F2FF;
+  font-size: 0.9rem;
+  /* font-style: italic; */
+  margin-top: 0.2rem;
+}
+
+:global(ul) {
+  margin: 0.2rem 0;
+}
+
+.errorBanner {
+  margin-top: 2rem;
+  background-color: #FAD4D4;
+  color: #8B1313;
+  padding: 1rem 1.5rem;
+  border-radius: 1rem;
+  font-size: 1.1rem;
+  width: fit-content;
+}
+
+.statusBanner {
+  margin-top: 2rem;
+  background-color: #E0F2FF;
+  color: #0C4A6E;
+  padding: 1rem 1.5rem;
+  border-radius: 1rem;
+  font-size: 1.1rem;
+  width: fit-content;
 }
 
 input:-webkit-autofill,

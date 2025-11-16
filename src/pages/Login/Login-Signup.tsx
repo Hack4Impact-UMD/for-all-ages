@@ -1,31 +1,185 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import styles from './Login.module.css'
+import { useEffect, useMemo, useState } from "react";
+// Firebase SDK usage moved behind service helpers
+import { useNavigate } from "react-router-dom";
+import styles from "./Login.module.css";
+import { auth } from "../../firebase";
+import { useAuth } from "../../auth/AuthProvider";
+import {
+  friendlyAuthError,
+  loginWithEmailPassword,
+  signupWithEmailPassword,
+  resendVerificationEmail,
+} from "../../services/auth";
 
+type Tab = "login" | "signup";
+
+const initialLoginState = { email: "", password: "" };
+const initialSignupState = {
+  firstName: "",
+  lastName: "",
+  email: "",
+  password: "",
+  confirmPassword: "",
+};
+
+// Error mapping moved to shared util
+// The main LoginSignup componentx
 function LoginSignup() {
-  const navigate = useNavigate()
-  const [tab, setTab] = useState('login')
-  const [form, setForm] = useState({ 
-    username: '', 
-    password: '', 
-    firstName: '', 
-    lastName: '', 
-    email: '', 
-    confirmPassword: '' 
-  })
+  
+  // Router navigation
+  const navigate = useNavigate();
+  
+  // Auth context
+  const {
+    user,
+    loading: authLoading,
+    emailVerified,
+    participant,
+    participantLoading,
+    refreshUser,
+  } = useAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (tab === 'login') navigate('/dashboard')
-    else console.log('Sign Up:', form)
-  }
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setForm({ ...form, [e.target.name]: e.target.value })
-  }
+  const [tab, setTab] = useState<Tab>("login");
+  const [loginForm, setLoginForm] = useState(initialLoginState);
+  const [signupForm, setSignupForm] = useState(initialSignupState);
+  const [error, setError] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [signupLoading, setSignupLoading] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
 
-  const isLoginValid = form.username && form.password
-  const isSignupValid = form.firstName && form.lastName && form.email && form.password && form.confirmPassword && form.password === form.confirmPassword
+  //verification panel if a user is signed in but not yet verified
+  const needsVerification = useMemo(
+    () => Boolean(user && !emailVerified),
+    [user, emailVerified],
+  );
+
+  /**
+   * Redirects authenticated & verified users away from this page
+   * If there’s a verified user but no participant doc → go to /registration
+   * If participant exists → go to the dashboard
+   */
+  useEffect(() => {
+    if (authLoading || participantLoading) return;
+    if (!user) return;
+    if (!emailVerified) return;
+    if (!participant) {
+      navigate("/registration", { replace: true });
+    } else {
+      navigate("/user/dashboard", { replace: true });
+    }
+  }, [authLoading, participantLoading, user, emailVerified, participant, navigate]);
+
+  useEffect(() => {
+    setError(null);
+  }, [tab]);
+
+  const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setLoginForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSignupChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setSignupForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (tab === "login") {
+      await handleLogin();
+    } else {
+      await handleSignup();
+    }
+  };
+
+  // Handles user login
+  const handleLogin = async () => {
+    setError(null);
+    setStatusMessage(null);
+    setLoginLoading(true);
+    try {
+      await loginWithEmailPassword(loginForm.email, loginForm.password);
+      // Reload user to get fresh emailVerified status
+      await refreshUser();
+    } catch (err) {
+      setError(friendlyAuthError(err));
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+
+  // Handles user signup
+  const handleSignup = async () => {
+    if (signupForm.password !== signupForm.confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    setError(null);
+    setStatusMessage(null);
+    setSignupLoading(true);
+    try {
+      await signupWithEmailPassword({
+        firstName: signupForm.firstName,
+        lastName: signupForm.lastName,
+        email: signupForm.email,
+        password: signupForm.password,
+      });
+      setStatusMessage(
+        "We sent a verification email. Please verify your address and then return here to continue.",
+      );
+      setTab("login");
+      setLoginForm((prev) => ({ ...prev, email: signupForm.email.trim(), password: "" }));
+      setSignupForm(initialSignupState);
+    } catch (err) {
+      setError(friendlyAuthError(err));
+    } finally {
+      setSignupLoading(false);
+    }
+  };
+
+  // Handles resending the verification email; needed if email gets lost
+  const handleResendVerification = async () => {
+    if (!user) return;
+    setError(null);
+    setResendLoading(true);
+    try {
+      await resendVerificationEmail(user);
+      setStatusMessage("Verification email re-sent. Please check your inbox.");
+    } catch (err) {
+      setError(friendlyAuthError(err));
+    } finally {
+      setResendLoading(false);
+    }
+  };
+
+  // Handles checking if the user has verified their email
+  const handleCheckVerification = async () => {
+    setError(null);
+    try {
+      await refreshUser();
+      // After refreshing, check if the email is verified
+      if (auth.currentUser?.emailVerified) {
+        setStatusMessage("Thanks! Redirecting you shortly.");
+      } else {
+        setStatusMessage("Still waiting for verification. Please try again after verifying.");
+      }
+    } catch (err) {
+      setError(friendlyAuthError(err));
+    }
+  };
+
+  const isLoginValid = Boolean(loginForm.email.trim() && loginForm.password);
+  const isSignupValid =
+    Boolean(
+      signupForm.firstName &&
+        signupForm.lastName &&
+        signupForm.email &&
+        signupForm.password &&
+        signupForm.confirmPassword,
+    ) && signupForm.password === signupForm.confirmPassword;
 
   return (
     <div className={styles.container}>
@@ -43,134 +197,187 @@ function LoginSignup() {
         <div className={styles.formCard}>
           <div className={styles.tabs}>
             <button
-              className={`${styles.tab} ${tab === 'login' ? styles.activeTab : ''}`}
-              onClick={() => setTab('login')}
+              className={`${styles.tab} ${tab === "login" ? styles.activeTab : ""}`}
+              onClick={() => setTab("login")}
+              type="button"
             >
               Log-In
             </button>
             <span className={styles.tabDivider}>|</span>
             <button
-              className={`${styles.tab} ${tab === 'signup' ? styles.activeTab : ''}`}
-              onClick={() => setTab('signup')}
+              className={`${styles.tab} ${tab === "signup" ? styles.activeTab : ""}`}
+              onClick={() => setTab("signup")}
+              type="button"
             >
               Sign Up
             </button>
           </div>
-          
+
           <form onSubmit={handleSubmit} className={styles.form}>
-            {tab === 'login' ? (
+            {tab === "login" ? (
               <>
                 <div className={styles.inputGroup}>
-                  <label htmlFor="username" className={styles.label}>Username</label>
+                  <label htmlFor="loginEmail" className={styles.label}>
+                    Email
+                  </label>
                   <input
-                    type="text"
-                    id="username"
-                    name="username"
+                    type="email"
+                    id="loginEmail"
+                    name="email"
                     className={styles.input}
-                    value={form.username}
-                    onChange={handleChange}
+                    value={loginForm.email}
+                    onChange={handleLoginChange}
+                    autoComplete="email"
+                    required
                   />
                 </div>
-                
+
                 <div className={styles.inputGroup}>
-                  <label htmlFor="password" className={styles.label}>Password</label>
+                  <label htmlFor="loginPassword" className={styles.label}>
+                    Password
+                  </label>
                   <input
                     type="password"
-                    id="password"
+                    id="loginPassword"
                     name="password"
                     className={styles.input}
-                    value={form.password}
-                    onChange={handleChange}
+                    value={loginForm.password}
+                    onChange={handleLoginChange}
+                    autoComplete="current-password"
+                    required
                   />
                 </div>
-                
+
                 <button
                   type="submit"
-                  className={`${styles.submitButton} ${!isLoginValid ? styles.disabled : ''}`}
-                  disabled={!isLoginValid}
+                  className={`${styles.submitButton} ${!isLoginValid || loginLoading ? styles.disabled : ""}`}
+                  disabled={!isLoginValid || loginLoading}
                 >
-                  Log-In
+                  {loginLoading ? "Logging In..." : "Log-In"}
                 </button>
               </>
             ) : (
               <>
                 <div className={styles.inputGroup}>
-                  <label htmlFor="firstName" className={styles.label}>First Name</label>
+                  <label htmlFor="firstName" className={styles.label}>
+                    First Name
+                  </label>
                   <input
                     type="text"
                     id="firstName"
                     name="firstName"
                     className={styles.input}
-                    value={form.firstName}
-                    onChange={handleChange}
+                    value={signupForm.firstName}
+                    onChange={handleSignupChange}
+                    required
                   />
                 </div>
-                
+
                 <div className={styles.inputGroup}>
-                  <label htmlFor="lastName" className={styles.label}>Last Name</label>
+                  <label htmlFor="lastName" className={styles.label}>
+                    Last Name
+                  </label>
                   <input
                     type="text"
                     id="lastName"
                     name="lastName"
                     className={styles.input}
-                    value={form.lastName}
-                    onChange={handleChange}
+                    value={signupForm.lastName}
+                    onChange={handleSignupChange}
+                    required
                   />
                 </div>
-                
+
                 <div className={styles.inputGroup}>
-                  <label htmlFor="email" className={styles.label}>Email</label>
+                  <label htmlFor="signupEmail" className={styles.label}>
+                    Email
+                  </label>
                   <input
                     type="email"
-                    id="email"
+                    id="signupEmail"
                     name="email"
                     className={styles.input}
-                    value={form.email}
-                    onChange={handleChange}
+                    value={signupForm.email}
+                    onChange={handleSignupChange}
+                    autoComplete="email"
+                    required
                   />
                 </div>
-                
+
                 <div className={styles.inputGroup}>
-                  <label htmlFor="signupPassword" className={styles.label}>Password</label>
+                  <label htmlFor="signupPassword" className={styles.label}>
+                    Password
+                  </label>
                   <input
                     type="password"
                     id="signupPassword"
                     name="password"
                     className={styles.input}
-                    value={form.password}
-                    onChange={handleChange}
+                    value={signupForm.password}
+                    onChange={handleSignupChange}
+                    autoComplete="new-password"
+                    required
                   />
                 </div>
-                
+
                 <div className={styles.inputGroup}>
-                  <label htmlFor="confirmPassword" className={styles.label}>Confirm Password</label>
+                  <label htmlFor="confirmPassword" className={styles.label}>
+                    Confirm Password
+                  </label>
                   <input
                     type="password"
                     id="confirmPassword"
                     name="confirmPassword"
                     className={styles.input}
-                    value={form.confirmPassword}
-                    onChange={handleChange}
+                    value={signupForm.confirmPassword}
+                    onChange={handleSignupChange}
+                    autoComplete="new-password"
+                    required
                   />
-                  {form.password && form.confirmPassword && form.password !== form.confirmPassword && (
-                    <div className={styles.error}>Passwords don't match</div>
-                  )}
+                  {signupForm.password &&
+                    signupForm.confirmPassword &&
+                    signupForm.password !== signupForm.confirmPassword && (
+                      <div className={styles.error}>Passwords don't match</div>
+                    )}
                 </div>
-                
+
                 <button
                   type="submit"
-                  className={`${styles.submitButton} ${!isSignupValid ? styles.disabled : ''}`}
-                  disabled={!isSignupValid}
+                  className={`${styles.submitButton} ${!isSignupValid || signupLoading ? styles.disabled : ""}`}
+                  disabled={!isSignupValid || signupLoading}
                 >
-                  Sign Up
+                  {signupLoading ? "Signing Up..." : "Sign Up"}
                 </button>
               </>
             )}
           </form>
+
+          {error && <div className={styles.errorBanner}>{error}</div>}
+
+          {statusMessage && <div className={styles.statusMessage}>{statusMessage}</div>}
+
+          {needsVerification && (
+            <div className={styles.verificationPanel}>
+              <p>Please verify your email before continuing. Check your inbox for the verification link.</p>
+              <div className={styles.verificationActions}>
+                <button
+                  type="button"
+                  onClick={handleResendVerification}
+                  className={styles.auxButton}
+                  disabled={resendLoading}
+                >
+                  {resendLoading ? "Sending..." : "Resend Email"}
+                </button>
+                <button type="button" onClick={handleCheckVerification} className={styles.auxButton}>
+                  I've Verified
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
-  )
+  );
 }
 
-export default LoginSignup
+export default LoginSignup;

@@ -13,7 +13,8 @@ type PersonAssignment = {
 
 const DAY_LABELS: DayKey[] = ['Sun', 'Mon', 'Tue', 'Wed', 'Thurs', 'Fri', 'Sat']
 
-const WEEK_LABELS = ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5']
+const WEEKS = 20
+
 
 //dummy data for admin schedules
 const ADMIN_WEEK_SCHEDULES: Record<DayKey, PersonAssignment[]>[] = [
@@ -84,9 +85,9 @@ const ADMIN_WEEK_SCHEDULES: Record<DayKey, PersonAssignment[]>[] = [
 ]
 
 const NAV_ITEMS = [
-    { label: 'Main', path: '/admin/main' },
+    { label: 'Main', path: '/admin/creator' },
     { label: 'Dashboard', path: '/admin/dashboard' },
-    { label: 'Profile', path: '/admin/profile' }
+    { label: 'Profile', path: '/profile' }
 ]
 
 export default function AdminDashboard () {
@@ -101,7 +102,7 @@ export default function AdminDashboard () {
             <div className={layoutStyles.surface}>
                 <section className={layoutStyles.selectorSection}>
                     <WeekSelector
-                        weeks={WEEK_LABELS}
+                        weeks={Array.from({ length: WEEKS }, (_, i) => `Week ${i + 1}`)}
                         selectedWeekIndex={selectedWeek}
                         onSelect={setSelectedWeek}
                     />
