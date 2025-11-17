@@ -205,3 +205,105 @@ input:-webkit-autofill:active {
   box-shadow: 0 0 0 30px white inset;
   transition: background-color 5000s ease-in-out 0s;
 }
+
+.checkboxGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  margin-top: 0.5rem;
+}
+
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  font-size: 24px;
+  color: white;
+  cursor: pointer;
+  margin-bottom: 0;
+}
+
+.checkboxLabel input[type="checkbox"] {
+  width: auto;
+  height: 1.2em;
+  width: 1.2em;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  border: 2px solid white;
+  border-radius: 4px;
+  background-color: transparent;
+  position: relative;
+  padding: 0;
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.checkboxLabel input[type="checkbox"]:checked {
+  background-color: #127BBE;
+  border-color: white;
+}
+
+.checkboxLabel input[type="checkbox"]:checked::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 1em;
+  font-weight: bold;
+}
+
+.sliderContainer {
+  margin-top: 0.5rem;
+  width: 100%;
+  max-width: 500px;
+}
+
+.slider {
+  width: 100%;
+  height: 8px;
+  border-radius: 5px;
+  background: white;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  margin: 1rem 0;
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #127BBE;
+  cursor: pointer;
+  border: 2px solid white;
+}
+
+.slider::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #127BBE;
+  cursor: pointer;
+  border: 2px solid white;
+}
+
+.sliderLabels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 18px;
+  color: white;
+  margin-top: 0.5rem;
+}
+
+.sliderValue {
+  font-size: 20px;
+  color: white;
+  margin-top: 0.5rem;
+  font-weight: 500;
+}
