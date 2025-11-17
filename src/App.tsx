@@ -23,30 +23,30 @@ function RouteLoader() {
 }
 
 function RegistrationGate() {
-  // const { user, loading, emailVerified, participant, participantLoading } =
-  //   useAuth();
-  // const location = useLocation();
-  // const role = (participant as { role?: string | null } | null)?.role ?? null;
+  const { user, loading, emailVerified, participant, participantLoading } =
+    useAuth();
+  const location = useLocation();
+  const role = (participant as { role?: string | null } | null)?.role ?? null;
 
-  // if (loading || participantLoading) {
-  //   return <RouteLoader />;
-  // }
+  if (loading || participantLoading) {
+    return <RouteLoader />;
+  }
 
-  // if (!user) {
-  //   return <Navigate to="/" replace state={{ from: location }} />;
-  // }
+  if (!user) {
+    return <Navigate to="/" replace state={{ from: location }} />;
+  }
 
-  // if (!emailVerified) {
-  //   return <Navigate to="/" replace />;
-  // }
+  if (!emailVerified) {
+    return <Navigate to="/" replace />;
+  }
 
-  // if (role && isAdminRole(role)) {
-  //   return <Navigate to="/admin/" replace />;
-  // }
+  if (role && isAdminRole(role)) {
+    return <Navigate to="/admin/" replace />;
+  }
 
-  // if (participant && (participant as { type?: string }).type === "Participant") {
-  //   return <Navigate to="/user/dashboard" replace />;
-  // }
+  if (participant && (participant as { type?: string }).type === "Participant") {
+    return <Navigate to="/user/dashboard" replace />;
+  }
 
   return <Registration />;
 }
