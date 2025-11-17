@@ -77,16 +77,16 @@ const Registration = () => {
   }, [user?.email]);
 
   // unverified users out, and if the profile already exists, skips registration
-  useEffect(() => {
-    if (authLoading || participantLoading) return;
-    if (!user || !emailVerified) {
-      navigate("/", { replace: true });
-      return;
-    }
-    if (participant && (participant as { type?: string }).type === "Participant") {
-      navigate("/user/dashboard", { replace: true });
-    }
-  }, [authLoading, participantLoading, user, emailVerified, participant, navigate]);
+  // useEffect(() => {
+  //   if (authLoading || participantLoading) return;
+  //   if (!user || !emailVerified) {
+  //     navigate("/", { replace: true });
+  //     return;
+  //   }
+  //   if (participant && (participant as { type?: string }).type === "Participant") {
+  //     navigate("/user/dashboard", { replace: true });
+  //   }
+  // }, [authLoading, participantLoading, user, emailVerified, participant, navigate]);
 
   // Handles changes to form inputs
   const handleInputChange = (
@@ -222,7 +222,7 @@ const Registration = () => {
         <div id={styles.addr_container}>
           <div id={styles.addr_street}>
             <label className={styles.sublabel}>
-              <span className={styles.label}>Address</span>
+              <span className={styles.label}>Current Mailing Address</span>
               <input
                 type="text"
                 name="addressLine1"
