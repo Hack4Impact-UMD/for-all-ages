@@ -33,8 +33,8 @@ export interface Match {
 }
 
 export interface Week {
-    week: {match_id: number, week: number}
-    calls: {participant_id: {match_id: number , duration: number, concerns: string}}[]
+    week: number
+    calls: {match_id: {duration: number, concerns: string}}[]
 }
 
 
