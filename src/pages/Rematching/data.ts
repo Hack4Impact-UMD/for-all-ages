@@ -5,7 +5,7 @@ import type { RematchingParticipant, ApprovedMatch } from "./Rematching";
  */
 export const INITIAL_STUDENTS: RematchingParticipant[] = [
   {
-    id: "s1",
+    id: "S1",
     name: "Alice Johnson",
     type: "student",
     interests: ["Reading", "Music", "Art", "Photography"],
@@ -17,7 +17,7 @@ export const INITIAL_STUDENTS: RematchingParticipant[] = [
     pronouns: "",
   },
   {
-    id: "s2",
+    id: "S2",
     name: "Bob Smith",
     type: "student",
     interests: ["Sports", "Cooking", "Music"],
@@ -29,7 +29,7 @@ export const INITIAL_STUDENTS: RematchingParticipant[] = [
     pronouns: "",
   },
   {
-    id: "s3",
+    id: "S3",
     name: "Charlie Brown",
     type: "student",
     interests: ["Art", "Reading", "Writing", "History"],
@@ -41,7 +41,7 @@ export const INITIAL_STUDENTS: RematchingParticipant[] = [
     pronouns: "",
   },
   {
-    id: "s4",
+    id: "S4",
     name: "Diana Prince",
     type: "student",
     interests: ["Music", "Dancing", "Photography"],
@@ -53,7 +53,7 @@ export const INITIAL_STUDENTS: RematchingParticipant[] = [
     pronouns: "",
   },
   {
-    id: "s5",
+    id: "S5",
     name: "Eve Wilson",
     type: "student",
     interests: ["Cooking", "Sports", "Travel"],
@@ -65,7 +65,7 @@ export const INITIAL_STUDENTS: RematchingParticipant[] = [
     pronouns: "",
   },
   {
-    id: "s6",
+    id: "S6",
     name: "Frank Miller",
     type: "student",
     interests: ["Reading", "Writing", "History"],
@@ -79,13 +79,13 @@ export const INITIAL_STUDENTS: RematchingParticipant[] = [
 ];
 
 /**
- * Initial dummy data for adults pending matches.
+ * Initial dummy data for seniors pending matches.
  */
-export const INITIAL_ADULTS: RematchingParticipant[] = [
+export const INITIAL_SENIORS: RematchingParticipant[] = [
   {
-    id: "a1",
+    id: "T1",
     name: "Grace Lee",
-    type: "adult",
+    type: "senior",
     interests: ["Reading", "Music", "Art", "Photography", "Writing"],
     address: "",
     phone_number: "",
@@ -94,9 +94,9 @@ export const INITIAL_ADULTS: RematchingParticipant[] = [
     pronouns: "",
   },
   {
-    id: "a2",
+    id: "T2",
     name: "Henry Davis",
-    type: "adult",
+    type: "senior",
     interests: ["Sports", "Cooking", "Music", "Travel"],
     address: "",
     phone_number: "",
@@ -105,9 +105,9 @@ export const INITIAL_ADULTS: RematchingParticipant[] = [
     pronouns: "",
   },
   {
-    id: "a3",
+    id: "T3",
     name: "Ivy Chen",
-    type: "adult",
+    type: "senior",
     interests: ["Art", "Photography", "Reading"],
     address: "",
     phone_number: "",
@@ -116,9 +116,9 @@ export const INITIAL_ADULTS: RematchingParticipant[] = [
     pronouns: "",
   },
   {
-    id: "a4",
+    id: "T4",
     name: "Jack Taylor",
-    type: "adult",
+    type: "senior",
     interests: ["Music", "Writing", "History"],
     address: "",
     phone_number: "",
@@ -127,9 +127,9 @@ export const INITIAL_ADULTS: RematchingParticipant[] = [
     pronouns: "",
   },
   {
-    id: "a5",
+    id: "T5",
     name: "Karen White",
-    type: "adult",
+    type: "senior",
     interests: ["Cooking", "Travel", "Photography"],
     address: "",
     phone_number: "",
@@ -138,9 +138,9 @@ export const INITIAL_ADULTS: RematchingParticipant[] = [
     pronouns: "",
   },
   {
-    id: "a6",
+    id: "T6",
     name: "Leo Martinez",
-    type: "adult",
+    type: "senior",
     interests: ["Sports", "Reading", "Music"],
     address: "",
     phone_number: "",
@@ -154,7 +154,7 @@ export const INITIAL_ADULTS: RematchingParticipant[] = [
  * Initial approved matches count.
  */
 export const INITIAL_APPROVED_MATCHES: ApprovedMatch[] = [
-  { studentId: "s7", adultId: "a7" },
-  { studentId: "s8", adultId: "a8" },
+  { studentId: "s7", seniorId: "T7" },
+  { studentId: "s8", seniorId: "T8" },
 ];
 
