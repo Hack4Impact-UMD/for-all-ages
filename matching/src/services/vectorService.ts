@@ -117,14 +117,15 @@ export async function upsertEmbeddings(
     
     const vectors = batch.map((participant, idx) => {
       const metadata: Record<string, string | number> = {
-        name: participant.name,
+        // name: participant.name,
         type: participant.type,
+        // participant_id: participant.participantId,
       };
       
-      // Add new format fields
-      if (participant.freeResponse) {
-        metadata.free_response = participant.freeResponse.substring(0, 200);
-      }
+      // // Add new format fields
+      // if (participant.freeResponse) {
+      //   metadata.free_response = participant.freeResponse.substring(0, 200);
+      // }
       if (participant.q1 !== undefined) {
         metadata.q1 = participant.q1;
       }
@@ -134,9 +135,9 @@ export async function upsertEmbeddings(
       if (participant.q3 !== undefined) {
         metadata.q3 = participant.q3;
       }
-      if (participant.idealMatch) {
-        metadata.ideal_match = participant.idealMatch;
-      }
+      // if (participant.idealMatch) {
+      //   metadata.ideal_match = participant.idealMatch;
+      // }
       
       // Add legacy format fields (for backward compatibility)
       if (participant.email) {
@@ -149,7 +150,7 @@ export async function upsertEmbeddings(
       return {
         id: participant.participantId,
         values: batchEmbeddings[idx],
-        metadata,
+        metadata: metadata,
       };
     });
     
@@ -190,4 +191,3 @@ export async function checkIndexStatus(): Promise<{
     throw error;
   }
 }
-
