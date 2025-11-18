@@ -5,6 +5,7 @@ import { hungarianMatching, getUnmatchedParticipants } from '../algorithms/hunga
 import { enrichMatches, calculateStatistics } from './postProcessing.js';
 import type { MatchingConfig, MatchingResult } from '../types/matching.types.js';
 import { DEFAULT_MATCHING_CONFIG } from '../types/matching.types.js';
+import { fetchParticipantsByIds } from './participantRetrieval.js';
 
 export class MatchingService {
   private config: MatchingConfig;
@@ -124,4 +125,48 @@ export class MatchingService {
 export async function runMatching(config?: Partial<MatchingConfig>): Promise<MatchingResult> {
   const service = new MatchingService(config);
   return await service.runMatching();
+}
+
+/**
+ * Compute the same confidence score used by the matching algorithm for a single pair.
+ * Looks up embeddings by participant IDs and returns the cosine similarity.
+ */
+export async function getPairConfidenceScore(
+  participantIdA: string,
+  participantIdB: string,
+  config?: Partial<MatchingConfig>
+): Promise<number> {
+  if (!participantIdA || !participantIdB) {
+    throw new Error('Both participantIdA and participantIdB are required');
+  }
+
+  const service = new MatchingService(config);
+  const configSet = service.getConfig();
+
+  const [dataA, dataB] = await Promise.all([
+    fetchParticipantsByIds([participantIdA]),
+    fetchParticipantsByIds([participantIdB])
+  ]);
+  console.log('[getPairConfidenceScore] Fetched embeddings and data for participants');
+    console.log('[getPairConfidenceScore] All fetches complete');
+  console.log('[getPairConfidenceScore] dataA:', dataA?.length, dataA?.[0] ? { id: dataA[0].id } : null);
+  console.log('[getPairConfidenceScore] dataB:', dataB?.length, dataB?.[0] ? { id: dataB[0].id } : null);
+
+
+  if (!Array.isArray(dataA) || !dataA) throw new Error(`Participant data not found for ${participantIdA}`);
+  if (!Array.isArray(dataB) || !dataB) throw new Error(`Participant data not found for ${participantIdB}`);
+
+
+
+  // Validate required quant fields
+  const a = dataA[0];
+  const b = dataB[0];
+
+  const score = calculateAllPairwiseScores([a], [b], configSet);
+
+  if (!score || score.length === 0) {
+    throw new Error(`Failed to calculate score for pair ${participantIdA}-${participantIdB}`);
+  }
+
+  return score[0].finalScore;
 }
