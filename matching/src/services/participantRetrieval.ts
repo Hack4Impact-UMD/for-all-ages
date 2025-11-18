@@ -110,21 +110,20 @@ export async function fetchParticipantsByIds(
 ): Promise<ParticipantWithEmbedding[]> {
   logger.info(`Fetching ${ids.length} specific participants...`);
   
-  const client = getPineconeClient();
-  const indexName = getIndexName();
-  const index = client.index(indexName);
-  
   try {
+    const client = getPineconeClient();
+    const indexName = getIndexName();   
+    const index = client.index(indexName);
     const participants: ParticipantWithEmbedding[] = [];
     
     // Fetch in batches (Pinecone limit is typically 1000 per request)
     const batchSize = 1000;
     for (let i = 0; i < ids.length; i += batchSize) {
-      const batchIds = ids.slice(i, i + batchSize);
+      const batchIds = ids.slice(i, i + batchSize);      
+      const fetchResult = await index.fetch(batchIds);      
+      const records = (fetchResult as any).records ?? (fetchResult as any).vectors ?? {};
       
-      const fetchResult = await index.fetch(batchIds);
-      
-      for (const [id, record] of Object.entries(fetchResult.records)) {
+      for (const [id, record] of Object.entries(records)) {
         try {
           const participant = parseParticipantFromRecord(id, record);
           participants.push(participant);
@@ -142,6 +141,7 @@ export async function fetchParticipantsByIds(
     throw error;
   }
 }
+
 
 /**
  * Parse participant data from Pinecone query match
@@ -177,6 +177,7 @@ function parseParticipantFromRecord(id: string, record: any): ParticipantWithEmb
     q2: metadata.q2 !== undefined ? Number(metadata.q2) : undefined,
     q3: metadata.q3 !== undefined ? Number(metadata.q3) : undefined,
     idealMatch: metadata.ideal_match,
+    interests: metadata.interests || [],
     metadata: metadata,
   };
 }
