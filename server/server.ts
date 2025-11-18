@@ -2,6 +2,7 @@ import express from 'express';
 import 'dotenv/config';
 import { getPairConfidenceScore } from '../matching/src/services/matchingService.ts';
 import { fetchParticipantsByIds } from '../matching/src/services/participantRetrieval.ts';
+import { logger } from '../matching/src/utils/logger.ts';
 
 
 const app = express();
@@ -12,7 +13,7 @@ app.use(express.json());
 app.get('/api/confidence-score', async (req, res) => {
   const participantIdAParam = String(req.query.participantIdA);
   const participantIdBParam = String(req.query.participantIdB);
-  console.log('[API] /api/confidence-score', { participantIdAParam, participantIdBParam });
+  logger.info('GET /api/confidence-score', { participantIdAParam, participantIdBParam });
 
   if (typeof participantIdAParam !== 'string' || typeof participantIdBParam !== 'string') {
     return res.status(400).json({ error: 'Invalid participant IDs' });
@@ -31,16 +32,13 @@ app.get('/api/confidence-score', async (req, res) => {
 });
 
 app.get('/api/low-similarity-matches', async (req, res) => {
-  console.log('[API] GET /api/low-similarity-matches', req.query);
+  logger.info('GET /api/low-similarity-matches', req.query);
 
     try {
     const similarityThreshold = Number(req.query.threshold) || 0.8;
     const matchesCollection = String(req.query.collection) || 'matches';
 
-    console.log(`[API] Threshold: ${similarityThreshold}, Collection: ${matchesCollection}`);
-
     const { default: db } = await import('../matching/src/config/firebaseAdmin.ts');
-    console.log('[API] Firebase imported');
 
     const firestoreDb = db.firestore();
 
@@ -48,8 +46,6 @@ app.get('/api/low-similarity-matches', async (req, res) => {
     const snapshot = await firestoreDb
       .collection(matchesCollection)
       .get();
-
-    console.log(`[API] Fetched ${snapshot.docs.length} total matches`);
 
     const lowSimilarityMatches = snapshot.docs
       .map((doc) => {
@@ -64,7 +60,7 @@ app.get('/api/low-similarity-matches', async (req, res) => {
       })
       .filter(match => match.similarity < similarityThreshold);
 
-    console.log(`[API] Filtered to ${lowSimilarityMatches.length} low similarity matches`);
+    logger.info('GET /api/low-similarity-matches', { message: `Filtered to ${lowSimilarityMatches.length} low similarity matches` });
 
     const participantIdsNeedingRematch = new Set<string>();
     lowSimilarityMatches.forEach((match) => {
@@ -80,7 +76,7 @@ app.get('/api/low-similarity-matches', async (req, res) => {
       participantIds: Array.from(participantIdsNeedingRematch),
     });
   } catch (error) {
-    console.error('[API] Low similarity matches error:', error);
+    logger.error('GET /api/low-similarity-matches', { error });
     const message = error instanceof Error ? error.message : String(error);
     res.status(500).json({
       error: 'Failed to fetch low similarity matches',
@@ -98,7 +94,6 @@ app.post('/api/participants', async (req, res) => {
 
     // Clean IDs
     const cleanIds = ids.map((id: string) => id.trim());
-    console.log('[API] Fetching participants:', cleanIds);
 
     // Get participants from Pinecone (includes type and metadata)
     const participants = await fetchParticipantsByIds(cleanIds);
@@ -109,10 +104,10 @@ app.post('/api/participants', async (req, res) => {
       name: `${p.type === 'student' ? 'Student' : 'Senior'} ${idx + 1}`,
     }));
 
-    console.log('[API] Returning participants:', participantsWithDummyNames);
+    logger.info('POST /api/participants', { message: 'Returning participants', data: participantsWithDummyNames });
     res.json(participantsWithDummyNames);
   } catch (error) {
-    console.error('[API] Error fetching participants:', error);
+    logger.error('POST /api/participants', { error });
     const message = error instanceof Error ? error.message : String(error);
     res.status(500).json({ error: message });
   }
