@@ -1,12 +1,13 @@
 export interface ParticipantWithEmbedding {
   id: string;
-  name: string;
-  type: 'young' | 'older' | string;
+  name?: string;
+  type: 'student' | 'senior' | string;
   embedding: number[];
   q1?: number;
   q2?: number;
   q3?: number;
   idealMatch?: string;
+  interests?: string;
   metadata?: Record<string, unknown>;
 }
 

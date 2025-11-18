@@ -10,7 +10,7 @@ interface SelectedParticipantCardProps {
   label: string;
   participant: RematchingParticipant | null;
   onDeselect: () => void;
-  type: "student" | "adult";
+  type: "student" | "senior";
 }
 
 export default function SelectedParticipantCard({

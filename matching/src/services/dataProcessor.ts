@@ -87,7 +87,7 @@ function transformSimplifiedToParticipantData(row: SimplifiedRow): ParticipantDa
  * Transform JotForm row data to ParticipantData structure (legacy)
  */
 function transformJotFormToParticipantData(row: JotFormRow, rowIndex: number): ParticipantData {
-  const type = row['Young or Older'] === 'Y' ? 'young' : 'older';
+  const type = row['Young or Older'] === 'Y' ? 'student' : 'senior';
   
   const participantId = row['E-mail'] 
     ? `participant_${row['E-mail'].replace(/[@.]/g, '_')}` 

@@ -34,7 +34,7 @@ export function createParticipantProfileText(participant: ParticipantData): stri
     parts.push(`Tea Preference: ${participant.teaPreference.trim()}`);
   }
 
-  if (participant.type === 'young' && participant.college) {
+  if (participant.type === 'student' && participant.college) {
     parts.push(`College: ${participant.college.trim()}`);
   }
 
