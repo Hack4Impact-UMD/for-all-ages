@@ -13,14 +13,22 @@ npm run dev
 
 You should get a localhost link that can be pasted into your browser to display the app.
 
-### Pinecone Setup (Frontend)
+### Frontend Environment Setup
 
-To upsert new participants to Pinecone when they register, create a `.env` (or `.env.local`) file in the project root with:
+Create a `.env` (or `.env.local`) file in the project root with:
 
-```
-VITE_PINECONE_API_KEY=your_pinecone_api_key
-VITE_PINECONE_INDEX_HOST=https://your-index-host.svc.YOUR-REGION.pinecone.io
-VITE_PINECONE_EMBEDDING_MODEL=llama-text-embed-v2
+```env
+VITE_API_URL=http://localhost:3001
 ```
 
-> **Note:** Supplying the API key in frontend code exposes it to end users. Only follow this approach if your team is comfortable with that trade-off.
+`VITE_PINECONE_*` environment variables, you can remove them.
+
+### Running with Backend
+
+For full functionality (including new user registration with Pinecone), you'll need to run the backend matching service:
+
+1. In a separate terminal, navigate to the `matching` folder and follow its setup instructions
+2. Start the backend server (it will run on port 3001)
+3. Then start the frontend with `npm run dev`
+
+See the `matching` folder README for backend setup instructions.

@@ -8,6 +8,8 @@
     "build": "tsc",
     "build:clean": "rm -rf dist/ && tsc",
     "start": "node dist/index.js",
+    "server": "node dist/server.js",
+    "server:dev": "tsc && node dist/server.js",
     "ingest": "node dist/index.js",
     "match": "node dist/scripts/runMatching.js",
     "verify": "node dist/scripts/verifySetup.js",
@@ -17,12 +19,16 @@
   },
   "dependencies": {
     "@pinecone-database/pinecone": "^4.0.1",
+    "cors": "^2.8.5",
     "dotenv": "^16.4.5",
+    "express": "^4.18.2",
     "munkres-js": "^1.2.2",
     "xlsx": "^0.18.5",
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
     "@types/node": "^20.14.12",
     "typescript": "~5.8.3"
   }

@@ -7,8 +7,18 @@ AI-based matching service for pairing participants based on semantic similarity 
 This service takes participant data from Excel files, converts their free-response text into AI embeddings (vector representations), and stores them in a vector database along with numeric preference scores. This enables both semantic similarity matching and preference-based filtering for the Tea @ 3 program.
 
 ### Supported Excel Formats
+
 - **New Simplified Format**: `id`, `type`, `name`, `free-response`, `Q1`, `Q2`, `Q3`, `ideal_match`
 - **Legacy JotForm Format**: Full JotForm Excel exports (auto-detected)
+
+## Two Modes of Operation
+
+This service operates in two modes:
+
+1. **Batch Processing Mode** (CLI): Process Excel files with participant data for matching
+2. **API Server Mode**: Real-time API for handling new user registrations from the frontend
+
+Most users will need **both modes**: the API server for live registrations and the CLI tools for batch matching.
 
 ## Complete Setup Guide (Local Machine)
 
@@ -32,24 +42,29 @@ You'll need a Pinecone API key:
 ### Step 2: Install Dependencies
 
 1. Navigate to the matching folder:
+
 ```bash
 cd for-all-ages/matching
 ```
 
 2. Install all required packages:
+
 ```bash
 npm install
 ```
 
 This installs:
+
 - TypeScript compiler
 - Excel file parser (xlsx)
 - Pinecone vector database client
+- Express web server (for API mode)
 - Other dependencies
 
 ### Step 3: Configure Environment Variables
 
 1. Create a `.env` file in the `matching` folder:
+
 ```bash
 # On Mac/Linux:
 touch .env
@@ -57,29 +72,75 @@ touch .env
 # Or use any text editor to create .env file
 ```
 
-2. Open the `.env` file and add your API key:
+2. Open the `.env` file and add your configuration:
+
 ```env
 # Pinecone Configuration
 PINECONE_API_KEY=your_pinecone_api_key_here
 PINECONE_INDEX_NAME=tea-mate-matching
 PINECONE_ENVIRONMENT=us-east-1
+PINECONE_INDEX_HOST=https://your-index-host.svc.YOUR-REGION.pinecone.io
+PINECONE_EMBEDDING_MODEL=multilingual-e5-large
+
+# API Server Configuration (for live registrations)
+PORT=3001
+FRONTEND_URL=http://localhost:5173
+NODE_ENV=development
 
 # Optional: Logging level (debug, info, warn, error)
 LOG_LEVEL=info
 ```
 
-**Replace the placeholder value** with your actual Pinecone API key from Step 1.
+**Replace the placeholder values** with your actual Pinecone credentials:
+
+- `PINECONE_API_KEY`: Your API key from Step 1
+- `PINECONE_INDEX_HOST`: Get this from your Pinecone dashboard (under your index details)
 
 **Note**: The `PINECONE_ENVIRONMENT` should just be the region name (e.g., `us-east-1`), not `us-east-1-aws`.
 
 ### Step 4: Build the Project
 
 Compile TypeScript code to JavaScript:
+
 ```bash
 npm run build
 ```
 
 You should see no errors. If successful, you'll see a `dist/` folder with compiled JavaScript files.
+
+### Step 5: Run API Server (for Live Registrations)
+
+To handle real-time registrations from the frontend application:
+
+```bash
+npm run server
+```
+
+The API server will start on port 3001 (or the port specified in your `.env`).
+
+**Expected Output**:
+
+```
+[INFO] Matching API server running on port 3001
+[INFO] Environment: development
+```
+
+**Available Endpoints**:
+
+- `GET /health` - Health check endpoint
+- `POST /api/participants/upsert-vector` - Upsert a new participant's embedding
+
+**Usage**: When a user registers on the frontend, their interests/free-response text is automatically sent to this API, which generates an embedding and stores it in Pinecone with their Firebase UID as the key.
+
+**Testing the API**:
+
+```bash
+curl -X POST http://localhost:3001/api/participants/upsert-vector \
+  -H "Content-Type: application/json" \
+  -d '{"uid":"test-user-123","freeResponse":"I love hiking and reading books"}'
+```
+
+**Note**: Keep this server running while users are registering. For batch processing and matching, you can stop the server and use the CLI commands instead.
 
 ### Step 6: Verify Everything Works
 
@@ -90,12 +151,14 @@ npm run verify
 ```
 
 This will:
+
 - ✅ Check if environment variables are set
 - ✅ Test Pinecone Inference API connection and generate a test embedding
 - ✅ Test Pinecone connection and check/create the index
 - ✅ Report any issues
 
 **Expected Output** (if everything works):
+
 ```
 ========================================
 Tea @ 3 Matching Service - Setup Verification
@@ -122,10 +185,11 @@ Pinecone DB:    ✅ PASS
 ```
 
 If you see errors:
+
 - **Embeddings API FAIL**: Check your `PINECONE_API_KEY` is correct and has access to the Inference API
 - **Pinecone FAIL**: Check your `PINECONE_API_KEY` and region settings
 
-### Step 7: Run Data Ingestion
+### Step 7: Run Data Ingestion (Batch Processing)
 
 Once verification passes, you can process your Excel file:
 
@@ -134,11 +198,13 @@ npm run ingest -- --file data/tea3_sample_v2.xlsx
 ```
 
 Or if your file is in a different location:
+
 ```bash
 npm run ingest -- --file "path/to/your/file.xlsx"
 ```
 
 **What happens**:
+
 1. Auto-detects Excel format (simplified or legacy JotForm)
 2. Reads your Excel file and extracts participant data
 3. Uses IDs from Excel file directly (no auto-generation)
@@ -149,11 +215,13 @@ npm run ingest -- --file "path/to/your/file.xlsx"
 ### Step 8: Clear Database (Optional)
 
 To delete all stored vectors and start fresh:
+
 ```bash
 npm run delete-all
 ```
 
 **Expected Output**:
+
 ```
 === Starting Data Ingestion Pipeline ===
 Step 1: Validating file path...
@@ -225,26 +293,52 @@ Step 7: Verification
     → Reports total vectors stored
     ↓
 Complete! Data ready for semantic and numeric matching
+```
+
+### API Server Pipeline (Live Registrations)
+
+```
+Frontend Registration Form
+    ↓
+POST /api/participants/upsert-vector
+    → Receives: { uid: "firebase-uid", freeResponse: "user interests..." }
+    ↓
+Step 1: Validation (server.ts)
+    → Validates uid and freeResponse
+    ↓
+Step 2: Embedding Generation
+    → Uses Pinecone SDK inference.embed() method
+    → Generates embedding from freeResponse text
+    ↓
+Step 3: Vector Storage (vectorService.ts)
+    → Creates ParticipantData with Firebase UID as ID
+    → Upserts to Pinecone with metadata
+    ↓
+Step 4: Response
+    → Returns success confirmation to frontend
+    ↓
+Complete! New user's profile ready for matching
+```
 
 ### Matching Pipeline (After Ingestion)
 
 ```
 Pinecone (embeddings + Q1/Q2/Q3)
     ↓
-1) Retrieve participants (students vs seniors)
+1. Retrieve participants (students vs seniors)
     ↓
-2) Score all pairs (student × senior)
+2. Score all pairs (student × senior)
    - FRQ similarity = cosine(embeddings) ∈ [0,1]
    - Quant similarity = 1 − SSD(Q1..Q3)/maxSSD ∈ [0,1]
    - Final = frqWeight × FRQ + quantWeight × Quant (defaults 0.7/0.3)
     ↓
-3) Match with Hungarian algorithm (optimal assignment)
+3. Match with Hungarian algorithm (optimal assignment)
     ↓
-4) Post‑process results
+4. Post‑process results
    - Confidence labels (high/medium/low)
    - Stats (avg, min, max, std dev)
     ↓
-5) Export results (CSV, JSON, summary)
+5. Export results (CSV, JSON, summary)
 ```
 
 #### Scoring & Matching Details (with example)
@@ -254,6 +348,7 @@ Pinecone (embeddings + Q1/Q2/Q3)
 - Final score: `final = frqWeight × FRQ + quantWeight × Quant`
 
 Example:
+
 - FRQ = 0.76, Quant = 0.90, Weights = 0.7 / 0.3
 - Final = 0.7×0.76 + 0.3×0.90 = 0.532 + 0.27 = 0.802 → high confidence (> 0.8)
 
@@ -268,11 +363,17 @@ npm run build
 # Verify environment and Pinecone connectivity
 npm run verify
 
-# Ingest your Excel file
+# Run API server (for live registrations from frontend)
+npm run server
+
+# Ingest your Excel file (for batch processing)
 npm run ingest -- --file data/Tea3_sample_v3.xlsx
 
 # Run matching (Hungarian algorithm)
 npm run match
+
+# Delete all vectors (start fresh)
+npm run delete-all
 ```
 
 ### Tweaking Weights (FRQ vs Q1–Q3)
@@ -280,15 +381,19 @@ npm run match
 The final score is `final = frqWeight × FRQ + quantWeight × Quant` with defaults `0.7/0.3`.
 
 - Emphasize Q1–Q3 more (often yields more high‑confidence matches if Quant similarity is strong):
-  ```bash
+
+```bash
   npm run match -- --frq-weight 0.3 --quant-weight 0.7
-  ```
+```
+
 - Balanced influence:
-  ```bash
+
+```bash
   npm run match -- --frq-weight 0.5 --quant-weight 0.5
-  ```
+```
 
 Notes:
+
 - Weights must sum to 1.0.
 - Confidence levels: High (>0.8), Medium (0.6–0.8), Low (≤0.6).
 - If many matches are Medium, try increasing `quantWeight` or enriching free‑response text.
@@ -296,12 +401,14 @@ Notes:
 ### Key Components Explained
 
 #### 1. **dataProcessor.ts** - Excel File Parser
+
 - Uses `xlsx` library to read Excel files
 - Auto-detects format (simplified vs JotForm)
 - Validates data with Zod schemas
 - Transforms raw data into structured `ParticipantData` objects
 
 **New Simplified Format Fields**:
+
 - `id`: Participant ID (used directly)
 - `type`: Participant type (student/teacher/etc.)
 - `name`: Full name
@@ -312,17 +419,20 @@ Notes:
 **Legacy JotForm Fields**: Still supported for backward compatibility
 
 #### 2. **textProcessor.ts** - Profile Text Creator
+
 - Uses `free-response` field for new format
 - Combines interests/motivation for legacy format
 - Creates unified profile string for embedding generation
 
 **Example Output (New Format)**:
+
 ```
 Profile:
 About: Hikes most weekends. Boba hunts. Sci fi. Board games. Friendly, flexible schedule.
 ```
 
 #### 3. **embeddingService.ts** - AI Embedding Generator
+
 - Uses Pinecone SDK's `inference.embed()` method
 - Uses `llama-text-embed-v2` model (1024 dimensions)
 - Sends participant profile text
@@ -334,6 +444,7 @@ About: Hikes most weekends. Boba hunts. Sci fi. Board games. Friendly, flexible 
 Embeddings convert text into numerical vectors that capture meaning. Similar profiles produce similar vectors, enabling semantic similarity matching.
 
 #### 4. **vectorService.ts** - Pinecone Database Manager
+
 - Manages connection to Pinecone vector database
 - Creates index with specifications:
   - **Dimensions**: 1024 (matches llama-text-embed-v2 embeddings)
@@ -343,25 +454,41 @@ Embeddings convert text into numerical vectors that capture meaning. Similar pro
 - Stores both semantic vectors and numeric preferences
 
 **Stored Metadata**:
+
 ```javascript
 {
   name: "Participant Name",
   type: "student",
   free_response: "Hikes most weekends...", // First 200 chars
   q1: 3,    // Numeric preference
-  q2: 8,    // Numeric preference  
+  q2: 8,    // Numeric preference
   q3: 9,    // Numeric preference
   ideal_match: "S1"
 }
 ```
 
-#### 5. **verifySetup.ts** - Setup Verification
+#### 5. **server.ts** - API Server (Live Registrations)
+
+- Express web server for handling real-time registrations
+- Exposes REST API endpoint for frontend integration
+- Generates embeddings using Pinecone SDK
+- Stores vectors with Firebase UID as the key
+- Handles authentication and validation
+
+**API Endpoints**:
+
+- `POST /api/participants/upsert-vector`: Create/update participant embedding
+- `GET /health`: Server health check
+
+#### 6. **verifySetup.ts** - Setup Verification
+
 - Tests Pinecone SDK connection and embedding generation
 - Tests Pinecone database access and index status
 - Reports detailed status of each component
 - Helps identify configuration issues early
 
-#### 6. **deleteAllVectors.ts** - Database Cleanup
+#### 7. **deleteAllVectors.ts** - Database Cleanup
+
 - Deletes all vectors from the Pinecone index
 - Shows before/after statistics
 - Useful for testing and data refresh
@@ -371,10 +498,12 @@ Embeddings convert text into numerical vectors that capture meaning. Similar pro
 For each participant, we store:
 
 **Vector (Embedding)**:
+
 - 1024 numbers representing the semantic meaning of their profile
 - Used for similarity calculations
 
 **Metadata**:
+
 - `name`: Participant's full name
 - `type`: Participant type (student/teacher/etc.)
 - `free_response`: First 200 characters of free-response text
@@ -382,7 +511,9 @@ For each participant, we store:
 - `ideal_match`: Preferred match ID
 
 **ID**:
-- Uses exact ID from Excel file (e.g., "T1", "S1")
+
+- Uses exact ID from Excel file (e.g., "T1", "S1") for batch processing
+- Uses Firebase UID for live registrations from frontend
 
 ## Project Structure
 
@@ -390,6 +521,7 @@ For each participant, we store:
 matching/
 ├── src/
 │   ├── index.ts                 # Main CLI entry point
+│   ├── server.ts                # API server for live registrations
 │   ├── config/
 │   │   └── pinecone.config.ts   # Pinecone client setup
 │   ├── services/
@@ -422,11 +554,20 @@ npm run build
 # Clean build (no cache)
 npm run build:clean
 
+# Run API server for live registrations
+npm run server
+
+# Run API server in dev mode (rebuild + start)
+npm run server:dev
+
 # Verify setup (test API keys and connections)
 npm run verify
 
-# Run data ingestion
+# Run data ingestion (batch processing)
 npm run ingest -- --file data/tea3_sample_v2.xlsx
+
+# Run matching algorithm
+npm run match
 
 # Delete all vectors from database
 npm run delete-all
@@ -439,6 +580,7 @@ npm run dev:fast
 ## Technologies Used
 
 - **TypeScript**: Type-safe development
+- **Express**: Web server framework for API mode
 - **xlsx (SheetJS)**: Excel file parsing
 - **Zod**: Runtime data validation
 - **@pinecone-database/pinecone**: Pinecone vector database and Inference API

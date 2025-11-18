@@ -7,7 +7,6 @@ import { useAuth } from "../../auth/AuthProvider";
 import { db } from "../../firebase";
 import { phoneNumberRegex } from "../../regex";
 import Navbar from "../../components/Navbar";
-import { upsertUserFreeResponse } from "../../services/pinecone";
 
 // Defines the shape of the registration form state
 type RegistrationFormState = {
@@ -48,6 +47,25 @@ const buildInitialState = (email?: string): RegistrationFormState => ({
   interests: "",
   teaPreference: "",
 });
+
+const upsertUserVector = async (uid: string, freeResponse: string) => {
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
+
+  const response = await fetch(`${API_URL}/api/participants/upsert-vector`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ uid, freeResponse }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || "Failed to upsert vector");
+  }
+
+  return response.json();
+};
 
 const Registration = () => {
   const navigate = useNavigate();
@@ -203,7 +221,7 @@ const Registration = () => {
 
       if (!participant) {
         try {
-          await upsertUserFreeResponse(user.uid, form.interests);
+          await upsertUserVector(user.uid, form.interests);
         } catch (pineconeError) {
           console.error("Failed to upsert Pinecone vector", pineconeError);
         }
