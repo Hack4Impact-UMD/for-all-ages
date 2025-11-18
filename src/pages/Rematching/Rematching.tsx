@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { FaCoffee, FaSearch } from "react-icons/fa";
 import styles from "./Rematching.module.css";
 import layoutStyles from "../Dashboard/Dashboard.module.css";
@@ -7,11 +7,6 @@ import type { Participant as BaseParticipant } from "../../types";
 import ParticipantCard from "./components/ParticipantCard/ParticipantCard";
 import SelectedParticipantCard from "./components/SelectedParticipantCard/SelectedParticipantCard";
 import MatchConfidenceCircle from "./components/MatchConfidenceCircle/MatchConfidenceCircle";
-import {
-  INITIAL_STUDENTS,
-  INITIAL_ADULTS,
-  INITIAL_APPROVED_MATCHES,
-} from "./data";
 
 // ============================================================================
 // TYPES
@@ -23,7 +18,7 @@ import {
  */
 export interface RematchingParticipant extends BaseParticipant {
   id: string;
-  type: "student" | "adult";
+  type: "student" | "senior";
   interests: string[];
   school?: string; // School name for students
 }
@@ -34,7 +29,7 @@ export interface RematchingParticipant extends BaseParticipant {
  */
 export interface ApprovedMatch {
   studentId: string;
-  adultId: string;
+  seniorId: string;
 }
 
 // ============================================================================
@@ -77,12 +72,12 @@ const filterParticipants = (
  */
 const calculateConfidence = (
   student: RematchingParticipant | null,
-  adult: RematchingParticipant | null
+  senior: RematchingParticipant | null
 ): number | null => {
-  if (!student || !adult) return null;
+  if (!student || !senior) return null;
 
   const studentInterests = new Set(student.interests);
-  const adultInterests = new Set(adult.interests);
+  const adultInterests = new Set(senior.interests);
 
   // Find common interests (intersection)
   const intersection = new Set(
@@ -98,16 +93,16 @@ const calculateConfidence = (
 };
 
 /**
- * Gets the list of common interests between a student and adult.
+ * Gets the list of common interests between a student and senior.
  */
 const getCommonInterests = (
   student: RematchingParticipant | null,
-  adult: RematchingParticipant | null
+  senior: RematchingParticipant | null
 ): string[] => {
-  if (!student || !adult) return [];
+  if (!student || !senior) return [];
 
   const studentInterests = new Set(student.interests);
-  const adultInterests = new Set(adult.interests);
+  const adultInterests = new Set(senior.interests);
 
   return [...studentInterests].filter((interest) =>
     adultInterests.has(interest)
@@ -131,10 +126,10 @@ const getCommonInterests = (
 export default function Rematching() {
   // State management
   const [students, setStudents] =
-    useState<RematchingParticipant[]>(INITIAL_STUDENTS);
-  const [adults, setAdults] = useState<RematchingParticipant[]>(INITIAL_ADULTS);
+    useState<RematchingParticipant[]>([]);
+  const [adults, setAdults] = useState<RematchingParticipant[]>([]);
   const [approvedMatches, setApprovedMatches] = useState<ApprovedMatch[]>(
-    INITIAL_APPROVED_MATCHES
+    []
   );
   const [selectedStudent, setSelectedStudent] =
     useState<RematchingParticipant | null>(null);
@@ -142,6 +137,54 @@ export default function Rematching() {
     useState<RematchingParticipant | null>(null);
   const [studentSearch, setStudentSearch] = useState("");
   const [adultSearch, setAdultSearch] = useState("");
+  const [confidencePercentage, setConfidencePercentage] = useState<number | null>(null);
+
+  useEffect(() => {
+    async function fetchRematchingData() {
+      try {
+        // Fetch low similarity matches
+        const matchesResponse = await fetch('/api/low-similarity-matches?threshold=0.8&collection=matches');
+        if (!matchesResponse.ok) {
+          throw new Error(`Failed to fetch matches: ${matchesResponse.status}`);
+        }
+        const matchesData = await matchesResponse.json();
+
+        if (matchesData.participantIds && matchesData.participantIds.length > 0) {
+          // Clean IDs here too
+          const cleanIds = matchesData.participantIds.map((id: string) => id.trim());
+          
+          const participantsResponse = await fetch('/api/participants', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids: cleanIds }),
+          });
+
+          if (!participantsResponse.ok) {
+            throw new Error(`Failed to fetch participants: ${participantsResponse.status}`);
+          }
+
+          const participants = await participantsResponse.json();
+          
+          // Separate into students and seniors based on type
+          const studentsData = participants.filter((p: any) => p.type === 'student');
+          const seniorsData = participants.filter((p: any) => p.type === 'senior');
+                    
+          setStudents(studentsData);
+          setAdults(seniorsData);
+        } else {
+          setStudents([]);
+          setAdults([]);
+        }
+      } catch (error) {
+        console.error('Failed to fetch rematching data:', error);
+        setStudents([]);
+        setAdults([]);
+      }
+    }
+
+    fetchRematchingData();
+  }, []);
+
 
   // Filtered participants based on search
   const filteredStudents = useMemo(
@@ -155,10 +198,33 @@ export default function Rematching() {
   );
 
   // Match calculations
-  const confidencePercentage = useMemo(
-    () => calculateConfidence(selectedStudent, selectedAdult),
-    [selectedStudent, selectedAdult]
-  );
+  useEffect(() => {
+    async function computeConfidence() {
+      if (selectedStudent?.id && selectedAdult?.id) {
+        try {
+          const res = await fetch(
+            `/api/confidence-score?participantIdA=${encodeURIComponent(selectedStudent.id)}&participantIdB=${encodeURIComponent(selectedAdult.id)}`
+          );
+
+          if (!res.ok) {
+            throw new Error(`HTTP ${res.status}`);
+          }
+
+          const data = await res.json();
+          const score = data.score ? data.score * 100.00 : null;
+          setConfidencePercentage(Number(score?.toFixed(1)));
+        } catch (error) {
+          console.error('Failed to fetch confidence score:', error);
+          setConfidencePercentage(null);
+        }
+      } else {
+        setConfidencePercentage(null);
+      }
+    }
+
+
+    computeConfidence();
+  }, [selectedStudent, selectedAdult]);
 
   const commonInterests = useMemo(
     () => getCommonInterests(selectedStudent, selectedAdult),
@@ -170,8 +236,8 @@ export default function Rematching() {
     setSelectedStudent((prev) => (prev?.id === student.id ? null : student));
   };
 
-  const handleAdultClick = (adult: RematchingParticipant) => {
-    setSelectedAdult((prev) => (prev?.id === adult.id ? null : adult));
+  const handleAdultClick = (senior: RematchingParticipant) => {
+    setSelectedAdult((prev) => (prev?.id === senior.id ? null : senior));
   };
 
   const handleConfirmMatch = () => {
@@ -184,7 +250,7 @@ export default function Rematching() {
     // Add to approved matches
     setApprovedMatches((prev) => [
       ...prev,
-      { studentId: selectedStudent.id, adultId: selectedAdult.id },
+      { studentId: selectedStudent.id, seniorId: selectedAdult.id },
     ]);
 
     // Clear selection
@@ -384,7 +450,7 @@ function MatchDetailsColumn({
           label="Older Adult"
           participant={selectedAdult}
           onDeselect={onDeselectAdult}
-          type="adult"
+          type="senior"
         />
 
         {/* Common Interests */}
