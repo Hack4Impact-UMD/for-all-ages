@@ -147,10 +147,10 @@ export async function getPairConfidenceScore(
     fetchParticipantsByIds([participantIdA]),
     fetchParticipantsByIds([participantIdB])
   ]);
-  console.log('[getPairConfidenceScore] Fetched embeddings and data for participants');
-    console.log('[getPairConfidenceScore] All fetches complete');
-  console.log('[getPairConfidenceScore] dataA:', dataA?.length, dataA?.[0] ? { id: dataA[0].id } : null);
-  console.log('[getPairConfidenceScore] dataB:', dataB?.length, dataB?.[0] ? { id: dataB[0].id } : null);
+  // console.log('[getPairConfidenceScore] Fetched embeddings and data for participants');
+  //   console.log('[getPairConfidenceScore] All fetches complete');
+  // console.log('[getPairConfidenceScore] dataA:', dataA?.length, dataA?.[0] ? { id: dataA[0].id } : null);
+  // console.log('[getPairConfidenceScore] dataB:', dataB?.length, dataB?.[0] ? { id: dataB[0].id } : null);
 
 
   if (!Array.isArray(dataA) || !dataA) throw new Error(`Participant data not found for ${participantIdA}`);
