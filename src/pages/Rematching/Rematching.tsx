@@ -43,8 +43,11 @@ export interface ApprovedMatch {
 
 const NAV_ITEMS = [
   { label: "Main", path: "/admin/main" },
-  { label: "Dashboard", path: "/admin/rematching" },
-  { label: "Profile", path: "/admin/profile" },
+  { label: "Admins", path: "/admin/creator" },
+  { label: "Dashboard", path: "/admin/dashboard" },
+  { label: "Matching", path: "/admin/rematching" },
+  { label: "Recap", path: "/admin/recap" },
+  { label: "Profile", path: "/profile" },
 ];
 
 // ============================================================================

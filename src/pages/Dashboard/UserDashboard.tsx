@@ -22,7 +22,7 @@ export default function UserDashboard () {
             <Navbar
                 navItems={[
                     { label: "Dashboard", path: "/user/dashboard" },
-                    { label: "Profile", path: "/" }
+                    { label: "Profile", path: "/profile" }
                 ]}
             />
             <div className={styles.surface}>
