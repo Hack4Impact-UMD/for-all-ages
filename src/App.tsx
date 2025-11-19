@@ -17,6 +17,7 @@ import Profile from "./pages/Profile/Profile";
 import RecapPage from "./pages/Recap/RecapPage";
 import Rematching from "./pages/Rematching/Rematching";
 import PreProgram from "./pages/PreProgram/PreProgram";
+import TestPage from "./pages/TestPage/TestPage";
 
 function RouteLoader() {
   return <div className="route-loading">Loading...</div>;
@@ -119,6 +120,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<LoginSignup />} />
+        <Route path="/test" element={<TestPage />} />
         <Route path="/registration" element={<RegistrationGate />} />
 
           <Route path={"/"} element={<LoginSignup></LoginSignup>}></Route>

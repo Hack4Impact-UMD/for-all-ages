@@ -28,13 +28,21 @@ export interface Survey {
 export interface Match {
     participant1_id: string
     participant2_id: string
-    day_of_call: Date     //switch to luxon
+    day_of_call: Date
     similarity: number
 }
 
 export interface Week {
+    week: number  // 1-20, acts as primary key
+    calls: string[]  // Array of match_ids (document IDs)
+}
+
+export interface Logs {
     week: number
-    calls: {match_id: {duration: number, concerns: string}}[]
+    uid: string
+    duration: number
+    rating: number
+    concerns: string
 }
 
 
