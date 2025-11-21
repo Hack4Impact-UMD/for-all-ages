@@ -10,7 +10,9 @@
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  position: relative;
+  position: fixed;
+  top: 0;
+  z-index: 1000;
   background-color: white;
   width: 100vw;
   height: 2.5rem;
@@ -21,7 +23,7 @@
   background-color: #127BBE;
   font-family: 'Merriweather', serif;
   text-align: left;
-  padding: 2rem;
+  padding: 5rem 2rem;
   width: 100vw;
 }
 
