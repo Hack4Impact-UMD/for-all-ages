@@ -1,4 +1,3 @@
-// import styles from './WeekSelector.module.css'
 import styles from './WeekSelectorGlassy.module.css'
 
 interface WeekSelectorProps {
@@ -6,13 +5,15 @@ interface WeekSelectorProps {
     selectedWeekIndex: number
     onSelect: (index: number) => void
     className?: string
+    statuses?: ('completed' | 'missed' | 'future' | 'current')[]
 }
 
 export default function WeekSelector ({
     weeks,
     selectedWeekIndex,
     onSelect,
-    className
+    className,
+    statuses = []
 }: WeekSelectorProps) {
     const handleArrowClick = (direction: number) => {
         const currentPage = Math.floor(selectedWeekIndex / weekRange);
@@ -46,13 +47,15 @@ export default function WeekSelector ({
                 {visibleWeeks.map((week, index) => {
                     const actualIndex = startIndex + index;
                     const isActive = actualIndex === selectedWeekIndex
+                    const status = statuses[actualIndex] || 'future';
+                    
                     return (
                         <button
                             key={week}
                             type="button"
                             role="tab"
                             aria-selected={isActive}
-                            className={`${styles.weekButton} ${isActive ? styles.activeWeek : ''}`.trim()}
+                            className={`${styles.weekButton} ${isActive ? styles.activeWeek : ''} ${styles[status]}`.trim()}
                             onClick={() => onSelect(actualIndex)}
                         >
                             {week}

@@ -124,9 +124,10 @@ export default function AdminDashboard() {
         // Filter matches that should be displayed (for simplicity, show all matches)
         // In production, you might filter by week or date range
         allMatches.forEach(match => {
-            // Get day of week from day_of_call Date
-            const dayOfWeek = match.day_of_call.getDay() // 0 = Sunday, 6 = Saturday
-            const dayKey = DAY_LABELS[dayOfWeek]
+            // Get day of week from day_of_call (1-7 = Mon-Sun)
+            const programDay = match.day_of_call // 1-7
+            const dayIndex = programDay === 7 ? 0 : programDay // map 7 (Sun) -> 0 index
+            const dayKey = DAY_LABELS[dayIndex]
 
             // Determine variant based on whether match_id is in weekData.calls
             let variant: 'rose' | 'green' | 'gold' = 'gold' // Default: pending
@@ -134,16 +135,15 @@ export default function AdminDashboard() {
             if (weekData && weekData.calls.includes(match.id)) {
                 variant = 'green' // Completed: at least one participant logged
             } else {
-                // Check if the call date has passed
+                // Compare program day-of-week to today's day-of-week
                 const today = new Date()
-                today.setHours(0, 0, 0, 0)
-                const callDate = new Date(match.day_of_call)
-                callDate.setHours(0, 0, 0, 0)
+                const todayDow = today.getDay() // 0-6, 0 = Sunday
+                const todayProgramDay = todayDow === 0 ? 7 : todayDow // 1-7, Mon-Sun
 
-                if (callDate < today) {
-                    variant = 'rose' // Missed: date has passed, no log
+                if (programDay < todayProgramDay) {
+                    variant = 'rose' // Missed: day has passed, no log
                 } else {
-                    variant = 'gold' // Pending: date hasn't passed yet
+                    variant = 'gold' // Pending: day is today or in the future
                 }
             }
 
@@ -175,6 +175,7 @@ export default function AdminDashboard() {
                 </section>
 
                 <section className={`${layoutStyles.contentSection} ${adminStyles.scheduleSection}`}>
+                    <h2 className={layoutStyles.sectionHeading}>Welcome to the dashboard!</h2>
                     {error && (
                         <div style={{
                             padding: '15px',

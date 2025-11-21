@@ -2,6 +2,9 @@ import {
   collection,
   doc,
   getDoc,
+  getDocs,
+  query,
+  where,
   setDoc,
   updateDoc,
   arrayUnion,
@@ -74,5 +77,23 @@ export async function isCallCompleted(weekNumber: number, matchId: string): Prom
   } catch (error) {
     console.error('Error checking if call is completed:', error);
     throw new Error('Failed to check if call is completed');
+  }
+}
+
+/**
+ * Get all week numbers where a specific match has been completed
+ * @param matchId - The match document ID
+ * @returns Array of week numbers
+ */
+export async function getCompletedWeeksForMatch(matchId: string): Promise<number[]> {
+  try {
+    const weeksRef = collection(db, 'weeks');
+    const q = query(weeksRef, where('calls', 'array-contains', matchId));
+    const snapshot = await getDocs(q);
+
+    return snapshot.docs.map(doc => doc.data().week as number);
+  } catch (error) {
+    console.error('Error fetching completed weeks for match:', error);
+    throw new Error('Failed to fetch completed weeks for match');
   }
 }

@@ -15,31 +15,11 @@ import type { Match } from '../types';
 function documentToMatch(doc: QueryDocumentSnapshot<DocumentData>): Match & { id: string } {
   const data = doc.data();
   
-  // Handle day_of_call conversion - it might be a Timestamp, Date, or string
-  let dayOfCall: Date;
-  if (data.day_of_call) {
-    if (typeof data.day_of_call.toDate === 'function') {
-      // Firestore Timestamp
-      dayOfCall = data.day_of_call.toDate();
-    } else if (data.day_of_call instanceof Date) {
-      // Already a Date object
-      dayOfCall = data.day_of_call;
-    } else if (typeof data.day_of_call === 'string' || typeof data.day_of_call === 'number') {
-      // String or timestamp number
-      dayOfCall = new Date(data.day_of_call);
-    } else {
-      // Fallback
-      dayOfCall = new Date();
-    }
-  } else {
-    dayOfCall = new Date();
-  }
-  
   return {
     id: doc.id,
     participant1_id: data.participant1_id,
     participant2_id: data.participant2_id,
-    day_of_call: dayOfCall,
+    day_of_call: typeof data.day_of_call === 'number' ? data.day_of_call : 1, // Default to Monday (1) if missing/invalid
     similarity: data.similarity,
   };
 }
@@ -84,9 +64,8 @@ export async function getMatchesByParticipant(participantId: string): Promise<(M
 
     const matches1 = snapshot1.docs.map(documentToMatch);
     const matches2 = snapshot2.docs.map(documentToMatch);
-    return [...matches1, ...matches2].sort((a, b) =>
-      a.day_of_call.getTime() - b.day_of_call.getTime()
-    );
+    // Sort by day of call
+    return [...matches1, ...matches2].sort((a, b) => a.day_of_call - b.day_of_call);
   } catch (error) {
     console.error('Error fetching matches by participant:', error);
     throw new Error('Failed to fetch matches by participant');
@@ -98,9 +77,7 @@ export async function getAllMatches(): Promise<(Match & { id: string })[]> {
     const matchesRef = collection(db, 'matches');
     const snapshot = await getDocs(matchesRef);
 
-    return snapshot.docs.map(documentToMatch).sort((a, b) =>
-      a.day_of_call.getTime() - b.day_of_call.getTime()
-    );
+    return snapshot.docs.map(documentToMatch).sort((a, b) => a.day_of_call - b.day_of_call);
   } catch (error) {
     console.error('Error fetching all matches:', error);
     throw new Error('Failed to fetch all matches');

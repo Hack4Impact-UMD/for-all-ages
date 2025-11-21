@@ -49,6 +49,19 @@
     box-shadow: 0 10px 26px rgba(28, 74, 36, 0.35);
 }
 
+/* Status variants */
+.completed {
+    border: 2px solid #4caf50;
+}
+
+.missed {
+    border: 2px solid #e53935;
+}
+
+.future {
+    border: 2px solid #ffb300;
+}
+
 .arrowButton {
     background: transparent;
     border: none;

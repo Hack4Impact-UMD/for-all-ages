@@ -28,7 +28,7 @@ export interface Survey {
 export interface Match {
     participant1_id: string
     participant2_id: string
-    day_of_call: Date
+    day_of_call: number // 1-7 (Monday-Sunday)
     similarity: number
 }
 

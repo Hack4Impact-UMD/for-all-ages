@@ -16,9 +16,10 @@ const defaultForm = {
 
 interface LogCallFormProps {
   weekNumber: number;
+  onSuccess?: () => void;
 }
 
-export default function LogCallForm({ weekNumber }: LogCallFormProps) {
+export default function LogCallForm({ weekNumber, onSuccess }: LogCallFormProps) {
   const { user } = useAuth();
   const [formData, setFormData] = useState(defaultForm);
   const [match, setMatch] = useState<(Match & { id: string }) | null>(null);
@@ -28,8 +29,10 @@ export default function LogCallForm({ weekNumber }: LogCallFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Load match and existing log when week changes
+  // Reload match/log when week changes
   useEffect(() => {
+    setSuccessMessage(null);
+    
     async function loadData() {
       if (!user) {
         setLoading(false);
@@ -40,25 +43,17 @@ export default function LogCallForm({ weekNumber }: LogCallFormProps) {
         setLoading(true);
         setError(null);
 
-        // Fetch all matches for this participant
         const allMatches = await getMatchesByParticipant(user.uid);
 
-        // Select the match for this week
-        // Strategy: Use the first match that hasn't been logged for this week,
-        // or fall back to the first match if all have been logged
-        // Note: In a production app, you might want to filter by date range based on week
         let matchData: (Match & { id: string }) | null = null;
         
         if (allMatches.length > 0) {
-          // For now, use the first match (typically participants have one match)
-          // In the future, you could filter by week date range if you have a program start date
           matchData = allMatches[0];
         }
         
         setMatch(matchData);
 
         if (matchData) {
-          // Fetch partner name from participants collection
           try {
             const partnerId = getPartnerId(matchData, user.uid);
             const partnerRef = doc(db, 'participants', partnerId);
@@ -76,11 +71,9 @@ export default function LogCallForm({ weekNumber }: LogCallFormProps) {
             setPartnerName('Your Partner');
           }
 
-          // Fetch existing log for this week if it exists
           const logData = await getLogForParticipantWeek(user.uid, weekNumber);
 
           if (logData) {
-            // Populate form with existing log data
             setFormData({
               duration: logData.duration,
               rating: logData.rating,
@@ -88,11 +81,9 @@ export default function LogCallForm({ weekNumber }: LogCallFormProps) {
               mode: "saved", // Set to saved mode since log already exists
             });
           } else {
-            // Reset to default form
             setFormData(defaultForm);
           }
         } else {
-          // No match for this participant
           setFormData(defaultForm);
           setPartnerName('');
         }
@@ -124,7 +115,6 @@ export default function LogCallForm({ weekNumber }: LogCallFormProps) {
       setError(null);
       setSuccessMessage(null);
 
-      // Prepare log data (using new Logs schema)
       const logData: Logs = {
         week: weekNumber,
         uid: user.uid,
@@ -133,13 +123,15 @@ export default function LogCallForm({ weekNumber }: LogCallFormProps) {
         concerns: formData.concerns || '',
       };
 
-      // Submit log to Firestore (upserts based on week + uid composite key)
-      // Automatically adds match_id to Week.calls array (prevents duplicates)
       await submitLog(logData, match.id);
 
       // Update form mode to saved
       setFormData(prev => ({ ...prev, mode: "saved" }));
       setSuccessMessage('Call log saved successfully!');
+      
+      if (onSuccess) {
+        onSuccess();
+      }
     } catch (err) {
       console.error('Error submitting log:', err);
       setError('Failed to save log. Please try again.');
