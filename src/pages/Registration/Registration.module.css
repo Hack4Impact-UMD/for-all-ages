@@ -89,6 +89,10 @@
 
 }
 
+#email {
+  margin-top: 0;
+}
+
 .dob, .pronouns {
   width: 20rem;
 }
