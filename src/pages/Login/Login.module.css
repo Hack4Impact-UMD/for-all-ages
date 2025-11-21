@@ -127,6 +127,7 @@
     font-size: 2rem;
     width: 150px;
     max-width: 100%;
+    height: auto;
     margin: 0 auto;
     font-family: 'Merriweather', serif;
 }
