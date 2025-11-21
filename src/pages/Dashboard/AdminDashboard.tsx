@@ -97,43 +97,48 @@ export default function AdminDashboard () {
     }, [selectedWeek])
 
     return (
-        <div className={layoutStyles.page}>
-            <Navbar navItems={NAV_ITEMS} />
-            <div className={layoutStyles.surface}>
-                <section className={layoutStyles.selectorSection}>
-                    <WeekSelector
-                        weeks={Array.from({ length: WEEKS }, (_, i) => `Week ${i + 1}`)}
-                        selectedWeekIndex={selectedWeek}
-                        onSelect={setSelectedWeek}
-                    />
-                </section>
+        <>
+            <div className={layoutStyles.navbar}>
+                <Navbar navItems={NAV_ITEMS} />
+            </div>
 
-                <section className={`${layoutStyles.contentSection} ${adminStyles.scheduleSection}`}>
-                    <div className={adminStyles.scheduleCard}>
-                        <div className={adminStyles.scheduleInner}>
-                            <div className={adminStyles.dayGrid}>
-                                {DAY_LABELS.map((day) => {
-                                    const assignments = activeWeekData[day] ?? []
-                                    return (
-                                        <div className={adminStyles.dayColumn} key={day}>
-                                            <div className={adminStyles.dayHeader}>{day}</div>
-                                            <div className={adminStyles.peopleList}>
-                                                {assignments.map((assignment, index) => (
-                                                    <PersonTag
-                                                        key={`${day}-${index}-${assignment.names.join('-')}`}
-                                                        names={assignment.names}
-                                                        variant={assignment.variant}
-                                                    />
-                                                ))}
+            <div className={layoutStyles.page}>
+                <div className={layoutStyles.surface}>
+                    <section className={layoutStyles.selectorSection}>
+                        <WeekSelector
+                            weeks={Array.from({ length: WEEKS }, (_, i) => `Week ${i + 1}`)}
+                            selectedWeekIndex={selectedWeek}
+                            onSelect={setSelectedWeek}
+                        />
+                    </section>
+
+                    <section className={`${layoutStyles.contentSection} ${adminStyles.scheduleSection}`}>
+                        <div className={adminStyles.scheduleCard}>
+                            <div className={adminStyles.scheduleInner}>
+                                <div className={adminStyles.dayGrid}>
+                                    {DAY_LABELS.map((day) => {
+                                        const assignments = activeWeekData[day] ?? []
+                                        return (
+                                            <div className={adminStyles.dayColumn} key={day}>
+                                                <div className={adminStyles.dayHeader}>{day}</div>
+                                                <div className={adminStyles.peopleList}>
+                                                    {assignments.map((assignment, index) => (
+                                                        <PersonTag
+                                                            key={`${day}-${index}-${assignment.names.join('-')}`}
+                                                            names={assignment.names}
+                                                            variant={assignment.variant}
+                                                        />
+                                                    ))}
+                                                </div>
                                             </div>
-                                        </div>
-                                    )
-                                })}
+                                        )
+                                    })}
+                                </div>
                             </div>
                         </div>
-                    </div>
-                </section>
+                    </section>
+                </div>
             </div>
-        </div>
+        </>
     )
 }
