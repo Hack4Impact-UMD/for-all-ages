@@ -18,27 +18,31 @@ export default function UserDashboard () {
     const tasksForWeek = WEEK_TASKS[selectedWeek] ?? []
 
     return (
-        <div className={styles.page}>
-            <Navbar
-                navItems={[
-                    { label: "Dashboard", path: "/user/dashboard" },
-                    { label: "Profile", path: "/" }
-                ]}
-            />
-            <div className={styles.surface}>
-                <section className={styles.selectorSection}>
-                    <WeekSelector
-                        weeks={Array.from({ length: WEEKS }, (_, i) => `Week ${i + 1}`)}
-                        selectedWeekIndex={selectedWeek}
-                        onSelect={setSelectedWeek}
-                    />
-                </section>
-
-                <section className={styles.contentSection}>
-                    <h2 className={styles.sectionHeading}>Week {selectedWeek+1}</h2>
-                    <LogCallForm weekNumber={selectedWeek+1} />
-                </section>
+        <>
+            <div className={styles.navbar}>
+                <Navbar
+                    navItems={[
+                        { label: "Dashboard", path: "/user/dashboard" },
+                        { label: "Profile", path: "/" }
+                    ]}
+                />
             </div>
-        </div>
+            <div className={styles.page}>
+                <div className={styles.surface}>
+                    <section className={styles.selectorSection}>
+                        <WeekSelector
+                            weeks={Array.from({ length: WEEKS }, (_, i) => `Week ${i + 1}`)}
+                            selectedWeekIndex={selectedWeek}
+                            onSelect={setSelectedWeek}
+                        />
+                    </section>
+
+                    <section className={styles.contentSection}>
+                        <h2 className={styles.sectionHeading}>Week {selectedWeek+1}</h2>
+                        <LogCallForm weekNumber={selectedWeek+1} />
+                    </section>
+                </div>
+            </div>
+        </>
     )
 }
