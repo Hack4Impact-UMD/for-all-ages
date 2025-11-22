@@ -1,3 +1,9 @@
+.navbar {
+    position: fixed;
+    top: 0;
+    z-index: 1000;
+}
+
 .controlsRow {
     display: flex;
     justify-content: space-between;

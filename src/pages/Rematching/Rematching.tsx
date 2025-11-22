@@ -44,7 +44,7 @@ export interface ApprovedMatch {
 const NAV_ITEMS = [
   { label: "Main", path: "/admin/main" },
   { label: "Dashboard", path: "/admin/rematching" },
-  { label: "Profile", path: "/admin/profile" },
+  { label: "Profile", path: "/profile" },
 ];
 
 // ============================================================================
@@ -195,70 +195,74 @@ export default function Rematching() {
   const isMatchButtonDisabled = !selectedStudent || !selectedAdult;
 
   return (
-    <div className={`${layoutStyles.page} ${styles.rematchingPage}`}>
-      <Navbar navItems={NAV_ITEMS} />
-      <div className={`${layoutStyles.surface} ${styles.rematchingSurface}`}>
-        <h1 className={styles.pageTitle}>AI Assisted Matching</h1>
-        <h2 className={styles.pageSubtitle}>
-          Match students with older adults based on interests and preferences
-        </h2>
+    <>
+      <div className={layoutStyles.navbar}>
+        <Navbar navItems={NAV_ITEMS} />
+      </div>
+      <div className={`${layoutStyles.page} ${styles.rematchingPage}`}>
+        <div className={`${layoutStyles.surface} ${styles.rematchingSurface}`}>
+          <h1 className={styles.pageTitle}>AI Assisted Matching</h1>
+          <h2 className={styles.pageSubtitle}>
+            Match students with older adults based on interests and preferences
+          </h2>
 
-        {/* Statistics Section */}
-        <div className={styles.statistics}>
-          <div className={styles.statCard}>
-            <div className={styles.statLabel}>Student Pending Matches</div>
-            <div className={styles.statNumber}>{students.length}</div>
+          {/* Statistics Section */}
+          <div className={styles.statistics}>
+            <div className={styles.statCard}>
+              <div className={styles.statLabel}>Student Pending Matches</div>
+              <div className={styles.statNumber}>{students.length}</div>
+            </div>
+            <div className={styles.statCard}>
+              <div className={styles.statLabel}>Older Adults Pending Matches</div>
+              <div className={styles.statNumber}>{adults.length}</div>
+            </div>
+            <div className={styles.statCard}>
+              <div className={styles.statLabel}>Approved Matches</div>
+              <div className={styles.statNumber}>{approvedMatches.length}</div>
+            </div>
           </div>
-          <div className={styles.statCard}>
-            <div className={styles.statLabel}>Older Adults Pending Matches</div>
-            <div className={styles.statNumber}>{adults.length}</div>
+
+          {/* Three Column Layout */}
+          <div className={styles.columnsContainer}>
+            {/* Left Column: Students */}
+            <ParticipantColumn
+              title="Students"
+              subtitle="Select to match"
+              participants={filteredStudents}
+              selectedId={selectedStudent?.id}
+              searchValue={studentSearch}
+              onSearchChange={setStudentSearch}
+              onParticipantClick={handleStudentClick}
+              isStudentColumn={true}
+            />
+
+            {/* Middle Column: Match Details */}
+            <MatchDetailsColumn
+              confidencePercentage={confidencePercentage}
+              selectedStudent={selectedStudent}
+              selectedAdult={selectedAdult}
+              commonInterests={commonInterests}
+              isButtonDisabled={isMatchButtonDisabled}
+              onConfirmMatch={handleConfirmMatch}
+              onDeselectStudent={() => setSelectedStudent(null)}
+              onDeselectAdult={() => setSelectedAdult(null)}
+            />
+
+            {/* Right Column: Adults */}
+            <ParticipantColumn
+              title="Older Adults"
+              subtitle="Select to match"
+              participants={filteredAdults}
+              selectedId={selectedAdult?.id}
+              searchValue={adultSearch}
+              onSearchChange={setAdultSearch}
+              onParticipantClick={handleAdultClick}
+              isStudentColumn={false}
+            />
           </div>
-          <div className={styles.statCard}>
-            <div className={styles.statLabel}>Approved Matches</div>
-            <div className={styles.statNumber}>{approvedMatches.length}</div>
-          </div>
-        </div>
-
-        {/* Three Column Layout */}
-        <div className={styles.columnsContainer}>
-          {/* Left Column: Students */}
-          <ParticipantColumn
-            title="Students"
-            subtitle="Select to match"
-            participants={filteredStudents}
-            selectedId={selectedStudent?.id}
-            searchValue={studentSearch}
-            onSearchChange={setStudentSearch}
-            onParticipantClick={handleStudentClick}
-            isStudentColumn={true}
-          />
-
-          {/* Middle Column: Match Details */}
-          <MatchDetailsColumn
-            confidencePercentage={confidencePercentage}
-            selectedStudent={selectedStudent}
-            selectedAdult={selectedAdult}
-            commonInterests={commonInterests}
-            isButtonDisabled={isMatchButtonDisabled}
-            onConfirmMatch={handleConfirmMatch}
-            onDeselectStudent={() => setSelectedStudent(null)}
-            onDeselectAdult={() => setSelectedAdult(null)}
-          />
-
-          {/* Right Column: Adults */}
-          <ParticipantColumn
-            title="Older Adults"
-            subtitle="Select to match"
-            participants={filteredAdults}
-            selectedId={selectedAdult?.id}
-            searchValue={adultSearch}
-            onSearchChange={setAdultSearch}
-            onParticipantClick={handleAdultClick}
-            isStudentColumn={false}
-          />
         </div>
       </div>
-    </div>
+    </>
   );
 }
 

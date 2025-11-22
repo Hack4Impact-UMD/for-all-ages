@@ -306,6 +306,7 @@ const Registration = () => {
             <span className={styles.helpText}>
               Valid phone number formats: <br/>
               <ul>
+                <li>1234567890</li>
                 <li>123-456-7890</li>
                 <li>(123) 456-7890</li>
                 <li>+1 (123) 456-7890</li>
@@ -332,7 +333,7 @@ const Registration = () => {
         </div>
 
         <div className={styles.confirm}>
-          <label className={styles.label}>
+          <label className={styles.label} id={styles.email} >
             Email
             <input
               type="email"
