@@ -1,3 +1,9 @@
+.navbar {
+  position: fixed;
+  top: 0;
+  z-index: 1000;
+}
+
 .page {
   background-color: #127bbe;
   min-height: 150vh;

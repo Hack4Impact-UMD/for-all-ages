@@ -185,129 +185,134 @@ export default function AdminDashboard() {
   }, [admins, searchTerm]);
 
   return (
-    <div className={layoutStyles.page}>
-      <Navbar navItems={NAV_ITEMS} />
-      <div className={layoutStyles.surface}>
-        <section className={styles.controlsRow}>
-          <div className={styles.searchGroup}>
-            <label className={styles.searchLabel} htmlFor="admin-search">
-              Search
-            </label>
-            <input
-              id="admin-search"
-              type="search"
-              placeholder="Search by name, email, or university…"
-              className={styles.searchInput}
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-            />
-          </div>
-          <button
-            type="button"
-            className={styles.addButton}
-            onClick={() => setIsModalOpen(true)}
-          >
-            Add New Admin
-          </button>
-        </section>
-
-        {banner ? (
-          <div
-            className={`${styles.banner} ${
-              banner.type === "success" ? styles.bannerSuccess : styles.bannerError
-            }`}
-            role="status"
-          >
-            <span>{banner.message}</span>
+    <>
+      <div className={styles.navbar}>
+        <Navbar navItems={NAV_ITEMS} />
+      </div>
+      <div className={layoutStyles.page}>
+        <div className={layoutStyles.surface}>
+          <section className={styles.controlsRow}>
+            <div className={styles.searchGroup}>
+              <label className={styles.searchLabel} htmlFor="admin-search">
+                Search
+              </label>
+              <input
+                id="admin-search"
+                type="search"
+                placeholder="Search by name, email, or university…"
+                className={styles.searchInput}
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+              />
+            </div>
             <button
               type="button"
-              className={styles.bannerDismiss}
-              onClick={dismissBanner}
-              aria-label="Dismiss notification"
+              className={styles.addButton}
+              onClick={() => setIsModalOpen(true)}
             >
-              ×
+              Add New Admin
             </button>
-          </div>
-        ) : null}
+          </section>
 
-        <section className={styles.tableSection}>
-          <div className={styles.tableCard}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th scope="col">Name</th>
-                  <th scope="col">Role</th>
-                  <th scope="col">Email</th>
-                  <th scope="col">Phone Number</th>
-                  <th scope="col">Address</th>
-                  <th scope="col">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr className={styles.stateRow}>
-                    <td colSpan={6} className={styles.stateCell}>
-                      Loading admin accounts…
-                    </td>
+          {banner ? (
+            <div
+              className={`${styles.banner} ${
+                banner.type === "success" ? styles.bannerSuccess : styles.bannerError
+              }`}
+              role="status"
+            >
+              <span>{banner.message}</span>
+              <button
+                type="button"
+                className={styles.bannerDismiss}
+                onClick={dismissBanner}
+                aria-label="Dismiss notification"
+              >
+                ×
+              </button>
+            </div>
+          ) : null}
+
+          <section className={styles.tableSection}>
+            <div className={styles.tableCard}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th scope="col">Name</th>
+                    <th scope="col">Role</th>
+                    <th scope="col">Email</th>
+                    <th scope="col">Phone Number</th>
+                    <th scope="col">Address</th>
+                    <th scope="col">Status</th>
                   </tr>
-                ) : error ? (
-                  <tr className={styles.stateRow}>
-                    <td colSpan={6} className={styles.stateCell}>
-                      {error}
-                    </td>
-                  </tr>
-                ) : filteredAdmins.length === 0 ? (
-                  <tr className={styles.stateRow}>
-                    <td colSpan={6} className={styles.stateCell}>
-                      No admins match your search.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredAdmins.map((admin) => (
-                    <tr key={admin.id}>
-                      <td data-label="Name">{admin.name}</td>
-                      <td data-label="Role">
-                        {admin.role === "Subadmin" ? "Sub-admin" : "Admin"}
-                      </td>
-                      <td data-label="Email">
-                        {admin.email ? (
-                          <a href={`mailto:${admin.email}`} className={styles.emailLink}>
-                            {admin.email}
-                          </a>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
-                      <td data-label="Phone Number">{admin.phoneNumber || "—"}</td>
-                      <td data-label="Address">{admin.address || "—"}</td>
-                      <td data-label="Status">
-                        {admin.status ? (
-                          <span
-                            className={
-                              admin.status.toLowerCase() === "active"
-                                ? styles.statusActive
-                                : styles.statusDefault
-                            }
-                          >
-                            {admin.status}
-                          </span>
-                        ) : (
-                          <span className={styles.statusDefault}>—</span>
-                        )}
+                </thead>
+                <tbody>
+                  {loading ? (
+                    <tr className={styles.stateRow}>
+                      <td colSpan={6} className={styles.stateCell}>
+                        Loading admin accounts…
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
+                  ) : error ? (
+                    <tr className={styles.stateRow}>
+                      <td colSpan={6} className={styles.stateCell}>
+                        {error}
+                      </td>
+                    </tr>
+                  ) : filteredAdmins.length === 0 ? (
+                    <tr className={styles.stateRow}>
+                      <td colSpan={6} className={styles.stateCell}>
+                        No admins match your search.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredAdmins.map((admin) => (
+                      <tr key={admin.id}>
+                        <td data-label="Name">{admin.name}</td>
+                        <td data-label="Role">
+                          {admin.role === "Subadmin" ? "Sub-admin" : "Admin"}
+                        </td>
+                        <td data-label="Email">
+                          {admin.email ? (
+                            <a href={`mailto:${admin.email}`} className={styles.emailLink}>
+                              {admin.email}
+                            </a>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+                        <td data-label="Phone Number">{admin.phoneNumber || "—"}</td>
+                        <td data-label="Address">{admin.address || "—"}</td>
+                        <td data-label="Status">
+                          {admin.status ? (
+                            <span
+                              className={
+                                admin.status.toLowerCase() === "active"
+                                  ? styles.statusActive
+                                  : styles.statusDefault
+                              }
+                            >
+                              {admin.status}
+                            </span>
+                          ) : (
+                            <span className={styles.statusDefault}>—</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
 
-        {isModalOpen ? (
-          <AddAdminModal onClose={handleModalClose} onSuccess={handleInviteSuccess} />
-        ) : null}
+          {isModalOpen ? (
+            <AddAdminModal onClose={handleModalClose} onSuccess={handleInviteSuccess} />
+          ) : null}
+        </div>
       </div>
-    </div>
+    </>
+    
   );
 }
 
