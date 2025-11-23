@@ -107,7 +107,7 @@ export default function AdminDashboard () {
                         onSelect={setSelectedWeek}
                     />
                 </section>
-
+            
                 <section className={`${layoutStyles.contentSection} ${adminStyles.scheduleSection}`}>
                     <div className={adminStyles.scheduleCard}>
                         <div className={adminStyles.scheduleInner}>
