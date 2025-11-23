@@ -19,6 +19,7 @@ type PersonAssignment = {
 const DAY_LABELS: DayKey[] = ['Sun', 'Mon', 'Tue', 'Wed', 'Thurs', 'Fri', 'Sat']
 
 const WEEKS = 20
+const CURRENT_GLOBAL_WEEK = 4 // will be determined through firebase
 
 const NAV_ITEMS = [
     { label: 'Main', path: '/admin/creator' },
@@ -125,9 +126,10 @@ export default function AdminDashboard() {
         // In production, you might filter by week or date range
         allMatches.forEach(match => {
             // Get day of week from day_of_call (1-7 = Mon-Sun)
-            const programDay = match.day_of_call // 1-7
-            const dayIndex = programDay === 7 ? 0 : programDay // map 7 (Sun) -> 0 index
-            const dayKey = DAY_LABELS[dayIndex]
+            // Map to 0-6 where 0 = Sun, 1 = Mon, ..., 6 = Sat
+            const programDayRaw = match.day_of_call // 1-7
+            const programDay = programDayRaw === 7 ? 0 : programDayRaw // 0-6 (Sun-Sat)
+            const dayKey = DAY_LABELS[programDay]
 
             // Determine variant based on whether match_id is in weekData.calls
             let variant: 'rose' | 'green' | 'gold' = 'gold' // Default: pending
@@ -135,15 +137,20 @@ export default function AdminDashboard() {
             if (weekData && weekData.calls.includes(match.id)) {
                 variant = 'green' // Completed: at least one participant logged
             } else {
-                // Compare program day-of-week to today's day-of-week
+                // Compare program day-of-week to today's day-of-week (both 0-6)
                 const today = new Date()
-                const todayDow = today.getDay() // 0-6, 0 = Sunday
-                const todayProgramDay = todayDow === 0 ? 7 : todayDow // 1-7, Mon-Sun
+                const todayProgramDay = today.getDay() // 0-6, 0 = Sunday
+                console.log(todayProgramDay, programDay, selectedWeek + 1, CURRENT_GLOBAL_WEEK)
 
-                if (programDay < todayProgramDay) {
-                    variant = 'rose' // Missed: day has passed, no log
-                } else {
-                    variant = 'gold' // Pending: day is today or in the future
+                // if week has passed
+                if (selectedWeek + 1 < CURRENT_GLOBAL_WEEK) {
+                    variant = 'rose' // Missed: week has passed without logs
+                } else if (selectedWeek + 1 === CURRENT_GLOBAL_WEEK) {
+                    if (programDay < todayProgramDay) {
+                        variant = 'rose' // Missed: day has passed without logs
+                    } else if (programDay === todayProgramDay) {
+                        variant = 'gold' // Pending: today
+                    }
                 }
             }
 
@@ -222,7 +229,7 @@ export default function AdminDashboard() {
                                                             fontSize: '0.85rem',
                                                             fontStyle: 'italic'
                                                         }}>
-                                                            No matches
+                                                            No calls
                                                         </div>
                                                     ) : (
                                                         assignments.map((assignment, index) => (
