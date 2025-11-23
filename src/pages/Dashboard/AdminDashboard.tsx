@@ -59,21 +59,25 @@ export default function AdminDashboard() {
 
                 // Fetch names from participants collection
                 const names: Record<string, string> = {}
-                for (const participantId of uniqueParticipantIds) {
-                    try {
-                        const participantRef = doc(db, 'participants', participantId)
-                        const participantDoc = await getDoc(participantRef)
-                        if (participantDoc.exists()) {
-                            const data = participantDoc.data()
-                            names[participantId] = data.displayName || data.name || data.email || 'Unknown'
-                        } else {
-                            names[participantId] = 'Unknown'
-                        }
-                    } catch (participantErr) {
-                        console.warn(`Failed to fetch participant ${participantId}:`, participantErr)
-                        names[participantId] = 'Unknown'
+                const participantFetches = Array.from(uniqueParticipantIds).map(async (participantId) => {
+                try {
+                    const participantRef = doc(db, 'participants', participantId)
+                    const participantDoc = await getDoc(participantRef)
+                    if (participantDoc.exists()) {
+                        const data = participantDoc.data()
+                        return { participantId, name: data.displayName || data.name || data.email || 'Unknown' }
+                    } else {
+                        return { participantId, name: 'Unknown' }
                     }
+                } catch (participantErr) {
+                    console.warn(`Failed to fetch participant ${participantId}:`, participantErr)
+                    return { participantId, name: 'Unknown' }
                 }
+                })
+                const participantResults = await Promise.all(participantFetches)
+                participantResults.forEach(({ participantId, name }) => {
+                    names[participantId] = name
+                })
                 setParticipantNames(names)
                 console.log('Successfully loaded matches and participant names')
             } catch (err: any) {
