@@ -8,7 +8,7 @@ interface UserProfile {
   name: string;
   email: string;
   password: string;
-  gender: string;
+  pronouns: string;
   phone: string;
   birthday: string;
   address: string;
@@ -30,7 +30,7 @@ const Profile = () => {
     name: "Hermione Granger",
     email: "ron@hotmail.com",
     password: "************",
-    gender: "Female",
+    pronouns: "She/Her",
     phone: "(321) 654-6767",
     birthday: "01/08/1995",
     address: "7901 Regents Drive, College Park, MD 20742",
@@ -77,7 +77,7 @@ const Profile = () => {
       <Navbar
         navItems={[
           { label: "Dashboard", path: "/user/dashboard" },
-          { label: "Profile", path: "/" },
+          { label: "Profile", path: "/profile" },
         ]}
       />
 
@@ -125,7 +125,7 @@ const Profile = () => {
               {[
                 { label: "E-mail", name: "email", value: user.email },
                 { label: "Password", name: "password", value: user.password },
-                { label: "Gender", name: "gender", value: user.gender },
+                { label: "Pronouns", name: "pronouns", value: user.pronouns },
                 { label: "Phone Number", name: "phone", value: user.phone },
                 { label: "Birthday", name: "birthday", value: user.birthday },
                 { label: "Address", name: "address", value: user.address },
@@ -145,7 +145,9 @@ const Profile = () => {
                         <span className={styles.boxLabel}>{field.label}</span>
                         {(field.name === "email" ||
                           field.name === "password" ||
-                          field.name === "address") && (
+                          field.name === "address" ||
+                          field.name === "phone" ||
+                          field.name === "pronouns") && (
                           <EditIcon
                             className={styles.editIcon}
                             onClick={() => {

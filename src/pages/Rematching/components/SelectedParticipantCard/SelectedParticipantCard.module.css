@@ -1,0 +1,102 @@
+.selectedCard {
+    padding: 1rem;
+    border-radius: 0.75rem;
+    cursor: pointer;
+    background: #ffffff;
+    transition: all 0.2s;
+    position: relative;
+    text-align: left;
+    min-height: 120px;
+    font-family: Verdana, sans-serif;
+}
+
+.selectedStudentCard {
+    border: 2px solid #2e7d32;
+}
+
+.selectedStudentCard:hover:not(.emptyCard) {
+    box-shadow: 0 4px 12px rgba(46, 125, 50, 0.2);
+}
+
+.selectedAdultCard {
+    border: 2px solid #EAB419;
+}
+
+.selectedAdultCard:hover:not(.emptyCard) {
+    box-shadow: 0 4px 12px rgba(245, 127, 23, 0.2);
+}
+
+.emptyCard {
+    opacity: 0.6;
+}
+
+.emptyCardContent {
+    color: #999;
+    font-style: italic;
+    margin-top: 0.5rem;
+}
+
+.selectedLabel {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    font-family: Verdana, sans-serif;
+    color: white;
+    padding: 0.35rem 0.75rem;
+    border-radius: 1rem;
+    font-size: 0.7rem;
+    font-weight: 500;
+}
+
+.studentLabel {
+    background: #2C6133;
+}
+
+.adultLabel {
+    background: #EAB419;
+}
+
+.selectedName {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0.5rem 0;
+}
+
+.participantSchool {
+    font-size: 0.95rem;
+}
+
+.interests {
+    margin-top: 0.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: flex-start;
+}
+
+.interestTag {
+    padding: 0.35rem 0.75rem;
+    background: rgba(15, 107, 177, 0.1);
+    border-radius: 1rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.studentInterests .interestTag,
+.adultInterests .interestTag {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.6rem;
+    color: white;
+}
+
+.studentInterests .interestTag {
+    background: #2C6133;
+}
+
+.adultInterests .interestTag {
+    background: #EAB419;
+}
+
