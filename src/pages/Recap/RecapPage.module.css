@@ -159,6 +159,63 @@
     font-size: 1.125rem;
 }
 
+.concernsList {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 8px;
+    max-height: 300px;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.concernsList::-webkit-scrollbar {
+    width: 0px;
+}
+
+.concernItem {
+    padding: 16px;
+    background: #f5f5f5;
+    border-radius: 8px;
+}
+
+.concernHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.concernUser {
+    font-weight: 600;
+    color: #333;
+}
+
+.concernRating {
+    display: flex;
+    gap: 2px;
+}
+
+.concernText {
+    color: #666;
+    margin: 0;
+    line-height: 1.5;
+}
+
+.starSmallFilled {
+    color: #FFB800;
+}
+
+.starSmallEmpty {
+    color: #E0E0E0;
+}
+
+.emptyState {
+    text-align: center;
+    color: #999;
+    padding: 32px;
+}
+
 @media (max-width: 1024px) {
     .cardRow {
         flex-direction: column;

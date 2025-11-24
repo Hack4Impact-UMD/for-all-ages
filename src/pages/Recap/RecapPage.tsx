@@ -1,35 +1,211 @@
-import { useState } from 'react'
+import { use, useEffect, useState, useMemo } from 'react'
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, ResponsiveContainer } from 'recharts'
 import Star from '@mui/icons-material/Star'
 import Navbar from '../../components/Navbar'
 import layoutStyles from '../Dashboard/Dashboard.module.css'
 import styles from './RecapPage.module.css'
+import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore'
+import { db } from '../../firebase'
 
-const checkInData = [
-    { name: 'May', value: 24.89, color: '#F76D6D' },
-    { name: 'Jun', value: 28.8, color: '#127BBE' },
-    { name: 'Jul', value: 24.54, color: '#7FBC41' },
-    { name: 'Aug', value: 21.77, color: '#EAB419' }
-]
+type RecapLog = {
+    id: string,
+    concerns: string,
+    duration: number,
+    rating: number,
+    uid: string,
+    week: number
+}
 
-const callLengthData = [
-    { name: '0-5 min', value: 45 },
-    { name: '5-10 min', value: 38 },
-    { name: '10-15 min', value: 32 },
-    { name: '15-20 min', value: 28 },
-    { name: '20+ min', value: 22 }
-]
+type Matches = {
+    day_of_call: number,
+    participant1_id: string,
+    participant2_id: string,
+    similarity: number
+}
 
-const qualityData = [
-    { stars: '5 Stars', percentage: 80, count: 12 },
-    { stars: '4 Stars', percentage: 20, count: 3 },
-    { stars: '3 Stars', percentage: 0, count: 0 },
-    { stars: '2 Stars', percentage: 0, count: 0 },
-    { stars: '1 Star', percentage: 0, count: 0 }
-]
+async function fetchLogsByWeek(week: number): Promise<RecapLog[]> {
+  const logsRef = collection(db, 'logs');
+  const q = query(logsRef, where('week', '==', week));
+  const snap = await getDocs(q);
+  return snap.docs.map(d => {
+    const data = d.data();
+    return data as RecapLog;
+  })
+}
+
+async function fetchMatches(): Promise<Matches[]> {
+  const matchesRef = collection(db, 'matches');
+  const snap = await getDocs(matchesRef);
+  return snap.docs.map(d => {
+    const data = d.data();
+    return data as Matches;
+  })
+}
+
+async function fetchParticipantName(uid: string): Promise<string> {
+  try {
+    const docRef = doc(db, 'participants', uid);
+    const docSnap = await getDoc(docRef);
+    
+    if (docSnap.exists()) {
+      const data = docSnap.data() as { displayName?: string };
+      return data.displayName || `Participant ${uid.slice(0, 8)}`;
+    }
+    
+    return `Participant ${uid.slice(0, 8)}`;
+  } catch (error) {
+    console.error(`Error fetching participant ${uid}:`, error);
+    return `Participant ${uid.slice(0, 8)}`;
+  }
+}
+
 
 export default function RecapPage() {
-    const [selectedWeek] = useState(5)
+    const [selectedWeek] = useState<number>(3);
+    const [logs, setLogs] = useState<RecapLog[]>([]);
+    const [matches, setMatches] = useState<Matches[]>([]);
+    const [participantNames, setParticipantNames] = useState<Record<string, string>>({});
+    
+    useEffect(() => {
+        try {
+            fetchMatches().then((matches) => {
+                console.log("Fetched matches:", matches);
+                setMatches(matches);
+            });
+        } catch (error) {
+            console.error("Error fetching matches:", error);
+        }
+    }, []);
+
+    useEffect(() => {
+        const fetchNames = async () => {
+            const uniqueUids = Array.from(new Set(logs.map(l => l.uid)));
+            const names: Record<string, string> = {};
+            
+            await Promise.all(
+                uniqueUids.map(async (uid) => {
+                    names[uid] = await fetchParticipantName(uid);
+                })
+            );
+            
+            setParticipantNames(names);
+        };
+
+        if (logs.length > 0) {
+            fetchNames();
+        }
+    }, [logs]);
+
+
+    useEffect(() => {
+        try {
+            fetchLogsByWeek(selectedWeek).then((logs) => {
+                console.log("Fetched logs for week", selectedWeek, ":", logs);
+                setLogs(logs);
+            });
+        } catch (error) {
+            console.error("Error fetching logs:", error);
+        }
+    }, [selectedWeek])
+
+    const todayWeekday = useMemo(() => {
+        const jsDay = new Date().getDay();
+        return ((jsDay + 6) % 7) + 1; //starts from Monday as 1
+    }, []);
+
+    const participantsWithLogs = useMemo(() => {
+        const set = new Set<string>();
+        logs.forEach(l => set.add(l.uid));
+        return set;
+    }, [logs]);
+
+        const checkInData = useMemo(() => {
+        let checkedIn = 0;
+        let missed = 0;
+        let pending = 0;
+
+        matches.forEach(m => {
+            if (m.day_of_call > todayWeekday) {
+                pending++;
+            } else {
+                const hasLog =
+                    participantsWithLogs.has(m.participant1_id) ||
+                    participantsWithLogs.has(m.participant2_id);
+                if (hasLog) checkedIn++;
+                else missed++;
+            }
+        });
+
+        return [
+            {
+                name: 'Checked In',
+                count: checkedIn,
+                value: (checkedIn / matches.length) * 100,
+                color: '#7FBC41'
+            },
+            {
+                name: 'Missed',
+                count: missed,
+                value: (missed / matches.length) * 100,
+                color: '#F76D6D'
+            },
+            {
+                name: 'Pending',
+                count: pending,
+                value: (pending / matches.length) * 100,
+                color: '#EAB419'
+            }
+        ];
+    }, [matches, todayWeekday, participantsWithLogs]);
+
+
+    const callLengthData = useMemo(() => {
+        const buckets = [
+            { name: '0-5 min', min: 0, max: 5 },
+            { name: '5-10 min', min: 5, max: 10 },
+            { name: '10-15 min', min: 10, max: 15 },
+            { name: '15-20 min', min: 15, max: 20 },
+            { name: '20+ min', min: 20, max: Infinity }
+        ];
+        const counts = buckets.map(b => ({
+            name: b.name,
+            value: logs.filter(l => l.duration >= b.min && l.duration < b.max).length
+        }));
+        return counts;
+    }, [logs]);
+
+    const qualityData = useMemo(() => {
+        const total = logs.length || 0;
+        const ratingCounts: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+        logs.forEach(l => {
+            if (ratingCounts[l.rating] !== undefined) ratingCounts[l.rating] += 1;
+        });
+        return [5, 4, 3, 2, 1].map(r => {
+            const count = ratingCounts[r];
+            const percentage = total ? Math.round((count / total) * 100) : 0;
+            return {
+                stars: `${r} ${r === 1 ? 'Star' : 'Stars'}`,
+                percentage,
+                count
+            };
+        });
+    }, [logs]);
+
+    const averageRating = useMemo(() => {
+        if (!logs.length) return 0;
+        return parseFloat((logs.reduce((sum, l) => sum + l.rating, 0) / logs.length).toFixed(1));
+    }, [logs]);
+
+    const concernsList = useMemo(() => {
+        return logs
+            .filter(l => l.concerns && l.concerns.trim() !== '')
+            .map(l => ({
+                uid: l.uid,
+                displayName: participantNames[l.uid] || `Participant ${l.uid.slice(0, 8)}`,
+                concerns: l.concerns,
+                rating: l.rating
+            }));
+    }, [logs, participantNames]);
 
     return (
         <div className={layoutStyles.page}>
@@ -100,11 +276,11 @@ export default function RecapPage() {
                                     {[1, 2, 3, 4, 5].map((star) => (
                                         <Star 
                                             key={star} 
-                                            className={star <= 4 ? styles.starFilled : styles.starEmpty} 
+                                            className={star <= Math.round(averageRating) ? styles.starFilled : styles.starEmpty} 
                                         />
                                     ))}
                                 </div>
-                                <p className={styles.ratingText}>4.7 out of 5</p>
+                                <p className={styles.ratingText}>{averageRating} out of 5</p>
                             </div>
                             <div className={styles.ratingBars}>
                                 {qualityData.map((item) => (
@@ -126,9 +302,29 @@ export default function RecapPage() {
 
                 <div className={styles.cardRow}>
                     <div className={styles.cardWide}>
-                        <h2 className={styles.cardTitle}>Participation Distribution</h2>
-                        <div className={styles.emptyState}>
-
+                        <h2 className={styles.cardTitle}>Participant Concerns</h2>
+                        <div className={styles.concernsList}>
+                            {concernsList.length === 0 ? (
+                                <p className={styles.emptyState}>No concerns reported this week.</p>
+                            ) : (
+                                concernsList.map((item, index) => (
+                                    <div key={index} className={styles.concernItem}>
+                                        <div className={styles.concernHeader}>
+                                            <span className={styles.concernUser}>{item.displayName}</span>
+                                            <div className={styles.concernRating}>
+                                                {[...Array(5)].map((_, i) => (
+                                                    <Star 
+                                                        key={i}
+                                                        className={i < item.rating ? styles.starSmallFilled : styles.starSmallEmpty}
+                                                        sx={{ fontSize: 16 }}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <p className={styles.concernText}>{item.concerns}</p>
+                                    </div>
+                                ))
+                            )}
                         </div>
                     </div>
                 </div>
