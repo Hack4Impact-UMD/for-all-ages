@@ -38,12 +38,12 @@ export const functions = getFunctions(app, "us-central1");
 export { analytics };
 
 // URL of your deployed HTTP function
-const TEST_CONNECTION_URL =
-  "https://us-central1-for-all-ages-8a4e2.cloudfunctions.net/testConnection";
+const MATCHING_URL =
+  "https://us-central1-for-all-ages-8a4e2.cloudfunctions.net/matchAll";
 
 // Helper to call Cloud Function using fetch()
-export async function testConnectionFetch(body: any = {}) {
-  const res = await fetch(TEST_CONNECTION_URL, {
+export async function matchAll(body: any = {}) {
+  const res = await fetch(MATCHING_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),

@@ -3,7 +3,7 @@ import * as functions from "firebase-functions";
 import { MatchingConfig } from "./types";
 import { MatchingService } from "./matching/src/services/matchingService";
 
-export const testConnection = functions.https.onRequest(async (req, res) => {
+export const matchAll = functions.https.onRequest(async (req, res) => {
   // CORS headers
   res.set("Access-Control-Allow-Origin", "http://localhost:5173");
   res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
