@@ -1,28 +1,33 @@
-/**
- * Import function triggers from their respective submodules:
- *
- * import {onCall} from "firebase-functions/v2/https";
- * import {onDocumentWritten} from "firebase-functions/v2/firestore";
- *
- * See a full list of supported triggers at https://firebase.google.com/docs/functions
- */
-
-// import {onRequest} from "firebase-functions/v2/https";
-// import * as logger from "firebase-functions/logger";
-
-// Start writing functions
-// https://firebase.google.com/docs/functions/typescript
-
-// export const helloWorld = onRequest((request, response) => {
-//   logger.info("Hello logs!", {structuredData: true});
-//   response.send("Hello from Firebase!");
-// });
-
 import * as functions from "firebase-functions";
-import * as admin from "firebase-admin";
 
-admin.initializeApp();
+import { MatchingConfig } from "./types";
+import { MatchingService } from "./matching/src/services/matchingService";
 
-export const helloWorld = functions.https.onRequest((req, res) => {
-  res.send("Hello from Firebase!");
+export const matchAll = functions.https.onRequest(async (req, res) => {
+  // CORS headers
+  res.set("Access-Control-Allow-Origin", "http://localhost:5173");
+  res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type");
+
+  // Handle CORS preflight
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+
+  let frqWeight = 0.7;
+  let quantWeight = 0.3;
+
+  const config: Partial<MatchingConfig> = { frqWeight, quantWeight };
+  const service = new MatchingService(config);
+  const result = await service.runMatching();
+
+  res.status(200).json({
+    result: result
+  });
 });
+
+
+
+
+

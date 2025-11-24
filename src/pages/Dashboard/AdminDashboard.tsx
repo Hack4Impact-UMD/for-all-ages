@@ -187,7 +187,7 @@ export default function AdminDashboard() {
                         onSelect={setSelectedWeek}
                     />
                 </section>
-
+            
                 <section className={`${layoutStyles.contentSection} ${adminStyles.scheduleSection}`}>
                     <h2 className={layoutStyles.sectionHeading}>Welcome to the dashboard!</h2>
                     {error && (
