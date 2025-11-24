@@ -4,6 +4,7 @@ import adminStyles from './AdminDashboard.module.css'
 import WeekSelector from './components/WeekSelector/WeekSelector'
 import PersonTag from './components/PersonTag/PersonTag'
 import Navbar from '../../components/Navbar'
+import { testConnectionFetch } from '../../firebase'
 
 type DayKey = 'Sun' | 'Mon' | 'Tue' | 'Wed' | 'Thurs' | 'Fri' | 'Sat'
 type PersonAssignment = {
@@ -111,6 +112,15 @@ export default function AdminDashboard () {
                 <section className={`${layoutStyles.contentSection} ${adminStyles.scheduleSection}`}>
                     <div className={adminStyles.scheduleCard}>
                         <div className={adminStyles.scheduleInner}>
+                                                            <button
+  onClick={() => {
+    testConnectionFetch({ someInput: "hello" })
+      .then((data) => console.log("Response:", data))
+      .catch((err) => console.error("Function error:", err));
+  }}
+>
+  Test
+</button>
                             <div className={adminStyles.dayGrid}>
                                 {DAY_LABELS.map((day) => {
                                     const assignments = activeWeekData[day] ?? []
