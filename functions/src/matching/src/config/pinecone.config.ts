@@ -45,6 +45,6 @@ export function getPineconeClient(): Promise<Pinecone> {
  * Get index name from environment or use default
  */
 export function getIndexName(): string {
-  return process.env.PINECONE_INDEX_NAME || 'matches-v1';
+  return 'matches-v1';
 }
 

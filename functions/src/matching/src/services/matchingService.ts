@@ -31,7 +31,7 @@ export class MatchingService {
 
       logger.info('\n[Phase 2] Data Retrieval');
       const { students, seniors, excluded } = await fetchAllParticipants();
-
+      
       if (students.length === 0 || seniors.length === 0) {
         throw new Error('No participants found for matching');
       }

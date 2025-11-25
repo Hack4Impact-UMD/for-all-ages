@@ -104,8 +104,6 @@ function convertAssignmentsToMatches(
     matches.push({
       studentId,
       seniorId,
-      studentName: student.name,
-      seniorName: senior.name,
       scores: {
         frqScore: score.frqScore,
         quantScore: score.quantScore,
