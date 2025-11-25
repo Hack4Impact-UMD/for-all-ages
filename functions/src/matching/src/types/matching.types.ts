@@ -1,12 +1,10 @@
 export interface ParticipantWithEmbedding {
   id: string;
-  name: string;
-  type: 'young' | 'older' | string;
+  user_type: 'student' | 'adult' | string;
   embedding: number[];
   q1?: number;
   q2?: number;
   q3?: number;
-  idealMatch?: string;
   metadata?: Record<string, unknown>;
 }
 
@@ -23,8 +21,6 @@ export type ConfidenceLevel = 'high' | 'medium' | 'low';
 export interface Match {
   studentId: string;
   seniorId: string;
-  studentName: string;
-  seniorName: string;
   scores: {
     frqScore: number;
     quantScore: number;
