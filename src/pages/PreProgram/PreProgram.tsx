@@ -240,7 +240,7 @@ const PreProgram = () => {
                 <tr key={i}>
                   <td>{m.name1}</td>
                   <td>{m.name2}</td>
-                  <td>{m.confidence ?? "-"}</td>
+                  <td>{`${m.confidence}%`}</td>
                   <td>
                     <select
                       value={m.status}
