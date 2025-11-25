@@ -55,3 +55,21 @@ export async function matchAll(body: any = {}) {
 
   return res.json();
 }
+
+const UPSERT_USER_URL =
+  "https://us-central1-for-all-ages-8a4e2.cloudfunctions.net/upsertUser";
+
+export async function upsertUser(body: { uid: string; freeResponse: string; q1: number, q2: number, q3: number, user_type: string }) {
+  const res = await fetch(UPSERT_USER_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`upsertUser HTTP error ${res.status}: ${text}`);
+  }
+
+  return res.json().catch(() => ({}));
+}
