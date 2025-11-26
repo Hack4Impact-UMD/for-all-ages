@@ -205,6 +205,10 @@ export default function Rematching() {
   };
 
   const handleFinalize = async () => {
+    const confirmed = window.confirm(
+      "Are you sure you want to finalize matches? This will lock matching."
+    );
+    if (!confirmed) return;
     try {
       setProgramStateError(null);
       setFinalizing(true);
@@ -218,6 +222,7 @@ export default function Rematching() {
   };
 
   const handleConfirmMatch = () => {
+    if (!window.confirm("Confirm this match?")) return;
     if (!selectedStudent || !selectedAdult) return;
 
     // Remove matched participants from pending lists

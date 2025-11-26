@@ -118,6 +118,8 @@ export default function AdminDashboard() {
     }, [])
 
     const handleStartProgram = async () => {
+        const confirmed = window.confirm('Start the program now? This will mark it as started for everyone.');
+        if (!confirmed) return;
         try {
             setProgramStateError(null)
             setStartingProgram(true)
