@@ -1,41 +1,37 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Navbar from "../../components/Navbar";
 import styles from "./PreProgram.module.css";
 import { useNavigate } from "react-router-dom";
 import SearchIcon from "@mui/icons-material/Search";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import AutorenewIcon from "@mui/icons-material/Autorenew";
+import { db, getUser, matchAll } from "../../firebase";
+import { collection, doc, getDocs, writeBatch } from "firebase/firestore";
 
-interface Match {
-  name1: string;
-  name2: string;
-  interests: string;
-  confidence?: number;
-  status?: "Pending" | "Approved" | "No Match";
+interface BackendMatch {
+  studentId: string;
+  seniorId: string;
+  scores: {
+    frqScore: number;
+    quantScore: number;
+    finalScore: number;
+  };
+  confidence: string;
+  rank: number;
 }
 
-const dummyMatches: Match[] = [
-  {
-    name1: "Jane Doe",
-    name2: "Marcus Allen",
-    interests: "Knitting, Tea, Painting, Spending time with Family",
-    confidence: 40,
-  },
-  {
-    name1: "Jennifer White",
-    name2: "N/A",
-    interests: "Reading, Running, Painting, Watching TV shows",
-  },
-  {
-    name1: "Holly Jackson",
-    name2: "John Smith",
-    interests: "Writing, Crocheting, Painting, Watching TV shows",
-    confidence: 80,
-  },
-];
+interface UI_Match {
+  name1: string;
+  name2: string;
+  participant1_id: string
+  participant2_id: string
+  confidence?: number;
+  status?: string;
+  score: number;
+}
 
 const PreProgram = () => {
-  const [matches, setMatches] = useState<Match[]>([]);
+  const [matches, setMatches] = useState<UI_Match[]>([]);
   const [search, setSearch] = useState("");
   const [buttonLabel, setButtonLabel] = useState<"Create match" | "Rematch">(
     "Create match"
@@ -43,27 +39,131 @@ const PreProgram = () => {
 
   const navigate = useNavigate();
 
-  const handleMatch = () => {
+  //load matches
+  useEffect(() => {
+    loadMatches();
+  }, []);
+
+
+  const convertMatches = async (raw: BackendMatch[]): Promise<UI_Match[]> => {
+    const matches = await Promise.all(
+      raw.map(async (m) => {
+        const u1 = await getUser(m.studentId);
+        const u2 = await getUser(m.seniorId);
+
+        return {
+          name1: u1.displayName,
+          name2: u2.displayName,
+          participant1_id: u1.userUid,
+          participant2_id: u2.userUid,
+          confidence: Math.round(m.scores.finalScore * 100),
+          status:
+            m.seniorId === "N/A"
+              ? "No Match"
+              : m.scores.finalScore >= 0.8
+              ? "Approved"
+              : "Pending",
+          score: m.scores.finalScore,
+        };
+      })
+    );
+
+    return matches;
+  };
+
+  const loadMatches = async () => {
+    const colRef = collection(db, "matches-test");
+    const snap = await getDocs(colRef);
+
+    if (snap.empty) {
+      setMatches([]);
+      return;
+    }
+
+    const loaded: UI_Match[] = await Promise.all(
+      snap.docs.map(async (d) => {
+        const data = d.data();
+
+        const u1 = await getUser(data.participant1_id);
+        const u2 = await getUser(data.participant2_id);
+
+        return {
+          name1: u1.displayName,
+          name2: u2.displayName,
+          participant1_id: data.participant1_id,
+          participant2_id: data.participant2_id,
+          confidence: data.similarity,
+          status:
+            data.similarity >= 80
+              ? "Approved"
+              : data.similarity > 0
+              ? "Pending"
+              : "No Match",
+          score: data.similarity / 100,
+        };
+      })
+    );
+
+    // sort like your other logic
+    const sorted = loaded.sort((a, b) => {
+      const order = { Pending: 1, "No Match": 2, Approved: 3 };
+      return order[a.status!] - order[b.status!];
+    });
+
+    setMatches(sorted);
+  };
+
+
+  const storeMatches = async (matches: UI_Match[]) => {
+    const colRef = collection(db, "matches-test");
+
+    //delete all matches
+    const existingDocs = await getDocs(colRef);
+    const deleteBatch = writeBatch(db);
+
+    existingDocs.forEach((d) => {
+      deleteBatch.delete(d.ref);
+    });
+
+    await deleteBatch.commit();
+
+    const writeBatchRef = writeBatch(db);
+
+    matches.forEach((m) => {
+      const newDoc = doc(colRef); 
+      writeBatchRef.set(newDoc, {
+        day_of_call: 0,
+        participant1_id: m.participant1_id,
+        participant2_id: m.participant2_id,
+        similarity: m.confidence
+      });
+    });
+
+    await writeBatchRef.commit();
+
+    console.log("Matches stored successfully.");
+  };
+
+
+  const handleMatch = async () => {
     if (buttonLabel === "Create match") {
-      const sortedMatches = dummyMatches
-        .map((m) => {
-          if (m.name2 === "N/A") return { ...m, status: "No Match" };
-          if (m.confidence && m.confidence >= 80)
-            return { ...m, status: "Approved" };
-          return { ...m, status: "Pending" };
-        })
-        .sort((a, b) => {
-          const order = { Pending: 1, "No Match": 2, Approved: 3 };
-          return order[a.status || "Pending"] - order[b.status || "Pending"];
-        });
-      setMatches(sortedMatches);
+      const res = await matchAll(); 
+      const converted = await convertMatches(res.result.matches);
+      storeMatches(converted)
+      //sort
+      const sorted = converted.sort((a, b) => {
+        const order = { Pending: 1, "No Match": 2, Approved: 3 };
+        return order[a.status!] - order[b.status!];
+      });
+
+      setMatches(sorted);
       setButtonLabel("Rematch");
     } else {
       navigate("/admin/rematching");
     }
   };
 
-  const handleStatusChange = (index: number, newStatus: Match["status"]) => {
+  const handleStatusChange = (index: number, newStatus: UI_Match["status"]) => {
     const updated = [...matches];
     updated[index].status = newStatus;
     setMatches(updated);
@@ -80,8 +180,11 @@ const PreProgram = () => {
       <Navbar
         navItems={[
           { label: "Main", path: "/admin/main" },
+          { label: "Admins", path: "/admin/creator" },
           { label: "Dashboard", path: "/admin/dashboard" },
-          { label: "Profile", path: "/admin/profile" },
+          { label: "Matching", path: "/admin/rematching" },
+          { label: "Recap", path: "/admin/recap" },
+          { label: "Profile", path: "/profile" },
         ]}
       />
 
@@ -119,17 +222,16 @@ const PreProgram = () => {
         <table className={styles.table}>
           <thead>
             <tr>
-              <th>Name 1</th>
-              <th>Name 2</th>
-              <th>Interests</th>
-              <th>Confidence %</th>
-              <th>Pair Status</th>
+              <th>Student</th>
+              <th>Senior</th>
+              <th>Final Score %</th>
+              <th>Status</th>
             </tr>
           </thead>
           <tbody>
             {filteredMatches.length === 0 ? (
               <tr>
-                <td colSpan={5} className={styles.empty}>
+                <td colSpan={4} className={styles.empty}>
                   No matches yet.
                 </td>
               </tr>
@@ -138,13 +240,15 @@ const PreProgram = () => {
                 <tr key={i}>
                   <td>{m.name1}</td>
                   <td>{m.name2}</td>
-                  <td>{m.interests}</td>
-                  <td>{m.confidence ?? "-"}</td>
+                  <td>{`${m.confidence}%`}</td>
                   <td>
                     <select
                       value={m.status}
                       onChange={(e) =>
-                        handleStatusChange(i, e.target.value as Match["status"])
+                        handleStatusChange(
+                          i,
+                          e.target.value as UI_Match["status"]
+                        )
                       }
                       className={`${styles.status} ${
                         m.status === "Approved"

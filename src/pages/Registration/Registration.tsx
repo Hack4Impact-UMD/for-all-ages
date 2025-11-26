@@ -2,11 +2,11 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 import styles from "./Registration.module.css";
-import logo from "../../assets/For all Ages high res logo 2022 (1).svg";
 import { useAuth } from "../../auth/AuthProvider";
 import { db } from "../../firebase";
 import { phoneNumberRegex } from "../../regex";
 import Navbar from "../../components/Navbar";
+
 
 // Defines the shape of the registration form state
 type RegistrationFormState = {
@@ -19,13 +19,19 @@ type RegistrationFormState = {
   phone: string;
   confirmPhone: string;
   email: string;
-  confirmEmail: string;
   dateOfBirth: string;
   pronouns: string;
   heardAbout: string;
   university: string;
+  user_type: string; // 'student' or 'adult'
   interests: string;
   teaPreference: string;
+  preferredContactMethods: string[];
+  preferenceScores: {
+    q1: number;
+    q2: number;
+    q3: number;
+  };
 };
 
 // Builds the initial state for the registration form
@@ -39,13 +45,20 @@ const buildInitialState = (email?: string): RegistrationFormState => ({
   phone: "",
   confirmPhone: "",
   email: email ?? "",
-  confirmEmail: email ?? "",
   dateOfBirth: "",
   pronouns: "",
   heardAbout: "",
   university: "",
+  user_type: "",
   interests: "",
   teaPreference: "",
+  preferredContactMethods: [],
+  // Provide default values so the preferences are saved even if user doesn't move sliders
+  preferenceScores: {
+    q1: 3,
+    q2: 3,
+    q3: 3,
+  },
 });
 
 const upsertUserVector = async (uid: string, freeResponse: string) => {
@@ -90,7 +103,6 @@ const Registration = () => {
       setForm((prev) => ({
         ...prev,
         email: prev.email || user.email || "",
-        confirmEmail: prev.confirmEmail || user.email || "",
       }));
     }
   }, [user?.email]);
@@ -130,6 +142,27 @@ const Registration = () => {
     }));
   };
 
+  // Handles multi-select checkbox changes for preferred contact methods
+  const handleContactMethodChange = (method: string, checked: boolean) => {
+    setForm((prev) => ({
+      ...prev,
+      preferredContactMethods: checked
+        ? [...prev.preferredContactMethods, method]
+        : prev.preferredContactMethods.filter((m) => m !== method),
+    }));
+  };
+
+  // Handles slider changes for preference scores
+  const handlePreferenceScoreChange = (questionId: "q1" | "q2" | "q3", value: number) => {
+    setForm((prev) => ({
+      ...prev,
+      preferenceScores: {
+        ...prev.preferenceScores,
+        [questionId]: value,
+      },
+    }));
+  };
+
   const isPhoneInvalid =
     form.phone !== "" && !phoneNumberRegex.test(form.phone);
   const isConfirmPhoneInvalid =
@@ -140,11 +173,6 @@ const Registration = () => {
     form.confirmPhone !== "" &&
     form.phone !== form.confirmPhone;
 
-  const isEmailMismatch =
-    form.email !== "" &&
-    form.confirmEmail !== "" &&
-    form.email.trim().toLowerCase() !== form.confirmEmail.trim().toLowerCase();
-
   const allRequiredFilled =
     Boolean(form.addressLine1) &&
     Boolean(form.city) &&
@@ -154,15 +182,16 @@ const Registration = () => {
     Boolean(form.phone) &&
     Boolean(form.confirmPhone) &&
     Boolean(form.email) &&
-    Boolean(form.confirmEmail) &&
     Boolean(form.dateOfBirth) &&
     Boolean(form.pronouns) &&
     Boolean(form.heardAbout) &&
-    Boolean(form.university) &&
+    Boolean(form.user_type) &&
+    // university is required only if the user_type is 'student'
+    (form.user_type !== 'student' || Boolean(form.university)) &&
     Boolean(form.interests) &&
     Boolean(form.teaPreference) &&
+    form.preferredContactMethods.length > 0 &&
     !isPhoneMismatch &&
-    !isEmailMismatch &&
     !isPhoneInvalid &&
     !isConfirmPhoneInvalid;
 
@@ -171,10 +200,6 @@ const Registration = () => {
     if (!user) return;
     if (isPhoneMismatch) {
       setError("Phone numbers must match.");
-      return;
-    }
-    if (isEmailMismatch) {
-      setError("Emails must match.");
       return;
     }
 
@@ -189,6 +214,7 @@ const Registration = () => {
       type: "Participant" as const,
       userUid: user.uid,
       email: form.email.trim().toLowerCase(),
+      user_type: form.user_type,
       phoneNumber: form.phone,
       address: {
         line1: form.addressLine1,
@@ -204,6 +230,8 @@ const Registration = () => {
       university: form.university,
       interests: form.interests,
       teaPreference: form.teaPreference,
+      preferredContactMethods: form.preferredContactMethods,
+      preferenceScores: form.preferenceScores,
       displayName: user.displayName ?? null,
       updatedAt: timestamp,
     };
@@ -214,18 +242,8 @@ const Registration = () => {
     // always sets updatedAt to current timestamp
     try {
       const docRef = doc(db, "participants", user.uid);
-      const dataToWrite = participant
-        ? payload
-        : { ...payload, createdAt: timestamp };
+      const dataToWrite = participant ? payload : { ...payload, createdAt: timestamp };
       await setDoc(docRef, dataToWrite, { merge: true });
-
-      if (!participant) {
-        try {
-          await upsertUserVector(user.uid, form.interests);
-        } catch (pineconeError) {
-          console.error("Failed to upsert Pinecone vector", pineconeError);
-        }
-      }
       setStatus("Registration complete! Redirecting to your dashboard...");
       navigate("/user/dashboard", { replace: true });
     } catch (err) {
@@ -258,7 +276,7 @@ const Registration = () => {
         <div id={styles.addr_container}>
           <div id={styles.addr_street}>
             <label className={styles.sublabel}>
-              <span className={styles.label}>Address</span>
+              <span className={styles.label}>Current Mailing Address</span>
               <input
                 type="text"
                 name="addressLine1"
@@ -390,6 +408,7 @@ const Registration = () => {
               required
             />
           </label>
+        </div>
 
           <label className={styles.label}>
             Confirm Email
@@ -400,9 +419,7 @@ const Registration = () => {
               onChange={handleInputChange}
               required
             />
-            {isEmailMismatch && (
-              <span className={styles.errorText}>Emails must match.</span>
-            )}
+            {isEmailMismatch && <span className={styles.errorText}>Emails must match.</span>}
           </label>
         </div>
 
@@ -451,15 +468,45 @@ const Registration = () => {
         </label>
 
         <label className={styles.label}>
-          If you are a college student, what University are you attending?
-          <input
-            type="text"
-            name="university"
-            value={form.university}
-            onChange={handleInputChange}
-            required
-          />
+          Are you a college student or an adult?
+          <div className={styles.radioGroup}>
+            <label>
+              <input
+                type="radio"
+                name="user_type"
+                value="student"
+                checked={form.user_type === "student"}
+                onChange={handleInputChange}
+                required
+              />
+              Student
+            </label>
+            <label>
+              <input
+                type="radio"
+                name="user_type"
+                value="adult"
+                checked={form.user_type === "adult"}
+                onChange={handleInputChange}
+                required
+              />
+              Adult
+            </label>
+          </div>
         </label>
+
+        {form.user_type === "student" && (
+          <label className={styles.label}>
+            If you are a college student, what University are you attending?
+            <input
+              type="text"
+              name="university"
+              value={form.university}
+              onChange={handleInputChange}
+              required={form.user_type === "student"}
+            />
+          </label>
+        )}
 
         <label className={styles.label}>
           What are your interests? This will better help us pair you with your
@@ -524,6 +571,72 @@ const Registration = () => {
             />
             Variety
           </label>
+        </label>
+
+        <label className={styles.label}>
+          Prefer indoor movie (1) - Prefer outdoor camping (5)
+          <div className={styles.sliderContainer}>
+            <input
+              type="range"
+              min="1"
+              max="5"
+              step="1"
+              value={form.preferenceScores.q1}
+              onChange={(e) => handlePreferenceScoreChange("q1", parseInt(e.target.value))}
+              className={styles.slider}
+            />
+            <div className={styles.sliderLabels}>
+              <span>1</span>
+              <span>2</span>
+              <span>3</span>
+              <span>4</span>
+              <span>5</span>
+            </div>
+          </div>
+        </label>
+
+        <label className={styles.label}>
+          Prefer early mornings (1) - Prefer late nights (5)
+          <div className={styles.sliderContainer}>
+            <input
+              type="range"
+              min="1"
+              max="5"
+              step="1"
+              value={form.preferenceScores.q2}
+              onChange={(e) => handlePreferenceScoreChange("q2", parseInt(e.target.value))}
+              className={styles.slider}
+            />
+            <div className={styles.sliderLabels}>
+              <span>1</span>
+              <span>2</span>
+              <span>3</span>
+              <span>4</span>
+              <span>5</span>
+            </div>
+          </div>
+        </label>
+
+        <label className={styles.label}>
+          Prefer quiet (1) - Prefer social (5)
+          <div className={styles.sliderContainer}>
+            <input
+              type="range"
+              min="1"
+              max="5"
+              step="1"
+              value={form.preferenceScores.q3}
+              onChange={(e) => handlePreferenceScoreChange("q3", parseInt(e.target.value))}
+              className={styles.slider}
+            />
+            <div className={styles.sliderLabels}>
+              <span>1</span>
+              <span>2</span>
+              <span>3</span>
+              <span>4</span>
+              <span>5</span>
+            </div>
+          </div>
         </label>
 
         {error && <div className={styles.errorBanner}>{error}</div>}
