@@ -61,6 +61,14 @@ export default function AdminDashboard() {
         return unsubscribe
     }, [])
 
+    // Update selected week when programState.week changes
+    useEffect(() => {
+        if (programState && typeof programState.week === 'number') {
+            const nextWeekIndex = Math.max(0, programState.week - 1)
+            setSelectedWeek(nextWeekIndex)
+        }
+    }, [programState?.week])
+
     // Fetch all matches once on mount
     useEffect(() => {
         async function loadMatches() {
