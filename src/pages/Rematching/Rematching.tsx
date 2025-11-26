@@ -37,23 +37,6 @@ export interface ApprovedMatch {
   adultId: string;
 }
 
-// ============================================================================
-// CONSTANTS
-// ============================================================================
-
-const NAV_ITEMS = [
-  { label: "Main", path: "/admin/main" },
-  { label: "Admins", path: "/admin/creator" },
-  { label: "Dashboard", path: "/admin/dashboard" },
-  { label: "Matching", path: "/admin/rematching" },
-  { label: "Recap", path: "/admin/recap" },
-  { label: "Profile", path: "/profile" },
-];
-
-// ============================================================================
-// HELPER FUNCTIONS
-// ============================================================================
-
 /**
  * Filters participants based on search query.
  * Matches against name or any interest.
@@ -199,7 +182,7 @@ export default function Rematching() {
 
   return (
     <div className={`${layoutStyles.page} ${styles.rematchingPage}`}>
-      <Navbar navItems={NAV_ITEMS} />
+      <Navbar />
       <div className={`${layoutStyles.surface} ${styles.rematchingSurface}`}>
         <h1 className={styles.pageTitle}>AI Assisted Matching</h1>
         <h2 className={styles.pageSubtitle}>
@@ -434,4 +417,3 @@ function MatchDetailsColumn({
     </div>
   );
 }
-

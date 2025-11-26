@@ -74,12 +74,7 @@ const Profile = () => {
 
   return (
     <div className={styles.page}>
-      <Navbar
-        navItems={[
-          { label: "Dashboard", path: "/user/dashboard" },
-          { label: "Profile", path: "/profile" },
-        ]}
-      />
+      <Navbar />
 
       <div className={styles.container}>
         {/* LEFT COLUMN */}
@@ -181,7 +176,7 @@ const Profile = () => {
                   onChange={(e) =>
                     setUser({
                       ...user,
-                      interests: e.target.value
+                      interests: e.target.value,
                     })
                   }
                   rows={3}
@@ -200,9 +195,7 @@ const Profile = () => {
                       }}
                     />
                   </div>
-                  <span className={styles.boxValue}>
-                    {user.interests}
-                  </span>
+                  <span className={styles.boxValue}>{user.interests}</span>
                 </div>
               )}
             </div>

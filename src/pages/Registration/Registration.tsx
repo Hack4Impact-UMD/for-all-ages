@@ -6,7 +6,7 @@ import { useAuth } from "../../auth/AuthProvider";
 import { db } from "../../firebase";
 import { phoneNumberRegex } from "../../regex";
 import Navbar from "../../components/Navbar";
-
+import { upsertUser } from "../../firebase";
 
 // Defines the shape of the registration form state
 type RegistrationFormState = {
@@ -60,25 +60,6 @@ const buildInitialState = (email?: string): RegistrationFormState => ({
     q3: 3,
   },
 });
-
-const upsertUserVector = async (uid: string, freeResponse: string) => {
-  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
-
-  const response = await fetch(`${API_URL}/api/participants/upsert-vector`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ uid, freeResponse }),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || "Failed to upsert vector");
-  }
-
-  return response.json();
-};
 
 const Registration = () => {
   const navigate = useNavigate();
@@ -153,7 +134,10 @@ const Registration = () => {
   };
 
   // Handles slider changes for preference scores
-  const handlePreferenceScoreChange = (questionId: "q1" | "q2" | "q3", value: number) => {
+  const handlePreferenceScoreChange = (
+    questionId: "q1" | "q2" | "q3",
+    value: number
+  ) => {
     setForm((prev) => ({
       ...prev,
       preferenceScores: {
@@ -187,7 +171,7 @@ const Registration = () => {
     Boolean(form.heardAbout) &&
     Boolean(form.user_type) &&
     // university is required only if the user_type is 'student'
-    (form.user_type !== 'student' || Boolean(form.university)) &&
+    (form.user_type !== "student" || Boolean(form.university)) &&
     Boolean(form.interests) &&
     Boolean(form.teaPreference) &&
     form.preferredContactMethods.length > 0 &&
@@ -242,8 +226,28 @@ const Registration = () => {
     // always sets updatedAt to current timestamp
     try {
       const docRef = doc(db, "participants", user.uid);
-      const dataToWrite = participant ? payload : { ...payload, createdAt: timestamp };
+      // For testing purposes
+      const docTest = doc(db, "participants-test2", user.uid);
+      const dataToWrite = participant
+        ? payload
+        : { ...payload, createdAt: timestamp };
       await setDoc(docRef, dataToWrite, { merge: true });
+      // For testing purposes
+      await setDoc(docTest, dataToWrite, { merge: true });
+
+      try {
+        await upsertUser({
+          uid: user.uid,
+          freeResponse: form.interests,
+          q1: form.preferenceScores.q1,
+          q2: form.preferenceScores.q2,
+          q3: form.preferenceScores.q3,
+          user_type: form.user_type,
+        });
+      } catch (fnErr) {
+        console.error("upsertUser cloud function failed:", fnErr);
+      }
+
       setStatus("Registration complete! Redirecting to your dashboard...");
       navigate("/user/dashboard", { replace: true });
     } catch (err) {
@@ -410,18 +414,46 @@ const Registration = () => {
           </label>
         </div>
 
-          <label className={styles.label}>
-            Confirm Email
-            <input
-              type="email"
-              name="confirmEmail"
-              value={form.confirmEmail}
-              onChange={handleInputChange}
-              required
-            />
-            {isEmailMismatch && <span className={styles.errorText}>Emails must match.</span>}
-          </label>
-        </div>
+        <label className={styles.label}>
+          Preferred Method of Contact (Select all that apply)
+          <div className={styles.checkboxGroup}>
+            <label className={styles.checkboxLabel}>
+              <input
+                type="checkbox"
+                checked={form.preferredContactMethods.includes("Phone")}
+                onChange={(e) =>
+                  handleContactMethodChange("Phone", e.target.checked)
+                }
+              />
+              Phone
+            </label>
+            <label className={styles.checkboxLabel}>
+              <input
+                type="checkbox"
+                checked={form.preferredContactMethods.includes("Email")}
+                onChange={(e) =>
+                  handleContactMethodChange("Email", e.target.checked)
+                }
+              />
+              Email
+            </label>
+            <label className={styles.checkboxLabel}>
+              <input
+                type="checkbox"
+                checked={form.preferredContactMethods.includes(
+                  "Portal notification"
+                )}
+                onChange={(e) =>
+                  handleContactMethodChange(
+                    "Portal notification",
+                    e.target.checked
+                  )
+                }
+              />
+              Portal notification
+            </label>
+          </div>
+        </label>
 
         <label className={styles.label}>
           Date of Birth
@@ -582,7 +614,9 @@ const Registration = () => {
               max="5"
               step="1"
               value={form.preferenceScores.q1}
-              onChange={(e) => handlePreferenceScoreChange("q1", parseInt(e.target.value))}
+              onChange={(e) =>
+                handlePreferenceScoreChange("q1", parseInt(e.target.value))
+              }
               className={styles.slider}
             />
             <div className={styles.sliderLabels}>
@@ -604,7 +638,9 @@ const Registration = () => {
               max="5"
               step="1"
               value={form.preferenceScores.q2}
-              onChange={(e) => handlePreferenceScoreChange("q2", parseInt(e.target.value))}
+              onChange={(e) =>
+                handlePreferenceScoreChange("q2", parseInt(e.target.value))
+              }
               className={styles.slider}
             />
             <div className={styles.sliderLabels}>
@@ -626,7 +662,9 @@ const Registration = () => {
               max="5"
               step="1"
               value={form.preferenceScores.q3}
-              onChange={(e) => handlePreferenceScoreChange("q3", parseInt(e.target.value))}
+              onChange={(e) =>
+                handlePreferenceScoreChange("q3", parseInt(e.target.value))
+              }
               className={styles.slider}
             />
             <div className={styles.sliderLabels}>

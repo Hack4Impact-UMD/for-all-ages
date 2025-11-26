@@ -3,11 +3,6 @@ import Navbar from "../../components/Navbar";
 import { useAuth } from "../../auth/AuthProvider";
 import styles from "./Waiting.module.css";
 
-const NAV_ITEMS = [
-  { label: "Dashboard", path: "/user/waiting" },
-  { label: "Profile", path: "/profile" },
-];
-
 const ADMIN_EMAIL = "info@forallages.org";
 
 type ParticipantProfile = {
@@ -16,10 +11,16 @@ type ParticipantProfile = {
   lastName?: string | null;
 };
 
-function buildGreetingName(participant: ParticipantProfile | null, fallbackEmail?: string | null) {
+function buildGreetingName(
+  participant: ParticipantProfile | null,
+  fallbackEmail?: string | null
+) {
   const candidate =
     participant?.displayName?.trim() ||
-    [participant?.firstName, participant?.lastName].filter(Boolean).join(" ").trim() ||
+    [participant?.firstName, participant?.lastName]
+      .filter(Boolean)
+      .join(" ")
+      .trim() ||
     fallbackEmail?.split("@")[0] ||
     "there";
 
@@ -35,8 +36,12 @@ export default function Waiting() {
   const participantProfile = (participant as ParticipantProfile | null) ?? null;
 
   const greetingName = useMemo(
-    () => buildGreetingName(participantProfile, user?.displayName ?? user?.email ?? null),
-    [participantProfile, user?.displayName, user?.email],
+    () =>
+      buildGreetingName(
+        participantProfile,
+        user?.displayName ?? user?.email ?? null
+      ),
+    [participantProfile, user?.displayName, user?.email]
   );
 
   const handleMessageAdmins = () => {
@@ -45,7 +50,9 @@ export default function Waiting() {
     const body = user?.email
       ? encodeURIComponent(`Hi Admin Team,\n\nThis is ${user.email}.`)
       : "";
-    const mailto = `mailto:${ADMIN_EMAIL}?subject=${subject}${body ? `&body=${body}` : ""}`;
+    const mailto = `mailto:${ADMIN_EMAIL}?subject=${subject}${
+      body ? `&body=${body}` : ""
+    }`;
     window.location.href = mailto;
   };
 
@@ -53,7 +60,7 @@ export default function Waiting() {
 
   return (
     <div className={styles.page}>
-      <Navbar navItems={NAV_ITEMS} />
+      <Navbar />
       <div className={styles.waitingSurface}>
         {isLoading ? (
           <div className={styles.loadingMessage}>Loading your dashboard…</div>
@@ -67,13 +74,18 @@ export default function Waiting() {
                 <p className={styles.messageText}>
                   Thank you for filling out the registration form!
                   <br />
-                  We will get back to you soon regarding further details on the program!
+                  We will get back to you soon regarding further details on the
+                  program!
                 </p>
               </div>
             </section>
           </>
         )}
-        <button type="button" className={styles.messageButton} onClick={handleMessageAdmins}>
+        <button
+          type="button"
+          className={styles.messageButton}
+          onClick={handleMessageAdmins}
+        >
           <span className={styles.messageIcon} aria-hidden="true">
             <svg viewBox="0 0 24 24" focusable="false" role="presentation">
               <path

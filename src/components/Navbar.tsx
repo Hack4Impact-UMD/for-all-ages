@@ -1,6 +1,8 @@
 import { Link, useLocation } from "react-router-dom";
 import styles from "./Navbar.module.css";
-import Logo from "../assets/for-all-ages-logo.svg"
+import Logo from "../assets/for-all-ages-logo.svg";
+import { useAuth } from "../auth/AuthProvider";
+import { useMemo } from "react";
 
 interface NavItem {
   label: string;
@@ -11,12 +13,58 @@ interface NavbarProps {
   navItems?: NavItem[];
 }
 
-export default function Navbar({ navItems = [
-    { label: "Dashboard", path: "/dashboard" },
-    { label: "Calendar", path: "/calendar" },
-    { label: "Settings", path: "/settings" },
-  ] }: NavbarProps) {
+function isAdminRole(role?: string | null): boolean {
+  if (!role) return false;
+  const normalised = role.toLowerCase();
+  return (
+    normalised === "admin" ||
+    normalised === "subadmin" ||
+    normalised === "sub-admin"
+  );
+}
+
+const ADMIN_NAV_ITEMS: NavItem[] = [
+  { label: "Stats", path: "/admin/recap" },
+  { label: "Users", path: "/admin/creator" },
+  { label: "Matching", path: "/admin/main" },
+  { label: "Roadmap", path: "/admin/dashboard" },
+  { label: "Profile", path: "/profile" },
+];
+
+const PARTICIPANT_NAV_ITEMS: NavItem[] = [
+  { label: "Dashboard", path: "/user/dashboard" },
+  { label: "Profile", path: "/profile" },
+];
+
+const DEFAULT_NAV_ITEMS: NavItem[] = [
+  { label: "Dashboard", path: "/dashboard" },
+  { label: "Calendar", path: "/calendar" },
+  { label: "Settings", path: "/settings" },
+];
+
+export default function Navbar({ navItems }: NavbarProps) {
   const location = useLocation();
+  const { participant, participantLoading } = useAuth();
+
+  // Automatically determine navItems based on user type if not provided
+  const determinedNavItems = useMemo(() => {
+    if (navItems) {
+      return navItems;
+    }
+    if (participantLoading) {
+      return DEFAULT_NAV_ITEMS;
+    }
+
+    const role = (participant as { role?: string | null } | null)?.role ?? null;
+    const isAdmin = participant && isAdminRole(role);
+
+    // Return appropriate navItems based on user type
+    if (isAdmin) {
+      return ADMIN_NAV_ITEMS;
+    }
+
+    return PARTICIPANT_NAV_ITEMS;
+  }, [navItems, participant, participantLoading]);
 
   return (
     <div className={styles.bar}>
@@ -26,7 +74,7 @@ export default function Navbar({ navItems = [
         </Link>
       </div>
       <div className={styles.container}>
-        {navItems.map((item) => {
+        {determinedNavItems.map((item) => {
           const isActive = location.pathname === item.path;
 
           return (
@@ -34,7 +82,6 @@ export default function Navbar({ navItems = [
               key={item.label}
               to={item.path}
               className={`${styles.link} ${isActive ? styles.active : ""}`}
-
             >
               {item.label}
             </Link>
