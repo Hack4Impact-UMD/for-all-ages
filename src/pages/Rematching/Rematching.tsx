@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FaCoffee, FaSearch } from "react-icons/fa";
 import styles from "./Rematching.module.css";
 import layoutStyles from "../Dashboard/Dashboard.module.css";
@@ -12,6 +12,11 @@ import {
   INITIAL_ADULTS,
   INITIAL_APPROVED_MATCHES,
 } from "./data";
+import {
+  finalizeMatches,
+  subscribeToProgramState,
+  type ProgramState,
+} from "../../services/programState";
 
 // ============================================================================
 // TYPES
@@ -145,6 +150,28 @@ export default function Rematching() {
     useState<RematchingParticipant | null>(null);
   const [studentSearch, setStudentSearch] = useState("");
   const [adultSearch, setAdultSearch] = useState("");
+  const [programState, setProgramState] = useState<ProgramState | null>(null);
+  const [programStateLoading, setProgramStateLoading] = useState(true);
+  const [programStateError, setProgramStateError] = useState<string | null>(
+    null
+  );
+  const [finalizing, setFinalizing] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToProgramState(
+      (state) => {
+        setProgramState(state);
+        setProgramStateLoading(false);
+      },
+      (err) => {
+        console.error("Failed to subscribe to program state", err);
+        setProgramStateError("Unable to load program state.");
+        setProgramStateLoading(false);
+      }
+    );
+
+    return unsubscribe;
+  }, []);
 
   // Filtered participants based on search
   const filteredStudents = useMemo(
@@ -177,6 +204,19 @@ export default function Rematching() {
     setSelectedAdult((prev) => (prev?.id === adult.id ? null : adult));
   };
 
+  const handleFinalize = async () => {
+    try {
+      setProgramStateError(null);
+      setFinalizing(true);
+      await finalizeMatches();
+    } catch (err) {
+      console.error("Failed to finalize matches", err);
+      setProgramStateError("Failed to finalize matches. Please try again.");
+    } finally {
+      setFinalizing(false);
+    }
+  };
+
   const handleConfirmMatch = () => {
     if (!selectedStudent || !selectedAdult) return;
 
@@ -196,6 +236,7 @@ export default function Rematching() {
   };
 
   const isMatchButtonDisabled = !selectedStudent || !selectedAdult;
+  const matchesFinalized = programState?.matches_final ?? false;
 
   return (
     <div className={`${layoutStyles.page} ${styles.rematchingPage}`}>
@@ -205,6 +246,41 @@ export default function Rematching() {
         <h2 className={styles.pageSubtitle}>
           Match students with older adults based on interests and preferences
         </h2>
+
+        <div className={styles.actionsBar}>
+          <div className={styles.actionsCopy}>
+            <div className={styles.actionLabel}>Matching status</div>
+            <div
+              className={`${styles.statusPill} ${
+                matchesFinalized ? styles.statusPillActive : ""
+              }`}
+            >
+              {programStateLoading
+                ? "Loading..."
+                : matchesFinalized
+                ? "Finalized"
+                : "In progress"}
+            </div>
+            {programStateError && (
+              <div className={styles.actionError}>{programStateError}</div>
+            )}
+          </div>
+          <button
+            className={`${styles.confirmButton} ${
+              programStateLoading || finalizing || matchesFinalized
+                ? styles.disabled
+                : ""
+            } ${styles.compactButton}`}
+            onClick={handleFinalize}
+            disabled={programStateLoading || finalizing || matchesFinalized}
+          >
+            {matchesFinalized
+              ? "Matches Finalized"
+              : finalizing
+              ? "Finalizing..."
+              : "Finalize"}
+          </button>
+        </div>
 
         {/* Statistics Section */}
         <div className={styles.statistics}>
@@ -434,4 +510,3 @@ function MatchDetailsColumn({
     </div>
   );
 }
-
