@@ -130,8 +130,8 @@ export function calculateStatistics(matches: Match[]): MatchingStatistics {
 export function formatMatch(match: Match): string {
   return [
     `Match #${match.rank || '?'}:`,
-    `  Student: ${match.studentName} (${match.studentId})`,
-    `  Senior: ${match.seniorName} (${match.seniorId})`,
+    `  Student:${match.studentId}`,
+    `  Senior: ${match.seniorId}`,
     `  Final Score: ${match.scores.finalScore.toFixed(4)}`,
     `  FRQ Score: ${match.scores.frqScore.toFixed(4)}`,
     `  Quant Score: ${match.scores.quantScore.toFixed(4)}`,
@@ -161,9 +161,7 @@ export function exportMatchesToCSV(matches: Match[]): string {
   const rows = matches.map(match => [
     match.rank || '',
     match.studentId,
-    match.studentName,
     match.seniorId,
-    match.seniorName,
     match.scores.finalScore.toFixed(4),
     match.scores.frqScore.toFixed(4),
     match.scores.quantScore.toFixed(4),

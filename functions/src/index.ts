@@ -57,7 +57,7 @@ export const incrementProgramWeek = onSchedule(
       if (!snap.exists) return;
 
       const data = snap.data() as ProgramState;
-      
+
       // ONLY RUN IF PROGRAM HAS STARTED
       if (!data.started) return;
 
