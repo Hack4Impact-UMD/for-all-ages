@@ -79,7 +79,9 @@ const Profile = () => {
 
   const handleLogout = async () => {
     setLogoutError(null);
-   
+    const confirmed = window.confirm('To log out, please confirm.');
+    if (!confirmed) return;
+    
     try {
       await signOut(auth);
       navigate("/", { replace: true });
