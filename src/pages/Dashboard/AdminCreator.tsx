@@ -76,10 +76,12 @@ function formatAddress(address?: RawAddress | null): string | null {
 
 // Normalises a role string to a Role type
 // Cleans whatever is stored in Firestore and coerces to a strict Role
-function normaliseRole(role?: string | null): Role {
-  if (!role) return "Admin";
+function normaliseRole(role?: string | null): Role | "Participant"{
+  if (!role) return "Participant";
   const value = role.replace(/\s+/g, "").toLowerCase();
-  return value === "subadmin" || value === "sub-admin" ? "Subadmin" : "Admin";
+  if (value === "admin") return "Admin";
+  if (value === "subadmin" || value === "sub-admin") return "Subadmin";
+  return "Participant";
 }
 
 // Composes a display name for an admin from their ParticipantDoc
@@ -99,6 +101,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [roleFilter, setRoleFilter] = useState<"All" | Role | "Participant">("All");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [banner, setBanner] = useState<BannerState | null>(null);
 
@@ -120,10 +123,7 @@ export default function AdminDashboard() {
     let unsubscribe: Unsubscribe | undefined;
 
     const startSubscription = () => {
-      const adminsQuery = query(
-        collection(db, "participants"),
-        where("role", "in", ["Admin", "Subadmin"])
-      );
+      const adminsQuery = collection(db, "participants");
       
       // Set up real-time listener for admin accounts
       unsubscribe = onSnapshot(
@@ -176,16 +176,23 @@ export default function AdminDashboard() {
   // Recomputes only when admins or searchTerm change
   const filteredAdmins = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
-    if (!term) return admins;
 
-    return admins.filter((admin) => {
-      return (
-        admin.name.toLowerCase().includes(term) ||
+    let list = admins;
+    if (roleFilter !== "All") {
+      list = list.filter((user) => {
+        const r = normaliseRole(user.role);
+        return r === roleFilter;});
+    }
+
+    if (term) {
+      list = list.filter((admin) => {
+        return (admin.name.toLowerCase().includes(term) ||
         admin.email.toLowerCase().includes(term) ||
-        (admin.university ? admin.university.toLowerCase().includes(term) : false)
-      );
-    });
-  }, [admins, searchTerm]);
+        (admin.university ? admin.university.toLowerCase().includes(term) : false))
+      });
+    };
+    return list;
+  }, [admins, searchTerm, roleFilter]);
 
   return (
     <div className={layoutStyles.page}>
@@ -204,6 +211,24 @@ export default function AdminDashboard() {
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
             />
+
+            <div className={styles.searchGroup}>
+              <label className={styles.searchLabel} htmlFor="role-filter">
+                Role
+              </label>
+              <select
+                id="role-filter"
+                value={roleFilter}
+                onChange={(e) => setRoleFilter(e.target.value as any)}
+                className={styles.searchInput}
+              >
+                <option value="All">All</option>
+                <option value="Admin">Admin</option>
+                <option value="Subadmin">Subadmin</option>
+                <option value="Participant">Participant</option>
+              </select>
+            </div>
+
           </div>
           <button
             type="button"
@@ -270,7 +295,11 @@ export default function AdminDashboard() {
                     <tr key={admin.id}>
                       <td data-label="Name">{admin.name}</td>
                       <td data-label="Role">
-                        {admin.role === "Subadmin" ? "Sub-admin" : "Admin"}
+                        {admin.role === "Admin"
+                          ? "Admin"
+                          : admin.role === "Subadmin"
+                          ? "Sub-admin"
+                          : "Participant"}
                       </td>
                       <td data-label="Email">
                         {admin.email ? (
