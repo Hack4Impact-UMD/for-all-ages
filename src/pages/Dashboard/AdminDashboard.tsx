@@ -1,12 +1,16 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useCallback, useEffect } from 'react'
 import layoutStyles from './Dashboard.module.css'
 import adminStyles from './AdminDashboard.module.css'
 import WeekSelector from './components/WeekSelector/WeekSelector'
 import PersonTag from './components/PersonTag/PersonTag'
 import Navbar from '../../components/Navbar'
+import AdminMatchModal from './components/AdminMatchModal/AdminMatchModal'
+import { getAllMatches, type WeekSchedule, type PersonAssignment } from '../../services/matchLogs'
 
 type DayKey = 'Sun' | 'Mon' | 'Tue' | 'Wed' | 'Thurs' | 'Fri' | 'Sat'
-type PersonAssignment = {
+
+// Extended type for dummy data (without participantIds)
+type DummyPersonAssignment = {
     names: string[]
     variant?: 'rose' | 'green' | 'gold'
 }
@@ -16,8 +20,8 @@ const DAY_LABELS: DayKey[] = ['Sun', 'Mon', 'Tue', 'Wed', 'Thurs', 'Fri', 'Sat']
 const WEEKS = 20
 
 
-//dummy data for admin schedules
-const ADMIN_WEEK_SCHEDULES: Record<DayKey, PersonAssignment[]>[] = [
+// Dummy data for admin schedules (fallback when Firestore has no matches)
+const ADMIN_WEEK_SCHEDULES: Record<DayKey, DummyPersonAssignment[]>[] = [
     {
         Sun: [{ names: ['Jane', 'Mary'], variant: 'rose' }],
         Mon: [{ names: ['Jane', 'Mary'], variant: 'green' }],
@@ -92,9 +96,42 @@ const NAV_ITEMS = [
 
 export default function AdminDashboard () {
     const [selectedWeek, setSelectedWeek] = useState(2)
+    const [selectedMatch, setSelectedMatch] = useState<{ names: string[], week: number, variant?: 'rose' | 'green' | 'gold', participantIds?: string[] } | null>(null)
+    const [firestoreMatches, setFirestoreMatches] = useState<WeekSchedule | null>(null)
+
+    // Load matches from Firestore on mount
+    useEffect(() => {
+        let cancelled = false
+        async function loadMatches() {
+            try {
+                const data = await getAllMatches()
+                if (!cancelled) {
+                    setFirestoreMatches(data)
+                }
+            } catch (error) {
+                console.error('Failed to load matches from Firestore:', error)
+            }
+        }
+        loadMatches()
+        return () => { cancelled = true }
+    }, [])
+
+    // Use Firestore data if available, otherwise fall back to dummy data
     const activeWeekData = useMemo(() => {
+        // Check if Firestore has any matches
+        if (firestoreMatches) {
+            const hasAnyMatches = Object.values(firestoreMatches).some(day => day.length > 0)
+            if (hasAnyMatches) {
+                return firestoreMatches
+            }
+        }
+        // Fall back to dummy data
         return ADMIN_WEEK_SCHEDULES[selectedWeek] ?? ADMIN_WEEK_SCHEDULES[0]
-    }, [selectedWeek])
+    }, [selectedWeek, firestoreMatches])
+
+    const handleCloseModal = useCallback(() => {
+        setSelectedMatch(null)
+    }, [])
 
     return (
         <div className={layoutStyles.page}>
@@ -118,13 +155,30 @@ export default function AdminDashboard () {
                                         <div className={adminStyles.dayColumn} key={day}>
                                             <div className={adminStyles.dayHeader}>{day}</div>
                                             <div className={adminStyles.peopleList}>
-                                                {assignments.map((assignment, index) => (
-                                                    <PersonTag
+                                                {assignments.map((assignment, index) => {
+                                                    // Type guard: check if assignment has participantIds (from Firestore)
+                                                    const participantIds = 'participantIds' in assignment 
+                                                        ? (assignment as PersonAssignment).participantIds 
+                                                        : undefined
+                                                    
+                                                    return (
+                                                    <div 
                                                         key={`${day}-${index}-${assignment.names.join('-')}`}
-                                                        names={assignment.names}
-                                                        variant={assignment.variant}
-                                                    />
-                                                ))}
+                                                        className={adminStyles.matchWrapper}
+                                                        onClick={() => setSelectedMatch({ 
+                                                            names: assignment.names, 
+                                                            week: selectedWeek + 1, 
+                                                            variant: assignment.variant,
+                                                            participantIds
+                                                        })}
+                                                    >
+                                                        <PersonTag
+                                                            names={assignment.names}
+                                                            variant={assignment.variant}
+                                                        />
+                                                    </div>
+                                                    )
+                                                })}
                                             </div>
                                         </div>
                                     )
@@ -133,6 +187,12 @@ export default function AdminDashboard () {
                         </div>
                     </div>
                 </section>
+                {selectedMatch && (
+                    <AdminMatchModal 
+                        onClose={handleCloseModal} 
+                        matchData={selectedMatch} 
+                    />
+                )}
             </div>
         </div>
     )

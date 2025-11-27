@@ -47,10 +47,10 @@ const PreProgram = () => {
     if (buttonLabel === "Create match") {
       const sortedMatches = dummyMatches
         .map((m) => {
-          if (m.name2 === "N/A") return { ...m, status: "No Match" };
+          if (m.name2 === "N/A") return { ...m, status: "No Match" as const };
           if (m.confidence && m.confidence >= 80)
-            return { ...m, status: "Approved" };
-          return { ...m, status: "Pending" };
+            return { ...m, status: "Approved" as const };
+          return { ...m, status: "Pending" as const };
         })
         .sort((a, b) => {
           const order = { Pending: 1, "No Match": 2, Approved: 3 };

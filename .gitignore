@@ -22,3 +22,5 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+matching/.env
+ADMIN_MATCH_MODAL_CHANGES.md
