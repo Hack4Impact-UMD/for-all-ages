@@ -34,7 +34,7 @@ type ParticipantDoc = {
 type AdminRecord = {
   id: string;
   name: string;
-  role: Role;
+  role: Role | "Participant";
   email: string;
   phoneNumber?: string | null;
   address?: string | null;

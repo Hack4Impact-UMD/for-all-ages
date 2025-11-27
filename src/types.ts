@@ -1,4 +1,4 @@
-export type Role = "Admin" | "Subadmin" | "Participant";
+export type Role = "Admin" | "Subadmin";
 
 export interface User {
     email: string;
