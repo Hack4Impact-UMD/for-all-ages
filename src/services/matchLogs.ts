@@ -6,7 +6,7 @@
 
 import { collection, doc, query, where, getDocs, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import type { UserLog, MatchLogPair } from '../types';
+import type { Log, UserLog, MatchLogPair } from '../types';
 
 // ============================================================================
 // TYPES
@@ -21,15 +21,6 @@ export type PersonAssignment = {
 };
 
 export type WeekSchedule = Record<DayKey, PersonAssignment[]>;
-
-/** Firestore Log document structure */
-interface FirestoreLog {
-    uid: string;
-    week: number;
-    duration: number;
-    rating: number;
-    concerns: string;
-}
 
 /** Firestore Match document structure */
 interface FirestoreMatch {
@@ -73,18 +64,36 @@ async function getParticipantName(uid: string): Promise<string> {
 
 /**
  * Fetches all matches from Firestore and builds a week schedule.
+ * Computes variant (green/rose/gold) based on log submission status for the given week.
  * READ-ONLY: Only uses getDocs/getDoc.
+ *
+ * @param weekNumber - The week number to check log submissions for (1-indexed)
  */
-export async function getAllMatches(): Promise<WeekSchedule> {
+export async function getAllMatches(weekNumber: number = 1): Promise<WeekSchedule> {
     const result: WeekSchedule = {
         Sun: [], Mon: [], Tue: [], Wed: [], Thurs: [], Fri: [], Sat: []
     };
 
     const matchesRef = collection(db, 'matches');
-    const snapshot = await getDocs(matchesRef);
+    const logsRef = collection(db, 'logs');
+
+    // Fetch all matches and all logs for this week in parallel
+    const [matchesSnapshot, logsSnapshot] = await Promise.all([
+        getDocs(matchesRef),
+        getDocs(query(logsRef, where('week', '==', weekNumber)))
+    ]);
+
+    // Build a Set of UIDs who have submitted logs for this week
+    const submittedUids = new Set<string>();
+    logsSnapshot.docs.forEach(doc => {
+        const data = doc.data() as Log;
+        if (data.uid) {
+            submittedUids.add(data.uid);
+        }
+    });
 
     const assignments = await Promise.all(
-        snapshot.docs.map(async (docSnap) => {
+        matchesSnapshot.docs.map(async (docSnap) => {
             const m = docSnap.data() as FirestoreMatch;
 
             const [name1, name2] = await Promise.all([
@@ -102,10 +111,23 @@ export async function getAllMatches(): Promise<WeekSchedule> {
             } else {
                 dayKey = getDayKey(raw as Date);
             }
-            
+
+            // Determine variant based on log submission status
+            const p1Submitted = submittedUids.has(m.participant1_id);
+            const p2Submitted = submittedUids.has(m.participant2_id);
+
+            let variant: 'rose' | 'green' | 'gold' | undefined;
+            if (p1Submitted && p2Submitted) {
+                variant = 'green';  // Both submitted
+            } else if (p1Submitted || p2Submitted) {
+                variant = 'rose';   // Only one submitted
+            } else {
+                variant = 'gold';   // Neither submitted
+            }
+
             const assignment: PersonAssignment = {
                 names: [name1, name2],
-                variant: undefined,
+                variant,
                 participantIds: [m.participant1_id, m.participant2_id],
             };
 
@@ -146,7 +168,7 @@ export async function getMatchLogs(
             const name = await getParticipantName(uid);
             
             if (!snapshot.empty) {
-                const data = snapshot.docs[0].data() as FirestoreLog;
+                const data = snapshot.docs[0].data() as Log;
                 return {
                     name,
                     hasSubmitted: true,

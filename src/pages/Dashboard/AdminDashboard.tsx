@@ -7,6 +7,11 @@ import Navbar from '../../components/Navbar'
 import AdminMatchModal from './components/AdminMatchModal/AdminMatchModal'
 import { getAllMatches, type WeekSchedule, type PersonAssignment } from '../../services/matchLogs'
 
+// Toggle this to switch between mock data and real Firestore data
+// When true: Uses dummy schedule data and mock logs
+// When false: Uses Firestore matches and Firestore logs
+const USE_MOCK_DATA = false
+
 type DayKey = 'Sun' | 'Mon' | 'Tue' | 'Wed' | 'Thurs' | 'Fri' | 'Sat'
 
 // Extended type for dummy data (without participantIds)
@@ -18,6 +23,9 @@ type DummyPersonAssignment = {
 const DAY_LABELS: DayKey[] = ['Sun', 'Mon', 'Tue', 'Wed', 'Thurs', 'Fri', 'Sat']
 
 const WEEKS = 20
+
+// NOTE: selectedWeek is 0-indexed internally (0 = Week 1, 1 = Week 2, etc.)
+// When passing to Firestore functions, always use (selectedWeek + 1) for 1-indexed week numbers
 
 
 // Dummy data for admin schedules (fallback when Firestore has no matches)
@@ -99,12 +107,18 @@ export default function AdminDashboard () {
     const [selectedMatch, setSelectedMatch] = useState<{ names: string[], week: number, variant?: 'rose' | 'green' | 'gold', participantIds?: string[] } | null>(null)
     const [firestoreMatches, setFirestoreMatches] = useState<WeekSchedule | null>(null)
 
-    // Load matches from Firestore on mount
+    // Load matches from Firestore when week changes (only if not using mock data)
     useEffect(() => {
+        if (USE_MOCK_DATA) {
+            // Skip Firestore fetch when using mock data
+            return
+        }
+
         let cancelled = false
         async function loadMatches() {
             try {
-                const data = await getAllMatches()
+                // Pass week number (1-indexed) to compute variant based on log submissions
+                const data = await getAllMatches(selectedWeek + 1)
                 if (!cancelled) {
                     setFirestoreMatches(data)
                 }
@@ -114,10 +128,15 @@ export default function AdminDashboard () {
         }
         loadMatches()
         return () => { cancelled = true }
-    }, [])
+    }, [selectedWeek])
 
-    // Use Firestore data if available, otherwise fall back to dummy data
+    // Use Firestore data if available and not in mock mode, otherwise fall back to dummy data
     const activeWeekData = useMemo(() => {
+        // When USE_MOCK_DATA is true, always use dummy data
+        if (USE_MOCK_DATA) {
+            return ADMIN_WEEK_SCHEDULES[selectedWeek] ?? ADMIN_WEEK_SCHEDULES[0]
+        }
+
         // Check if Firestore has any matches
         if (firestoreMatches) {
             const hasAnyMatches = Object.values(firestoreMatches).some(day => day.length > 0)
@@ -125,7 +144,7 @@ export default function AdminDashboard () {
                 return firestoreMatches
             }
         }
-        // Fall back to dummy data
+        // Fall back to dummy data if Firestore is empty
         return ADMIN_WEEK_SCHEDULES[selectedWeek] ?? ADMIN_WEEK_SCHEDULES[0]
     }, [selectedWeek, firestoreMatches])
 

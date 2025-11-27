@@ -45,18 +45,24 @@ export interface Week {
     calls: {match_id: {duration: number, concerns: string}}[]
 }
 
-// Log document stored in Firestore logs collection
-// Structure: logs/{logId}
+/**
+ * Log document as stored in Firestore logs collection
+ * Structure: logs/{logId}
+ *
+ * NOTE: This matches the actual Firestore schema.
+ * Field mapping:
+ *   - uid: participant's user ID
+ *   - week: week number (1-indexed)
+ *   - duration: call duration in minutes
+ *   - rating: satisfaction score (1-5)
+ *   - concerns: meeting notes/comments
+ */
 export interface Log {
-    matchId: string;           
-    participantId: string;     
-    participantName: string;   
-    weekNumber: number;        
-    callComplete: boolean;
-    duration: number;          
-    satisfactionScore: number;
-    meetingNotes: string;
-    submittedAt?: Date;
+    uid: string;
+    week: number;
+    duration: number;
+    rating: number;
+    concerns: string;
 }
 
 // Individual user log for the admin modal
