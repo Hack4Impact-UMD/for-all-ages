@@ -4,6 +4,7 @@ import {
   addDoc,
   getDoc,
   getDocs,
+  updateDoc,
   query,
   where,
   type DocumentData,
@@ -89,5 +90,16 @@ export function getPartnerId(match: Match, currentParticipantId: string): string
     return match.participant2_id;
   } else {
     return match.participant1_id;
+  }
+}
+
+export async function updateMatchDayOfWeek(matchId: string, dayOfWeek: number): Promise<void> {
+  try {
+    const matchRef = doc(db, 'matches', matchId);
+    await updateDoc(matchRef, {
+      day_of_call: dayOfWeek,
+    });
+  } catch (error) {
+    throw new Error('Failed to update match day of week');
   }
 }
