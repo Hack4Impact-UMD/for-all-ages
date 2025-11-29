@@ -8,13 +8,17 @@ import SelectedParticipantCard from "./components/SelectedParticipantCard/Select
 import MatchConfidenceCircle from "./components/MatchConfidenceCircle/MatchConfidenceCircle";
 
 import {
+  PREFERENCE_QUESTION_LABELS,
+  PREFERENCE_QUESTION_IDS,
+} from "../Registration/preferenceQuestions";
+
+import {
   collection,
   doc,
-  getDoc,
   getDocs,
   writeBatch,
 } from "firebase/firestore";
-import { db } from "../../firebase";
+import { db, computeMatchScore } from "../../firebase";
 
 // ============================================================================
 // TYPES
@@ -31,6 +35,11 @@ export interface RematchingParticipant {
   name: string; // displayName from Firestore
   interestsText: string; // raw interests paragraph from Firestore
   school?: string; // university for students
+  preferenceScores?: {
+    q1?: number;
+    q2?: number;
+    q3?: number;
+  };
 }
 
 // ============================================================================
@@ -170,12 +179,10 @@ export default function Rematching() {
           userUid: data.userUid ?? "",
           type: userType,
           name:
-            data.displayName ??
-            data.name ??
-            data.fullName ??
-            "Unnamed participant",
+            data.displayName ?? "Unnamed participant",
           interestsText: data.interests ?? "",
           school: data.university,
+          preferenceScores: data.preferenceScores ?? {},
         };
 
         if (userType === "student") studentsList.push(participant);
@@ -210,8 +217,57 @@ export default function Rematching() {
     [adults, adultSearch]
   );
 
-  // We are not doing match % yet; this keeps the circle component happy.
-  const confidencePercentage: number | null = null;
+  // Match score state (calculated via cloud function)
+  const [matchLoading, setMatchLoading] = useState(false);
+  const [matchError, setMatchError] = useState<string | null>(null);
+  const [matchPercentage, setMatchPercentage] = useState<number | null>(null);
+  const [matchDetails, setMatchDetails] = useState<
+    | { frqScore: number; quantScore: number; finalScore: number; confidence: string }
+    | null
+  >(null);
+
+  // Call computeMatchScore when both participants are selected
+  useEffect(() => {
+    let mounted = true;
+
+    async function runScore() {
+      if (!selectedStudent || !selectedAdult) {
+        if (mounted) {
+          setMatchPercentage(null);
+          setMatchDetails(null);
+          setMatchError(null);
+        }
+        return;
+      }
+
+      setMatchLoading(true);
+      setMatchError(null);
+
+      try {
+        // Use userUid (Firebase auth UID) if available, otherwise Firestore doc id
+        const uid1 = selectedStudent.userUid
+        const uid2 = selectedAdult.userUid
+
+        const res = await computeMatchScore({ uid1, uid2 });
+
+        if (!mounted) return;
+
+        setMatchPercentage(res.finalPercentage ?? null);
+        setMatchDetails({ frqScore: res.frqScore, quantScore: res.quantScore, finalScore: res.finalScore, confidence: res.confidence });
+      } catch (err: any) {
+        console.error('Error fetching match score:', err);
+        if (mounted) setMatchError(String(err));
+      } finally {
+        if (mounted) setMatchLoading(false);
+      }
+    }
+
+    runScore();
+
+    return () => {
+      mounted = false;
+    };
+  }, [selectedStudent, selectedAdult]);
 
   // ==========================================================================
   // EVENT HANDLERS
@@ -274,7 +330,7 @@ export default function Rematching() {
         participant2_id: selectedAdult.id,
         status: "approved",
         day_of_call: 0,
-        similarity: null,
+        similarity: matchPercentage != null ? Math.round(matchPercentage) : null,
       });
 
       // 3) Commit changes atomically
@@ -348,7 +404,7 @@ export default function Rematching() {
 
           {/* Middle Column: Match Details */}
           <MatchDetailsColumn
-            confidencePercentage={confidencePercentage}
+            confidencePercentage={matchPercentage}
             selectedStudent={selectedStudent}
             selectedAdult={selectedAdult}
             isButtonDisabled={isMatchButtonDisabled}
@@ -356,6 +412,9 @@ export default function Rematching() {
             onDeselectStudent={() => setSelectedStudent(null)}
             onDeselectAdult={() => setSelectedAdult(null)}
             saving={saving}
+            matchLoading={matchLoading}
+            matchError={matchError}
+            matchDetails={matchDetails}
           />
 
           {/* Right Column: Adults */}
@@ -409,7 +468,7 @@ function ParticipantColumn({
           <FaSearch className={styles.searchIcon} />
           <input
             type="text"
-            placeholder="Search by name or interests..."
+            placeholder="Search by name or interests"
             className={styles.searchInput}
             value={searchValue}
             onChange={(e) => onSearchChange(e.target.value)}
@@ -446,6 +505,9 @@ interface MatchDetailsColumnProps {
   onDeselectStudent: () => void;
   onDeselectAdult: () => void;
   saving: boolean;
+  matchLoading?: boolean;
+  matchError?: string | null;
+  matchDetails?: { frqScore: number; quantScore: number; finalScore: number; confidence: string } | null;
 }
 
 /**
@@ -463,6 +525,9 @@ function MatchDetailsColumn({
   onDeselectStudent,
   onDeselectAdult,
   saving,
+  matchLoading,
+  matchError,
+  matchDetails,
 }: MatchDetailsColumnProps) {
   return (
     <div className={styles.column}>
@@ -475,6 +540,27 @@ function MatchDetailsColumn({
 
       {/* Confidence circle (no calculation yet, will show empty/neutral state) */}
       <MatchConfidenceCircle confidencePercentage={confidencePercentage} />
+
+      {/* Match calculation status / breakdown */}
+      {matchLoading && (
+        <div className={styles.loadingState}>Calculating match...</div>
+      )}
+      {matchError && (
+        <div className={styles.errorState}>{matchError}</div>
+      )}
+      {!matchLoading &&
+        !matchError &&
+        confidencePercentage !== null &&
+        matchDetails && (
+          <div className={styles.matchSummary}>
+            <span className={styles.matchSummaryLabel}>Match breakdown</span>
+            <div className={styles.matchBreakdown}>
+              <span>Free response: {Math.round(matchDetails.frqScore * 100)}%</span>
+              <span>·</span>
+              <span>Quantitative: {Math.round(matchDetails.quantScore * 100)}%</span>
+            </div>
+          </div>
+      )}
 
       <div className={styles.matchContainer}>
         {/* Student Card */}
@@ -500,18 +586,51 @@ function MatchDetailsColumn({
 
         {/* Raw Interests paragraphs */}
         <div className={styles.interestsContainer}>
+          <div className={styles.interestsTitle}>Interests</div>
+
           <div className={styles.interestsBlock}>
-            <div className={styles.interestsLabel}>Student Interests</div>
+            <div className={styles.interestsRoleLabel}>Student</div>
             <p className={styles.interestsText}>
               {selectedStudent?.interestsText || "No interests provided."}
             </p>
           </div>
+
+          <div className={styles.interestsDivider} />
+
           <div className={styles.interestsBlock}>
-            <div className={styles.interestsLabel}>Older Adult Interests</div>
+            <div className={styles.interestsRoleLabel}>Older adult</div>
             <p className={styles.interestsText}>
               {selectedAdult?.interestsText || "No interests provided."}
             </p>
           </div>
+        </div>
+
+        <div className={styles.quantContainer}>
+          <div className={styles.quantTitle}>Quantitative preferences</div>
+          <table className={styles.quantTable}>
+            <thead>
+              <tr>
+                <th className={styles.quantQuestionHeader}>Question</th>
+                <th className={styles.quantScoreHeader}>Student</th>
+                <th className={styles.quantScoreHeader}>Older Adult</th>
+              </tr>
+            </thead>
+            <tbody>
+              {PREFERENCE_QUESTION_IDS.map((qid) => (
+                <tr key={qid}>
+                  <td className={styles.quantQuestionCell}>
+                    {PREFERENCE_QUESTION_LABELS[qid]}
+                  </td>
+                  <td className={styles.quantScoreCell}>
+                    {selectedStudent?.preferenceScores?.[qid] ?? "—"}
+                  </td>
+                  <td className={styles.quantScoreCell}>
+                    {selectedAdult?.preferenceScores?.[qid] ?? "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
 
         {/* Button Container */}
