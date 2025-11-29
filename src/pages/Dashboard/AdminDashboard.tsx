@@ -45,10 +45,10 @@ export default function AdminDashboard() {
             try {
                 setMatchesLoading(true)
                 setError(null)
-                console.log('Loading matches...')
+                // console.log('Loading matches...')
                 
                 const matchesData = await getAllMatches()
-                console.log(`Loaded ${matchesData.length} matches`)
+                // console.log(`Loaded ${matchesData.length} matches`)
                 setAllMatches(matchesData)
 
                 // Fetch participant names for all participants in matches
@@ -58,7 +58,7 @@ export default function AdminDashboard() {
                     uniqueParticipantIds.add(match.participant2_id)
                 })
 
-                console.log(`Fetching names for ${uniqueParticipantIds.size} participants...`)
+                // console.log(`Fetching names for ${uniqueParticipantIds.size} participants...`)
 
                 // Fetch names from participants collection
                 const names: Record<string, string> = {}

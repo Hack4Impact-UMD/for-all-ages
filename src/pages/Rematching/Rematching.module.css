@@ -214,6 +214,29 @@
     
 }
 
+.interestsContainer {
+  margin-top: 1.5rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.interestsBlock {
+  padding: 1rem;
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.interestsLabel {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.interestsText {
+  font-size: 0.9rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
+
 .emptyInterests {
     color: #999;
     font-style: italic;

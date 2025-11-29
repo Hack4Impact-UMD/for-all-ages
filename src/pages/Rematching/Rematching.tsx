@@ -1,40 +1,36 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { FaCoffee, FaSearch } from "react-icons/fa";
 import styles from "./Rematching.module.css";
 import layoutStyles from "../Dashboard/Dashboard.module.css";
 import Navbar from "../../components/Navbar";
-import type { Participant as BaseParticipant } from "../../types";
 import ParticipantCard from "./components/ParticipantCard/ParticipantCard";
 import SelectedParticipantCard from "./components/SelectedParticipantCard/SelectedParticipantCard";
 import MatchConfidenceCircle from "./components/MatchConfidenceCircle/MatchConfidenceCircle";
+
 import {
-  INITIAL_STUDENTS,
-  INITIAL_ADULTS,
-  INITIAL_APPROVED_MATCHES,
-} from "./data";
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  writeBatch,
+} from "firebase/firestore";
+import { db } from "../../firebase";
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
 /**
- * Extended Participant type for rematching functionality.
- * Adds fields needed for the matching process: id, type, interests array, and school.
+ * Participant type used on the rematching page.
+ * Backed by docs in `participants-test2`.
  */
-export interface RematchingParticipant extends BaseParticipant {
-  id: string;
+export interface RematchingParticipant {
+  id: string; // Firestore document id
+  userUid: string;
   type: "student" | "adult";
-  interests: string[];
-  school?: string; // School name for students
-}
-
-/**
- * Simplified match type for tracking approved matches in the rematching interface.
- * Maps to the Match type from the main types.ts but uses participant IDs directly.
- */
-export interface ApprovedMatch {
-  studentId: string;
-  adultId: string;
+  name: string; // displayName from Firestore
+  interestsText: string; // raw interests paragraph from Firestore
+  school?: string; // university for students
 }
 
 // ============================================================================
@@ -56,7 +52,7 @@ const NAV_ITEMS = [
 
 /**
  * Filters participants based on search query.
- * Matches against name or any interest.
+ * Matches against name or raw interests text.
  */
 const filterParticipants = (
   participants: RematchingParticipant[],
@@ -68,52 +64,7 @@ const filterParticipants = (
   return participants.filter(
     (participant) =>
       participant.name.toLowerCase().includes(searchLower) ||
-      participant.interests.some((interest) =>
-        interest.toLowerCase().includes(searchLower)
-      )
-  );
-};
-
-/**
- * Calculates match confidence percentage based on common interests.
- * Formula: (Intersection of interests / Union of interests) * 100
- */
-const calculateConfidence = (
-  student: RematchingParticipant | null,
-  adult: RematchingParticipant | null
-): number | null => {
-  if (!student || !adult) return null;
-
-  const studentInterests = new Set(student.interests);
-  const adultInterests = new Set(adult.interests);
-
-  // Find common interests (intersection)
-  const intersection = new Set(
-    [...studentInterests].filter((interest) => adultInterests.has(interest))
-  );
-
-  // Find all unique interests (union)
-  const union = new Set([...studentInterests, ...adultInterests]);
-
-  return union.size > 0
-    ? Math.round((intersection.size / union.size) * 100)
-    : 0;
-};
-
-/**
- * Gets the list of common interests between a student and adult.
- */
-const getCommonInterests = (
-  student: RematchingParticipant | null,
-  adult: RematchingParticipant | null
-): string[] => {
-  if (!student || !adult) return [];
-
-  const studentInterests = new Set(student.interests);
-  const adultInterests = new Set(adult.interests);
-
-  return [...studentInterests].filter((interest) =>
-    adultInterests.has(interest)
+      participant.interestsText.toLowerCase().includes(searchLower)
   );
 };
 
@@ -121,32 +72,134 @@ const getCommonInterests = (
 // COMPONENT
 // ============================================================================
 
-/**
- * Rematching Page Component
- *
- * Allows admins to manually create matches between students and adults.
- * Features:
- * - View pending students and adults
- * - Search by name or interests
- * - Select participants to see match confidence
- * - Confirm matches to remove them from pending lists
- */
 export default function Rematching() {
-  // State management
-  const [students, setStudents] =
-    useState<RematchingParticipant[]>(INITIAL_STUDENTS);
-  const [adults, setAdults] = useState<RematchingParticipant[]>(INITIAL_ADULTS);
-  const [approvedMatches, setApprovedMatches] = useState<ApprovedMatch[]>(
-    INITIAL_APPROVED_MATCHES
-  );
+  const [students, setStudents] = useState<RematchingParticipant[]>([]);
+  const [adults, setAdults] = useState<RematchingParticipant[]>([]);
+  const [approvedCount, setApprovedCount] = useState<number>(0);
+
   const [selectedStudent, setSelectedStudent] =
     useState<RematchingParticipant | null>(null);
   const [selectedAdult, setSelectedAdult] =
     useState<RematchingParticipant | null>(null);
+
   const [studentSearch, setStudentSearch] = useState("");
   const [adultSearch, setAdultSearch] = useState("");
 
-  // Filtered participants based on search
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  // ==========================================================================
+  // DATA LOADER
+  // ==========================================================================
+
+  /**
+   * Loads:
+   *  - all matches from `matches-test`
+   *  - all participants from `participants-test2`
+   *
+   * Participants shown on the page are:
+   *  - those that appear in pending matches, OR
+   *  - those that do not appear in ANY match doc (completely unmatched)
+   *
+   * Approved matches count is simply the number of docs with status === "approved".
+   */
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setLoadError(null);
+
+      const matchesRef = collection(db, "matches-test");
+      const allMatchesSnap = await getDocs(matchesRef);
+
+      const pendingParticipantIds = new Set<string>();
+      const allMatchedIds = new Set<string>();
+      let approvedMatchesCount = 0;
+
+      allMatchesSnap.forEach((matchDoc) => {
+        const data = matchDoc.data() as any;
+        const p1 = data.participant1_id;
+        const p2 = data.participant2_id;
+        const status = data.status;
+
+        if (!p1 || !p2) return;
+
+        allMatchedIds.add(p1);
+        allMatchedIds.add(p2);
+
+        if (status === "approved") {
+          approvedMatchesCount += 1;
+        } else if (status === "pending") {
+          pendingParticipantIds.add(p1);
+          pendingParticipantIds.add(p2);
+        }
+      });
+
+      setApprovedCount(approvedMatchesCount);
+
+      // Fetch all participants
+      const participantsRef = collection(db, "participants-test2");
+      const participantsSnap = await getDocs(participantsRef);
+
+      const studentsList: RematchingParticipant[] = [];
+      const adultsList: RematchingParticipant[] = [];
+
+      participantsSnap.forEach((pDoc) => {
+        const data = pDoc.data() as any;
+        const id = pDoc.id;
+
+        const userType = (data.user_type ?? data.userType) as
+          | "student"
+          | "adult"
+          | undefined;
+
+        if (userType !== "student" && userType !== "adult") return;
+
+        const isUnmatched = !allMatchedIds.has(id);
+        const isInPending = pendingParticipantIds.has(id);
+
+        // Only show:
+        //  - people in pending matches, OR
+        //  - people not in ANY match doc at all (fully unmatched)
+        if (!isUnmatched && !isInPending) {
+          return;
+        }
+
+        const participant: RematchingParticipant = {
+          id,
+          userUid: data.userUid ?? "",
+          type: userType,
+          name:
+            data.displayName ??
+            data.name ??
+            data.fullName ??
+            "Unnamed participant",
+          interestsText: data.interests ?? "",
+          school: data.university,
+        };
+
+        if (userType === "student") studentsList.push(participant);
+        else adultsList.push(participant);
+      });
+
+      setStudents(studentsList);
+      setAdults(adultsList);
+    } catch (err) {
+      console.error("Error loading rematching data:", err);
+      setLoadError("Failed to load matching data.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  // ==========================================================================
+  // DERIVED DATA
+  // ==========================================================================
+
   const filteredStudents = useMemo(
     () => filterParticipants(students, studentSearch),
     [students, studentSearch]
@@ -157,18 +210,13 @@ export default function Rematching() {
     [adults, adultSearch]
   );
 
-  // Match calculations
-  const confidencePercentage = useMemo(
-    () => calculateConfidence(selectedStudent, selectedAdult),
-    [selectedStudent, selectedAdult]
-  );
+  // We are not doing match % yet; this keeps the circle component happy.
+  const confidencePercentage: number | null = null;
 
-  const commonInterests = useMemo(
-    () => getCommonInterests(selectedStudent, selectedAdult),
-    [selectedStudent, selectedAdult]
-  );
+  // ==========================================================================
+  // EVENT HANDLERS
+  // ==========================================================================
 
-  // Event handlers
   const handleStudentClick = (student: RematchingParticipant) => {
     setSelectedStudent((prev) => (prev?.id === student.id ? null : student));
   };
@@ -177,25 +225,82 @@ export default function Rematching() {
     setSelectedAdult((prev) => (prev?.id === adult.id ? null : adult));
   };
 
-  const handleConfirmMatch = () => {
+  /**
+   * Approve the currently selected pair.
+   *
+   * Schema:
+   *  - Create a NEW match doc in `matches-test` with status "approved"
+   *  - DELETE all existing match docs (any status) that involve EITHER participant
+   *  - This can leave other people from those deleted pairs "dangling"
+   *    (unmatched, no reference in matches-test), which is exactly what we want.
+   *  - Then reload all data so stats and columns update.
+   */
+  const handleConfirmMatch = async () => {
     if (!selectedStudent || !selectedAdult) return;
 
-    // Remove matched participants from pending lists
-    setStudents((prev) => prev.filter((s) => s.id !== selectedStudent.id));
-    setAdults((prev) => prev.filter((a) => a.id !== selectedAdult.id));
+    try {
+      setSaving(true);
+      setLoadError(null);
 
-    // Add to approved matches
-    setApprovedMatches((prev) => [
-      ...prev,
-      { studentId: selectedStudent.id, adultId: selectedAdult.id },
-    ]);
+      const matchesRef = collection(db, "matches-test");
 
-    // Clear selection
-    setSelectedStudent(null);
-    setSelectedAdult(null);
+      // 1) Load all current matches so we know which ones to delete
+      const allMatchesSnap = await getDocs(matchesRef);
+
+      const batch = writeBatch(db);
+
+      allMatchesSnap.forEach((matchDoc) => {
+        const data = matchDoc.data() as any;
+        const p1 = data.participant1_id;
+        const p2 = data.participant2_id;
+
+        if (!p1 || !p2) return;
+
+        const involvesSelected =
+          p1 === selectedStudent.id ||
+          p2 === selectedStudent.id ||
+          p1 === selectedAdult.id ||
+          p2 === selectedAdult.id;
+
+        if (involvesSelected) {
+          batch.delete(matchDoc.ref);
+        }
+      });
+
+      // 2) Create new approved match for the selected pair
+      const newMatchRef = doc(matchesRef);
+      batch.set(newMatchRef, {
+        participant1_id: selectedStudent.id,
+        participant2_id: selectedAdult.id,
+        status: "approved",
+        day_of_call: 0,
+        similarity: null,
+      });
+
+      // 3) Commit changes atomically
+      await batch.commit();
+
+      // Clear selection in UI
+      setSelectedStudent(null);
+      setSelectedAdult(null);
+
+      // 4) Reload everything so:
+      //    - A & D (or similar) show up as unmatched
+      //    - approvedCount reflects the new match
+      await loadData();
+    } catch (err) {
+      console.error("Error approving match:", err);
+      setLoadError("Failed to approve match. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const isMatchButtonDisabled = !selectedStudent || !selectedAdult;
+  const isMatchButtonDisabled = !selectedStudent || !selectedAdult || saving;
+
+  // ==========================================================================
+  // RENDER
+  // ==========================================================================
 
   return (
     <div className={`${layoutStyles.page} ${styles.rematchingPage}`}>
@@ -205,6 +310,11 @@ export default function Rematching() {
         <h2 className={styles.pageSubtitle}>
           Match students with older adults based on interests and preferences
         </h2>
+
+        {loading && (
+          <div className={styles.loadingState}>Loading matches...</div>
+        )}
+        {loadError && <div className={styles.errorState}>{loadError}</div>}
 
         {/* Statistics Section */}
         <div className={styles.statistics}>
@@ -218,7 +328,7 @@ export default function Rematching() {
           </div>
           <div className={styles.statCard}>
             <div className={styles.statLabel}>Approved Matches</div>
-            <div className={styles.statNumber}>{approvedMatches.length}</div>
+            <div className={styles.statNumber}>{approvedCount}</div>
           </div>
         </div>
 
@@ -241,11 +351,11 @@ export default function Rematching() {
             confidencePercentage={confidencePercentage}
             selectedStudent={selectedStudent}
             selectedAdult={selectedAdult}
-            commonInterests={commonInterests}
             isButtonDisabled={isMatchButtonDisabled}
             onConfirmMatch={handleConfirmMatch}
             onDeselectStudent={() => setSelectedStudent(null)}
             onDeselectAdult={() => setSelectedAdult(null)}
+            saving={saving}
           />
 
           {/* Right Column: Adults */}
@@ -269,10 +379,6 @@ export default function Rematching() {
 // SUB-COMPONENTS
 // ============================================================================
 
-/**
- * Participant Column Component
- * Displays a list of participants (students or adults) with search functionality.
- */
 interface ParticipantColumnProps {
   title: string;
   subtitle?: string;
@@ -303,7 +409,7 @@ function ParticipantColumn({
           <FaSearch className={styles.searchIcon} />
           <input
             type="text"
-            placeholder="Search by name or interest..."
+            placeholder="Search by name or interests..."
             className={styles.searchInput}
             value={searchValue}
             onChange={(e) => onSearchChange(e.target.value)}
@@ -324,39 +430,39 @@ function ParticipantColumn({
           );
         })}
         {participants.length === 0 && (
-          <div className={styles.emptyState}>
-            No {title.toLowerCase()} found
-          </div>
+          <div className={styles.emptyState}>No {title.toLowerCase()} found</div>
         )}
       </div>
     </div>
   );
 }
 
-/**
- * Match Details Column Component
- * Displays selected participants, confidence percentage, common interests, and confirm button.
- */
 interface MatchDetailsColumnProps {
   selectedStudent: RematchingParticipant | null;
   selectedAdult: RematchingParticipant | null;
   confidencePercentage: number | null;
-  commonInterests: string[];
   isButtonDisabled: boolean;
   onConfirmMatch: () => void;
   onDeselectStudent: () => void;
   onDeselectAdult: () => void;
+  saving: boolean;
 }
 
+/**
+ * Match Details Column
+ * - Shows selected participants
+ * - Shows raw interests paragraphs under their cards
+ * - Confirm + Find Different buttons
+ */
 function MatchDetailsColumn({
   selectedStudent,
   selectedAdult,
   confidencePercentage,
-  commonInterests,
   isButtonDisabled,
   onConfirmMatch,
   onDeselectStudent,
   onDeselectAdult,
+  saving,
 }: MatchDetailsColumnProps) {
   return (
     <div className={styles.column}>
@@ -366,10 +472,12 @@ function MatchDetailsColumn({
           Review and confirm the suggested pairing
         </p>
       </div>
-      {/* Confidence Circle */}
+
+      {/* Confidence circle (no calculation yet, will show empty/neutral state) */}
       <MatchConfidenceCircle confidencePercentage={confidencePercentage} />
+
       <div className={styles.matchContainer}>
-        {/* Student Card - Always visible */}
+        {/* Student Card */}
         <SelectedParticipantCard
           label="Student"
           participant={selectedStudent}
@@ -382,7 +490,7 @@ function MatchDetailsColumn({
           <FaCoffee size={32} />
         </div>
 
-        {/* Adult Card - Always visible */}
+        {/* Adult Card */}
         <SelectedParticipantCard
           label="Older Adult"
           participant={selectedAdult}
@@ -390,25 +498,24 @@ function MatchDetailsColumn({
           type="adult"
         />
 
-        {/* Common Interests */}
-        <div className={styles.commonInterestsCard}>
-          <div className={styles.commonInterestsLabel}>Common Interests</div>
-          <div className={styles.commonInterests}>
-            {commonInterests.length > 0 ? (
-              commonInterests.map((interest, idx) => (
-                <span key={idx} className={styles.commonInterestTag}>
-                  {interest}
-                </span>
-              ))
-            ) : (
-              <div className={styles.emptyInterests}>—</div>
-            )}
+        {/* Raw Interests paragraphs */}
+        <div className={styles.interestsContainer}>
+          <div className={styles.interestsBlock}>
+            <div className={styles.interestsLabel}>Student Interests</div>
+            <p className={styles.interestsText}>
+              {selectedStudent?.interestsText || "No interests provided."}
+            </p>
+          </div>
+          <div className={styles.interestsBlock}>
+            <div className={styles.interestsLabel}>Older Adult Interests</div>
+            <p className={styles.interestsText}>
+              {selectedAdult?.interestsText || "No interests provided."}
+            </p>
           </div>
         </div>
 
         {/* Button Container */}
         <div className={styles.buttonContainer}>
-          {/* Find Different Match Button */}
           <button
             className={styles.findDifferentButton}
             onClick={() => {
@@ -419,7 +526,6 @@ function MatchDetailsColumn({
           >
             Find a Different Match
           </button>
-          {/* Confirm Match Button */}
           <button
             className={`${styles.confirmButton} ${
               isButtonDisabled ? styles.disabled : ""
@@ -427,11 +533,10 @@ function MatchDetailsColumn({
             onClick={onConfirmMatch}
             disabled={isButtonDisabled}
           >
-            Confirm Match
+            {saving ? "Approving..." : "Confirm Match"}
           </button>
         </div>
       </div>
     </div>
   );
 }
-

@@ -33,9 +33,9 @@ interface UI_Match {
 const PreProgram = () => {
   const [matches, setMatches] = useState<UI_Match[]>([]);
   const [search, setSearch] = useState("");
-  const [buttonLabel, setButtonLabel] = useState<"Create match" | "Rematch">(
-    "Create match"
-  );
+  // const [buttonLabel, setButtonLabel] = useState<"Create match" | "Rematch">(
+  //   "Create match"
+  // );
 
   const navigate = useNavigate();
 
@@ -146,7 +146,6 @@ const PreProgram = () => {
 
 
   const handleMatch = async () => {
-    if (buttonLabel === "Create match") {
       const res = await matchAll(); 
       const converted = await convertMatches(res.result.matches);
       storeMatches(converted)
@@ -157,10 +156,6 @@ const PreProgram = () => {
       });
 
       setMatches(sorted);
-      setButtonLabel("Rematch");
-    } else {
-      navigate("/admin/rematching");
-    }
   };
 
   const handleStatusChange = (index: number, newStatus: UI_Match["status"]) => {
@@ -201,18 +196,18 @@ const PreProgram = () => {
         </div>
 
         <div className={styles.buttonGroup}>
-          <button className={styles.adminBtn}>
-            <AdminPanelSettingsIcon className={styles.icon} />
-            Admin Panel
-          </button>
           <button
             onClick={handleMatch}
-            className={`${styles.rematchBtn} ${
-              buttonLabel === "Rematch" ? styles.rematchActive : ""
-            }`}
+            className={styles.rematchBtn}
           >
             <AutorenewIcon className={styles.icon} />
-            {buttonLabel}
+            Create Match
+          </button>
+          <button 
+            className={styles.adminBtn}
+            onClick={() => navigate("/admin/rematching")}
+          >
+            Manual Rematch
           </button>
         </div>
       </div>
