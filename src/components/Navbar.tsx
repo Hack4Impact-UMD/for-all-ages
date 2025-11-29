@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import styles from "./Navbar.module.css";
-import Logo from "../assets/for-all-ages-logo.svg";
+import Logo from "../assets/For all Ages high res logo 2022 (1).svg";
 import { useAuth } from "../auth/AuthProvider";
 import { useMemo } from "react";
 
@@ -75,7 +75,13 @@ export default function Navbar({ navItems }: NavbarProps) {
       </div>
       <div className={styles.container}>
         {determinedNavItems.map((item) => {
-          const isActive = location.pathname === item.path;
+          // Special case: Matching tab should be active on both /admin/main and /admin/rematching
+          let isActive = location.pathname === item.path;
+          if (item.label === "Matching" && item.path === "/admin/main") {
+            isActive =
+              location.pathname === "/admin/main" ||
+              location.pathname === "/admin/rematching";
+          }
 
           return (
             <Link

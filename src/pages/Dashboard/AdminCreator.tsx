@@ -190,7 +190,7 @@ export default function AdminDashboard() {
 
   return (
     <div className={layoutStyles.page}>
-      <Navbar />
+      <Navbar navItems={NAV_ITEMS} />
       <div className={layoutStyles.surface}>
         <section className={styles.controlsRow}>
           <div className={styles.searchGroup}>
