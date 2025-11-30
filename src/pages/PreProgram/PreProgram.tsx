@@ -3,10 +3,15 @@ import Navbar from "../../components/Navbar";
 import styles from "./PreProgram.module.css";
 import { useNavigate } from "react-router-dom";
 import SearchIcon from "@mui/icons-material/Search";
-import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import AutorenewIcon from "@mui/icons-material/Autorenew";
 import { db, getUser, matchAll } from "../../firebase";
-import { collection, doc, getDocs, writeBatch } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  getDocs,
+  writeBatch,
+  updateDoc,
+} from "firebase/firestore";
 
 interface BackendMatch {
   studentId: string;
@@ -20,148 +25,307 @@ interface BackendMatch {
   rank: number;
 }
 
+type MatchStatus = "Pending" | "Approved" | "No Match";
+
 interface UI_Match {
-  name1: string;
-  name2: string;
-  participant1_id: string
-  participant2_id: string
+  name1: string;               // student column
+  name2: string;               // senior column
+  participant1_id: string | null; // student uid or null
+  participant2_id: string | null; // senior uid or null
   confidence?: number;
-  status?: string;
-  score: number;
+  status: MatchStatus;
+  score: number;               // 0–1
+  matchId?: string;            // Firestore doc id (pairs only)
 }
+
+const APPROVAL_THRESHOLD = 0.8; // 80%
 
 const PreProgram = () => {
   const [matches, setMatches] = useState<UI_Match[]>([]);
   const [search, setSearch] = useState("");
-  // const [buttonLabel, setButtonLabel] = useState<"Create match" | "Rematch">(
-  //   "Create match"
-  // );
+  const [matching, setMatching] = useState(false);
 
   const navigate = useNavigate();
 
-  //load matches
   useEffect(() => {
     loadMatches();
   }, []);
 
+  const sortMatches = (list: UI_Match[]) => {
+    const order: Record<MatchStatus, number> = {
+      Pending: 1,
+      "No Match": 2,
+      Approved: 3,
+    };
+    return [...list].sort((a, b) => order[a.status] - order[b.status]);
+  };
 
-  const convertMatches = async (raw: BackendMatch[]): Promise<UI_Match[]> => {
-    const matches = await Promise.all(
-      raw.map(async (m) => {
+  /**
+   * Convert backend match results + unmatched arrays into UI_Match rows.
+   * Pairs become rows with status Approved/Pending.
+   * unmatchedStudents -> student on left, "No match yet" on right.
+   * unmatchedSeniors -> "No match yet" on left, senior on right.
+   */
+  const convertMatches = async (
+    rawMatches: BackendMatch[],
+    unmatchedStudents: string[],
+    unmatchedSeniors: string[]
+  ): Promise<UI_Match[]> => {
+    const pairRows: UI_Match[] = await Promise.all(
+      rawMatches.map(async (m) => {
         const u1 = await getUser(m.studentId);
         const u2 = await getUser(m.seniorId);
+
+        const pct = Math.round(m.scores.finalScore * 100);
+
+        const status: MatchStatus =
+          m.scores.finalScore >= APPROVAL_THRESHOLD ? "Approved" : "Pending";
 
         return {
           name1: u1.displayName,
           name2: u2.displayName,
           participant1_id: u1.userUid,
           participant2_id: u2.userUid,
-          confidence: Math.round(m.scores.finalScore * 100),
-          status:
-            m.seniorId === "N/A"
-              ? "No Match"
-              : m.scores.finalScore >= 0.8
-              ? "Approved"
-              : "Pending",
+          confidence: pct,
+          status,
           score: m.scores.finalScore,
         };
       })
     );
 
-    return matches;
-  };
-
-  const loadMatches = async () => {
-    const colRef = collection(db, "matches-test");
-    const snap = await getDocs(colRef);
-
-    if (snap.empty) {
-      setMatches([]);
-      return;
-    }
-
-    const loaded: UI_Match[] = await Promise.all(
-      snap.docs.map(async (d) => {
-        const data = d.data();
-
-        const u1 = await getUser(data.participant1_id);
-        const u2 = await getUser(data.participant2_id);
-
+    const unmatchedStudentRows: UI_Match[] = await Promise.all(
+      unmatchedStudents.map(async (uid) => {
+        const u = await getUser(uid);
         return {
-          name1: u1.displayName,
-          name2: u2.displayName,
-          participant1_id: data.participant1_id,
-          participant2_id: data.participant2_id,
-          confidence: data.similarity,
-          status:
-            data.similarity >= 80
-              ? "Approved"
-              : data.similarity > 0
-              ? "Pending"
-              : "No Match",
-          score: data.similarity / 100,
+          name1: u.displayName,
+          name2: "No match yet",
+          participant1_id: u.userUid,
+          participant2_id: null,
+          confidence: undefined,
+          status: "No Match",
+          score: 0,
         };
       })
     );
 
-    // sort like your other logic
-    const sorted = loaded.sort((a, b) => {
-      const order = { Pending: 1, "No Match": 2, Approved: 3 };
-      return order[a.status!] - order[b.status!];
+    const unmatchedSeniorRows: UI_Match[] = await Promise.all(
+      unmatchedSeniors.map(async (uid) => {
+        const u = await getUser(uid);
+        return {
+          name1: "No match yet",
+          name2: u.displayName,
+          participant1_id: null,
+          participant2_id: u.userUid,
+          confidence: undefined,
+          status: "No Match",
+          score: 0,
+        };
+      })
+    );
+
+    return [...pairRows, ...unmatchedStudentRows, ...unmatchedSeniorRows];
+  };
+
+  const loadMatches = async () => {
+    const matchesRef = collection(db, "matches-test");
+    const snap = await getDocs(matchesRef);
+
+    const loadedPairs: UI_Match[] = [];
+    const matchedIds = new Set<string>();
+
+    if (!snap.empty) {
+      // Build rows for all stored pair matches
+      const pairRows: UI_Match[] = await Promise.all(
+        snap.docs.map(async (d) => {
+          const data = d.data() as any;
+          const p1 = data.participant1_id as string;
+          const p2 = data.participant2_id as string;
+          const similarity = data.similarity ?? 0;
+
+          matchedIds.add(p1);
+          matchedIds.add(p2);
+
+          const u1 = await getUser(p1);
+          const u2 = await getUser(p2);
+
+          const rawStatus = (data.status as string | undefined) || "";
+          let status: MatchStatus;
+          if (rawStatus === "approved") {
+            status = "Approved";
+          } else if (rawStatus === "pending") {
+            status = "Pending";
+          } else {
+            status =
+              similarity >= 80
+                ? "Approved"
+                : similarity > 0
+                ? "Pending"
+                : "No Match";
+          }
+
+          return {
+            name1: u1.displayName,
+            name2: u2.displayName,
+            participant1_id: p1,
+            participant2_id: p2,
+            confidence: similarity,
+            status,
+            score: similarity / 100,
+            matchId: d.id,
+          };
+        })
+      );
+
+      loadedPairs.push(...pairRows);
+    }
+
+    // Now find any participants with NO match at all (like rematching page)
+    const participantsRef = collection(db, "participants-test2");
+    const participantsSnap = await getDocs(participantsRef);
+
+    const unmatchedRows: UI_Match[] = [];
+
+    participantsSnap.forEach((pDoc) => {
+      const data = pDoc.data() as any;
+      const id = pDoc.id;
+
+      // if this participant appears in any match, skip
+      if (matchedIds.has(id)) return;
+
+      const displayName =
+        data.displayName ?? data.name ?? data.fullName ?? "Unnamed participant";
+      const userType = (data.user_type ?? data.userType) as
+        | "student"
+        | "adult"
+        | "senior"
+        | undefined;
+
+      if (userType === "student") {
+        // unmatched student
+        unmatchedRows.push({
+          name1: displayName,
+          name2: "No match yet",
+          participant1_id: id,
+          participant2_id: null,
+          confidence: undefined,
+          status: "No Match",
+          score: 0,
+        });
+      } else if (userType === "adult" || userType === "senior") {
+        // unmatched senior
+        unmatchedRows.push({
+          name1: "No match yet",
+          name2: displayName,
+          participant1_id: null,
+          participant2_id: id,
+          confidence: undefined,
+          status: "No Match",
+          score: 0,
+        });
+      }
     });
 
+    const combined = [...loadedPairs, ...unmatchedRows];
+    if (combined.length === 0) {
+      setMatches([]);
+      return;
+    }
+
+    const sorted = sortMatches(combined);
     setMatches(sorted);
   };
 
-
-  const storeMatches = async (matches: UI_Match[]) => {
+  /**
+   * Store only paired matches in Firestore.
+   * "No Match" rows (with missing participant) are not stored.
+   * Returns UI_Match with matchId filled in for stored docs.
+   */
+  const storeMatches = async (list: UI_Match[]): Promise<UI_Match[]> => {
     const colRef = collection(db, "matches-test");
 
-    //delete all matches
+    // Delete all existing match docs
     const existingDocs = await getDocs(colRef);
     const deleteBatch = writeBatch(db);
-
-    existingDocs.forEach((d) => {
-      deleteBatch.delete(d.ref);
-    });
-
+    existingDocs.forEach((d) => deleteBatch.delete(d.ref));
     await deleteBatch.commit();
 
     const writeBatchRef = writeBatch(db);
+    const withIds: UI_Match[] = [];
 
-    matches.forEach((m) => {
-      const newDoc = doc(colRef); 
-      writeBatchRef.set(newDoc, {
+    list.forEach((m) => {
+      // Skip unmatched rows (no Firestore doc)
+      if (
+        m.status === "No Match" ||
+        !m.participant1_id ||
+        !m.participant2_id
+      ) {
+        withIds.push({ ...m, matchId: undefined });
+        return;
+      }
+
+      const newDocRef = doc(colRef);
+      writeBatchRef.set(newDocRef, {
         day_of_call: 0,
         participant1_id: m.participant1_id,
         participant2_id: m.participant2_id,
-        similarity: m.confidence
+        similarity: m.confidence,
+        status: m.status === "Approved" ? "approved" : "pending",
       });
+
+      withIds.push({ ...m, matchId: newDocRef.id });
     });
 
     await writeBatchRef.commit();
-
     console.log("Matches stored successfully.");
+    return withIds;
   };
-
 
   const handleMatch = async () => {
-      const res = await matchAll(); 
-      const converted = await convertMatches(res.result.matches);
-      storeMatches(converted)
-      //sort
-      const sorted = converted.sort((a, b) => {
-        const order = { Pending: 1, "No Match": 2, Approved: 3 };
-        return order[a.status!] - order[b.status!];
-      });
+    setMatching(true);
+    try {
+      const res = await matchAll();
+      const {
+        matches: rawMatches,
+        unmatchedStudents = [],
+        unmatchedSeniors = [],
+      } = res.result;
 
+      const converted = await convertMatches(
+        rawMatches,
+        unmatchedStudents,
+        unmatchedSeniors
+      );
+
+      const storedWithIds = await storeMatches(converted);
+      const sorted = sortMatches(storedWithIds);
       setMatches(sorted);
+    } catch (err) {
+      console.error('Error creating matches:', err);
+    } finally {
+      setMatching(false);
+    }
   };
 
-  const handleStatusChange = (index: number, newStatus: UI_Match["status"]) => {
+  const handleStatusChange = async (
+    index: number,
+    newStatus: MatchStatus
+  ) => {
     const updated = [...matches];
-    updated[index].status = newStatus;
-    setMatches(updated);
+    const match = updated[index];
+
+    // No editing allowed for "No Match" rows
+    if (match.status === "No Match") {
+      return;
+    }
+
+    match.status = newStatus;
+    setMatches(sortMatches(updated));
+
+    if (!match.matchId) return;
+
+    const matchRef = doc(db, "matches-test", match.matchId);
+    const firestoreStatus = newStatus === "Approved" ? "approved" : "pending";
+    await updateDoc(matchRef, { status: firestoreStatus });
   };
 
   const filteredMatches = matches.filter(
@@ -196,14 +360,11 @@ const PreProgram = () => {
         </div>
 
         <div className={styles.buttonGroup}>
-          <button
-            onClick={handleMatch}
-            className={styles.rematchBtn}
-          >
+          <button onClick={handleMatch} className={styles.rematchBtn} disabled={matching}>
             <AutorenewIcon className={styles.icon} />
-            Create Match
+            {matching ? 'Creating...' : 'Create Matches'}
           </button>
-          <button 
+          <button
             className={styles.adminBtn}
             onClick={() => navigate("/admin/rematching")}
           >
@@ -235,28 +396,35 @@ const PreProgram = () => {
                 <tr key={i}>
                   <td>{m.name1}</td>
                   <td>{m.name2}</td>
-                  <td>{`${m.confidence}%`}</td>
                   <td>
-                    <select
-                      value={m.status}
-                      onChange={(e) =>
-                        handleStatusChange(
-                          i,
-                          e.target.value as UI_Match["status"]
-                        )
-                      }
-                      className={`${styles.status} ${
-                        m.status === "Approved"
-                          ? styles.approved
-                          : m.status === "No Match"
-                          ? styles.noMatch
-                          : styles.pending
-                      }`}
-                    >
-                      <option value="Pending">Pending</option>
-                      <option value="Approved">Approved</option>
-                      <option value="No Match">No Match</option>
-                    </select>
+                    {m.confidence != null ? `${m.confidence}%` : "—"}
+                  </td>
+                  <td>
+                    {m.status === "No Match" ? (
+                      <span
+                        className={`${styles.noMatch}`}
+                      >
+                        No Match
+                      </span>
+                    ) : (
+                      <select
+                        value={m.status}
+                        onChange={(e) =>
+                          handleStatusChange(
+                            i,
+                            e.target.value as MatchStatus
+                          )
+                        }
+                        className={`${styles.status} ${
+                          m.status === "Approved"
+                            ? styles.approved
+                            : styles.pending
+                        }`}
+                      >
+                        <option value="Pending">Pending</option>
+                        <option value="Approved">Approved</option>
+                      </select>
+                    )}
                   </td>
                 </tr>
               ))
