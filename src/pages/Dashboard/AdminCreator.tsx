@@ -1,12 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
-import { collection, getDocs, onSnapshot, query, where, type Unsubscribe } from "firebase/firestore";
+import {
+  collection,
+  getDocs,
+  onSnapshot,
+  query,
+  where,
+  type Unsubscribe,
+} from "firebase/firestore";
 import { FirebaseError } from "firebase/app";
 import layoutStyles from "./Dashboard.module.css";
 import styles from "./AdminCreator.module.css";
 import Navbar from "../../components/Navbar";
 import { db } from "../../firebase";
-import { assignAdminRoleToExistingUser, inviteAdminAccount } from "../../services/adminAccounts";
+import {
+  assignAdminRoleToExistingUser,
+  inviteAdminAccount,
+} from "../../services/adminAccounts";
 import { friendlyAuthError } from "../../services/auth";
 import type { Role } from "../../types";
 
@@ -47,15 +57,6 @@ type BannerState = {
   message: string;
 };
 
-const NAV_ITEMS = [
-  { label: "Main", path: "/admin/main" },
-  { label: "Admins", path: "/admin/creator" },
-  { label: "Dashboard", path: "/admin/dashboard" },
-  { label: "Matching", path: "/admin/rematching" },
-  { label: "Recap", path: "/admin/recap" },
-  { label: "Profile", path: "/profile" },
-];
-
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Formats a RawAddress into a single-line string suitable for display
@@ -76,7 +77,7 @@ function formatAddress(address?: RawAddress | null): string | null {
 
 // Normalises a role string to a Role type
 // Cleans whatever is stored in Firestore and coerces to a strict Role
-function normaliseRole(role?: string | null): Role | "Participant"{
+function normaliseRole(role?: string | null): Role | "Participant" {
   if (!role) return "Participant";
   const value = role.replace(/\s+/g, "").toLowerCase();
   if (value === "admin") return "Admin";
@@ -96,12 +97,13 @@ function composeDisplayName(doc: ParticipantDoc): string {
 
 // Main component for the Admin Dashboard page
 export default function AdminDashboard() {
-
   const [admins, setAdmins] = useState<AdminRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [roleFilter, setRoleFilter] = useState<"All" | Role | "Participant">("All");
+  const [roleFilter, setRoleFilter] = useState<"All" | Role | "Participant">(
+    "All"
+  );
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [banner, setBanner] = useState<BannerState | null>(null);
 
@@ -124,7 +126,7 @@ export default function AdminDashboard() {
 
     const startSubscription = () => {
       const adminsQuery = collection(db, "participants");
-      
+
       // Set up real-time listener for admin accounts
       unsubscribe = onSnapshot(
         adminsQuery,
@@ -142,12 +144,11 @@ export default function AdminDashboard() {
               university: data.university ?? null,
             };
           });
-          
+
           // sort alphabetically by name
           records.sort((a, b) =>
             a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
           );
-
 
           /**
            * On success: update state, clear error, end loading.
@@ -181,52 +182,57 @@ export default function AdminDashboard() {
     if (roleFilter !== "All") {
       list = list.filter((user) => {
         const r = normaliseRole(user.role);
-        return r === roleFilter;});
+        return r === roleFilter;
+      });
     }
 
     if (term) {
       list = list.filter((admin) => {
-        return (admin.name.toLowerCase().includes(term) ||
-        admin.email.toLowerCase().includes(term) ||
-        (admin.university ? admin.university.toLowerCase().includes(term) : false))
+        return (
+          admin.name.toLowerCase().includes(term) ||
+          admin.email.toLowerCase().includes(term) ||
+          (admin.university
+            ? admin.university.toLowerCase().includes(term)
+            : false)
+        );
       });
-    };
+    }
     return list;
   }, [admins, searchTerm, roleFilter]);
 
   return (
     <div className={layoutStyles.page}>
-      <Navbar navItems={NAV_ITEMS} />
+      <Navbar />
       <div className={layoutStyles.surface}>
         <section className={styles.controlsRow}>
-            <label className={styles.searchLabel} htmlFor="admin-search">
-              Search
-            </label>
-            <input
-              id="admin-search"
-              type="search"
-              placeholder="Search by name, email, or university…"
-              className={styles.searchInput}
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-            />
+          <label className={styles.searchLabel} htmlFor="admin-search">
+            Search
+          </label>
+          <input
+            id="admin-search"
+            type="search"
+            placeholder="Search by name, email, or university…"
+            className={styles.searchInput}
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+          />
 
-            <div className={styles.searchGroup}>
-              <label className={styles.searchLabel} htmlFor="role-filter">
-                Role
-              </label>
-              <select
-                id="role-filter"
-                value={roleFilter}
-                onChange={(e) => setRoleFilter(e.target.value as any)}
-                className={styles.searchInput}
-              >
-                <option value="All">All</option>
-                <option value="Admin">Admin</option>
-                <option value="Subadmin">Subadmin</option>
-                <option value="Participant">Participant</option>
-              </select>
-            </div>
+          <div className={styles.searchGroup}>
+            <label className={styles.searchLabel} htmlFor="role-filter">
+              Role
+            </label>
+            <select
+              id="role-filter"
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value as any)}
+              className={styles.searchInput}
+            >
+              <option value="All">All</option>
+              <option value="Admin">Admin</option>
+              <option value="Subadmin">Subadmin</option>
+              <option value="Participant">Participant</option>
+            </select>
+          </div>
 
           <button
             type="button"
@@ -240,7 +246,9 @@ export default function AdminDashboard() {
         {banner ? (
           <div
             className={`${styles.banner} ${
-              banner.type === "success" ? styles.bannerSuccess : styles.bannerError
+              banner.type === "success"
+                ? styles.bannerSuccess
+                : styles.bannerError
             }`}
             role="status"
           >
@@ -301,14 +309,19 @@ export default function AdminDashboard() {
                       </td>
                       <td data-label="Email">
                         {admin.email ? (
-                          <a href={`mailto:${admin.email}`} className={styles.emailLink}>
+                          <a
+                            href={`mailto:${admin.email}`}
+                            className={styles.emailLink}
+                          >
                             {admin.email}
                           </a>
                         ) : (
                           "—"
                         )}
                       </td>
-                      <td data-label="Phone Number">{admin.phoneNumber || "—"}</td>
+                      <td data-label="Phone Number">
+                        {admin.phoneNumber || "—"}
+                      </td>
                       <td data-label="Address">{admin.address || "—"}</td>
                       <td data-label="Status">
                         {admin.status ? (
@@ -334,7 +347,10 @@ export default function AdminDashboard() {
         </section>
 
         {isModalOpen ? (
-          <AddAdminModal onClose={handleModalClose} onSuccess={handleInviteSuccess} />
+          <AddAdminModal
+            onClose={handleModalClose}
+            onSuccess={handleInviteSuccess}
+          />
         ) : null}
       </div>
     </div>
@@ -438,40 +454,37 @@ function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps) {
 
   // =====TESTING===
   // should check for existing account and prepare prompt
-  const prepareExistingAccountPrompt = useCallback(
-    async (email: string) => {
-      try {
-        const snapshot = await getDocs(
-          query(collection(db, "participants"), where("email", "==", email))
-        );
+  const prepareExistingAccountPrompt = useCallback(async (email: string) => {
+    try {
+      const snapshot = await getDocs(
+        query(collection(db, "participants"), where("email", "==", email))
+      );
 
-        if (snapshot.empty) {
-          setExistingAccountPrompt(null);
-          setError(
-            "That email already has an account, but no profile was found. Ask them to sign in before assigning roles."
-          );
-          return false;
-        }
-
-        const docSnap = snapshot.docs[0];
-        setExistingAccountPrompt({
-          participantId: docSnap.id,
-          email,
-          currentRole: (docSnap.data().role as Role | undefined) ?? null,
-        });
-        setError(
-          "An account with this email already exists. Promote them to the selected role?"
-        );
-        return true;
-      } catch (lookupError) {
-        console.error("Failed to look up existing account", lookupError);
+      if (snapshot.empty) {
         setExistingAccountPrompt(null);
-        setError("We couldn't check for an existing account. Please try again.");
+        setError(
+          "That email already has an account, but no profile was found. Ask them to sign in before assigning roles."
+        );
         return false;
       }
-    },
-    []
-  );
+
+      const docSnap = snapshot.docs[0];
+      setExistingAccountPrompt({
+        participantId: docSnap.id,
+        email,
+        currentRole: (docSnap.data().role as Role | undefined) ?? null,
+      });
+      setError(
+        "An account with this email already exists. Promote them to the selected role?"
+      );
+      return true;
+    } catch (lookupError) {
+      console.error("Failed to look up existing account", lookupError);
+      setExistingAccountPrompt(null);
+      setError("We couldn't check for an existing account. Please try again.");
+      return false;
+    }
+  }, []);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -495,14 +508,15 @@ function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps) {
         lastName: form.lastName.trim(),
         email: trimmedEmail,
         role: form.role,
-        university: form.role === "Subadmin" ? form.university.trim() : undefined,
+        university:
+          form.role === "Subadmin" ? form.university.trim() : undefined,
       });
 
-      const displayName = `${form.firstName.trim()} ${form.lastName.trim()}`.replace(
-        /\s+/g,
-        " "
-      );
-      const successMessage = `Invitation sent to ${displayName || trimmedEmail}.`;
+      const displayName =
+        `${form.firstName.trim()} ${form.lastName.trim()}`.replace(/\s+/g, " ");
+      const successMessage = `Invitation sent to ${
+        displayName || trimmedEmail
+      }.`;
       onSuccess(successMessage);
     } catch (err) {
       if (err instanceof FirebaseError) {
@@ -533,15 +547,16 @@ function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps) {
         firstName: form.firstName.trim() || undefined,
         lastName: form.lastName.trim() || undefined,
         role: form.role,
-        university: form.role === "Subadmin" ? form.university.trim() : undefined,
+        university:
+          form.role === "Subadmin" ? form.university.trim() : undefined,
       });
 
       const roleLabel = form.role === "Subadmin" ? "Sub-admin" : "Admin";
-      const displayName = `${form.firstName.trim()} ${form.lastName.trim()}`.replace(
-        /\s+/g,
-        " "
-      );
-      const successMessage = `Updated ${displayName || existingAccountPrompt.email} to ${roleLabel}.`;
+      const displayName =
+        `${form.firstName.trim()} ${form.lastName.trim()}`.replace(/\s+/g, " ");
+      const successMessage = `Updated ${
+        displayName || existingAccountPrompt.email
+      } to ${roleLabel}.`;
       onSuccess(successMessage);
       setExistingAccountPrompt(null);
     } catch (promotionError) {
@@ -685,7 +700,10 @@ function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps) {
               </p>
               <p className={styles.existingPromptText}>
                 Promote them to{" "}
-                <strong>{form.role === "Subadmin" ? "Sub-admin" : "Admin"}</strong>?
+                <strong>
+                  {form.role === "Subadmin" ? "Sub-admin" : "Admin"}
+                </strong>
+                ?
               </p>
               <div className={styles.existingPromptActions}>
                 <button
