@@ -199,7 +199,6 @@ export default function AdminDashboard() {
       <Navbar navItems={NAV_ITEMS} />
       <div className={layoutStyles.surface}>
         <section className={styles.controlsRow}>
-          <div className={styles.searchGroup}>
             <label className={styles.searchLabel} htmlFor="admin-search">
               Search
             </label>
@@ -229,7 +228,6 @@ export default function AdminDashboard() {
               </select>
             </div>
 
-          </div>
           <button
             type="button"
             className={styles.addButton}
