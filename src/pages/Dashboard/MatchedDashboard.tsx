@@ -37,7 +37,6 @@ export default function MatchedDashboard() {
   const [partner, setPartner] = useState<PartnerInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState<number>(1);
-  const [selectedTime, setSelectedTime] = useState<string>('00:00');
   const [concerns, setConcerns] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -238,16 +237,6 @@ export default function MatchedDashboard() {
                   </select>
                 </div>
 
-                <div className={styles.formGroup}>
-                  <label className={styles.label}>Time</label>
-                  <input
-                    type="time"
-                    className={styles.timeInput}
-                    value={selectedTime}
-                    onChange={(e) => setSelectedTime(e.target.value)}
-                  />
-                </div>
-
                 <button 
                   className={styles.finalizeButton}
                   onClick={handleFinalizeTime}
@@ -259,6 +248,13 @@ export default function MatchedDashboard() {
             </div>
           )}
         </div>
+        
+        {/* Status Messages */}
+        {submitMessage && (
+          <div className={`${styles.message} ${styles[submitMessage.type]}`}>
+            {submitMessage.text}
+          </div>
+        )}
 
         {/* Concerns Card */}
         <div className={styles.concernsCard}>
@@ -277,13 +273,6 @@ export default function MatchedDashboard() {
             Send
           </button>
         </div>
-
-        {/* Status Messages */}
-        {submitMessage && (
-          <div className={`${styles.message} ${styles[submitMessage.type]}`}>
-            {submitMessage.text}
-          </div>
-        )}
       </div>
     </div>
   );
