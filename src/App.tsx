@@ -11,6 +11,7 @@ import { useAuth } from "./auth/AuthProvider";
 import UserDashboard from "./pages/Dashboard/UserDashboard";
 import AdminDashboard from "./pages/Dashboard/AdminDashboard";
 import AdminCreator from "./pages/Dashboard/AdminCreator";
+import MatchedDashboard from "./pages/Dashboard/MatchedDashboard";
 import LoginSignup from "./pages/Login/Login-Signup";
 import Registration from "./pages/Registration/Registration";
 import Profile from "./pages/Profile/Profile";
@@ -131,6 +132,8 @@ function App() {
           <Route path="/user/*" element={<ParticipantGate />}>
             <Route path="" element={<Navigate to="/user/dashboard" replace />} />
             <Route path="dashboard" element={<UserDashboard />} />
+            <Route path="matched" element={<MatchedDashboard />} />
+            <Route path="waiting" element={<Waiting />} />
           </Route>
 
           <Route path="/admin/*" element={<AdminGate />}>
