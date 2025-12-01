@@ -18,10 +18,80 @@ interface LogCallFormProps {
 export default function LogCallForm( { weekNumber }: LogCallFormProps) {
   const [weeklyForms, setWeeklyForms] = useState<{ [week: number]: typeof defaultForm }>({});
   const [formData, setFormData] = useState(defaultForm);
+  const [match, setMatch] = useState<(Match & { id: string }) | null>(null);
+  const [partnerName, setPartnerName] = useState<string>('Your Tea-mate');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    setFormData(weeklyForms[weekNumber] || {...defaultForm});
-  }, [weekNumber]);
+    setSuccessMessage(null);
+    
+    async function loadData() {
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+
+        const allMatches = await getMatchesByParticipant(user.uid);
+
+        let matchData: (Match & { id: string }) | null = null;
+        
+        if (allMatches.length > 0) {
+          matchData = allMatches[0];
+        }
+        
+        setMatch(matchData);
+
+        if (matchData) {
+          try {
+            const partnerId = getPartnerId(matchData, user.uid);
+            const partnerRef = doc(db, 'participants', partnerId);
+            const partnerDoc = await getDoc(partnerRef);
+            
+            if (partnerDoc.exists()) {
+              const partnerData = partnerDoc.data();
+              const name = partnerData.displayName || partnerData.name || partnerData.email || 'Your Tea-mate';
+              setPartnerName(name);
+            } else {
+              setPartnerName('Your Partner');
+            }
+          } catch (err) {
+            console.error('Error fetching partner name:', err);
+            setPartnerName('Your Partner');
+          }
+
+          const logData = await getLogForParticipantWeek(user.uid, weekNumber);
+
+          if (logData) {
+            setFormData({
+              duration: logData.duration,
+              rating: logData.rating,
+              concerns: logData.concerns || "",
+              mode: "saved", // Set to saved mode since log already exists
+            });
+          } else {
+            setFormData(defaultForm);
+          }
+        } else {
+          setFormData(defaultForm);
+          setPartnerName('');
+        }
+      } catch (err) {
+        console.error('Error loading match/log data:', err);
+        setError('Failed to load data. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadData();
+  }, [weekNumber, user]);
 
   const updateField = (field: string, value: any) => {
     const updated = { ...formData, [field]: value };
@@ -34,7 +104,25 @@ export default function LogCallForm( { weekNumber }: LogCallFormProps) {
 
   return (
     <div className={`${styles.container}`}>
-      <h1>Log Call Notes</h1>
+      <h1>Call Log - Week {weekNumber}</h1>
+      {partnerName && (
+        <p style={{ marginBottom: '1rem', color: '#666' }}>
+          Your tea-mate: <strong>{partnerName}</strong>
+        </p>
+      )}
+      <b className={styles.warning}>Note: your answers will NOT be shared with your tea-mate</b>
+
+      {error && (
+        <div style={{ padding: '10px', marginBottom: '10px', backgroundColor: '#fee', color: '#c00', borderRadius: '4px' }}>
+          {error}
+        </div>
+      )}
+
+      {successMessage && (
+        <div style={{ padding: '10px', marginBottom: '10px', backgroundColor: '#efe', color: '#060', borderRadius: '4px' }}>
+          {successMessage}
+        </div>
+      )}
 
       <div className={styles.columns}>
         <div className={`${styles.left}`}>
@@ -147,8 +235,8 @@ export default function LogCallForm( { weekNumber }: LogCallFormProps) {
         </div>
 
         <div className={`${styles.right}`}>
-          {/* Meeting Notes */}
-          <p>Any Meeting Notes:</p>
+          {/* Concerns */}
+          <p>Do you have any concerns? (Leave empty if not)</p>
           <textarea
             className={styles.meetingNotesInput}
             value={formData.meetingNotes}

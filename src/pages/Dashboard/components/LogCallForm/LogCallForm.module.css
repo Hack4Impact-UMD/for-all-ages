@@ -112,3 +112,8 @@ section {
   color: red;
   font-size: smaller;
 }
+
+.warning {
+    color: rgb(255, 128, 128);
+    font-size: 15px;
+}
