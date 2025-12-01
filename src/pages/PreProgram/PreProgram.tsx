@@ -176,100 +176,103 @@ const PreProgram = () => {
   );
 
   return (
-    <div className={styles.page}>
-      <Navbar
-        navItems={[
-          { label: "Main", path: "/admin/main" },
-          { label: "Admins", path: "/admin/creator" },
-          { label: "Dashboard", path: "/admin/dashboard" },
-          { label: "Matching", path: "/admin/rematching" },
-          { label: "Recap", path: "/admin/recap" },
-          { label: "Profile", path: "/profile" },
-        ]}
-      />
-
-      <div className={styles.header}>
-        <div className={styles.searchContainer}>
-          <SearchIcon className={styles.searchIcon} />
-          <input
-            type="text"
-            placeholder="Search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className={styles.searchInput}
-          />
-        </div>
-
-        <div className={styles.buttonGroup}>
-          <button className={styles.adminBtn}>
-            <AdminPanelSettingsIcon className={styles.icon} />
-            Admin Panel
-          </button>
-          <button
-            onClick={handleMatch}
-            className={`${styles.rematchBtn} ${
-              buttonLabel === "Rematch" ? styles.rematchActive : ""
-            }`}
-          >
-            <AutorenewIcon className={styles.icon} />
-            {buttonLabel}
-          </button>
-        </div>
+    <>
+      <div className={styles.navbar}>
+        <Navbar
+          navItems={[
+            { label: "Main", path: "/admin/main" },
+            { label: "Admins", path: "/admin/creator" },
+            { label: "Dashboard", path: "/admin/dashboard" },
+            { label: "Matching", path: "/admin/rematching" },
+            { label: "Recap", path: "/admin/recap" },
+            { label: "Profile", path: "/profile" },
+          ]}
+        />
       </div>
+      <div className={styles.page}>
+        <div className={styles.header}>
+          <div className={styles.searchContainer}>
+            <SearchIcon className={styles.searchIcon} />
+            <input
+              type="text"
+              placeholder="Search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className={styles.searchInput}
+            />
+          </div>
 
-      {/* --- Match Table --- */}
-      <div className={styles.container}>
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th>Student</th>
-              <th>Senior</th>
-              <th>Final Score %</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredMatches.length === 0 ? (
+          <div className={styles.buttonGroup}>
+            <button className={styles.adminBtn}>
+              <AdminPanelSettingsIcon className={styles.icon} />
+              Admin Panel
+            </button>
+            <button
+              onClick={handleMatch}
+              className={`${styles.rematchBtn} ${
+                buttonLabel === "Rematch" ? styles.rematchActive : ""
+              }`}
+            >
+              <AutorenewIcon className={styles.icon} />
+              {buttonLabel}
+            </button>
+          </div>
+        </div>
+
+        {/* --- Match Table --- */}
+        <div className={styles.container}>
+          <table className={styles.table}>
+            <thead>
               <tr>
-                <td colSpan={4} className={styles.empty}>
-                  No matches yet.
-                </td>
+                <th>Student</th>
+                <th>Senior</th>
+                <th>Final Score %</th>
+                <th>Status</th>
               </tr>
-            ) : (
-              filteredMatches.map((m, i) => (
-                <tr key={i}>
-                  <td>{m.name1}</td>
-                  <td>{m.name2}</td>
-                  <td>{`${m.confidence}%`}</td>
-                  <td>
-                    <select
-                      value={m.status}
-                      onChange={(e) =>
-                        handleStatusChange(
-                          i,
-                          e.target.value as UI_Match["status"]
-                        )
-                      }
-                      className={`${styles.status} ${
-                        m.status === "Approved"
-                          ? styles.approved
-                          : m.status === "No Match"
-                          ? styles.noMatch
-                          : styles.pending
-                      }`}
-                    >
-                      <option value="Pending">Pending</option>
-                      <option value="Approved">Approved</option>
-                      <option value="No Match">No Match</option>
-                    </select>
+            </thead>
+            <tbody>
+              {filteredMatches.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className={styles.empty}>
+                    No matches yet.
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : (
+                filteredMatches.map((m, i) => (
+                  <tr key={i}>
+                    <td>{m.name1}</td>
+                    <td>{m.name2}</td>
+                    <td>{`${m.confidence}%`}</td>
+                    <td>
+                      <select
+                        value={m.status}
+                        onChange={(e) =>
+                          handleStatusChange(
+                            i,
+                            e.target.value as UI_Match["status"]
+                          )
+                        }
+                        className={`${styles.status} ${
+                          m.status === "Approved"
+                            ? styles.approved
+                            : m.status === "No Match"
+                            ? styles.noMatch
+                            : styles.pending
+                        }`}
+                      >
+                        <option value="Pending">Pending</option>
+                        <option value="Approved">Approved</option>
+                        <option value="No Match">No Match</option>
+                      </select>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 

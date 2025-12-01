@@ -9,28 +9,31 @@ export default function UserDashboard () {
     
 
     return (
-        <div className={styles.page}>
+        <div>
+            <div className={styles.navbar}>
             <Navbar
                 navItems={[
                     { label: "Dashboard", path: "/user/dashboard" },
                     { label: "Profile", path: "/profile" }
                 ]}
             />
-            <div className={styles.surface}>
-                <section className={styles.selectorSection}>
-                    <WeekSelector
-                        weeks={Array.from({ length: WEEKS }, (_, i) => `Week ${i + 1}`)}
-                        selectedWeekIndex={selectedWeek}
-                        onSelect={setSelectedWeek}
-                    />
-                </section>
+            </div>
+            
+            <div className={styles.page}>
+                <div className={styles.surface}>
+                    <section className={styles.selectorSection}>
+                        <WeekSelector
+                            weeks={Array.from({ length: WEEKS }, (_, i) => `Week ${i + 1}`)}
+                            selectedWeekIndex={selectedWeek}
+                            onSelect={setSelectedWeek}
+                        />
+                    </section>
 
-                <section className={styles.contentSection}>
-                    <h2 className={styles.sectionHeading}>Week {selectedWeek+1}</h2>
-                    <LogCallForm 
-                        weekNumber={selectedWeek+1} 
-                    />
-                </section>
+                    <section className={styles.contentSection}>
+                        <h2 className={styles.sectionHeading}>Week {selectedWeek+1}</h2>
+                        <LogCallForm weekNumber={selectedWeek+1} />
+                    </section>
+                </div>
             </div>
         </div>
     )

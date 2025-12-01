@@ -83,9 +83,9 @@ export default function AdminDashboard() {
                 })
                 setParticipantNames(names)
                 console.log('Successfully loaded matches and participant names')
-            } catch (err: any) {
+            } catch (err: unknown) {
                 console.error('Error loading matches:', err)
-                const errorMessage = err?.message || 'Failed to load matches.'
+                const errorMessage = err instanceof Error ? err.message : 'Failed to load matches.'
                 setError(`Failed to load matches: ${errorMessage}`)
             } finally {
                 setMatchesLoading(false)
@@ -177,138 +177,143 @@ export default function AdminDashboard() {
     }, [allMatches, weekData, participantNames])
 
     return (
-        <div className={layoutStyles.page}>
-            <Navbar navItems={NAV_ITEMS} />
-            <div className={layoutStyles.surface}>
-                <section className={layoutStyles.selectorSection}>
-                    <WeekSelector
-                        weeks={Array.from({ length: WEEKS }, (_, i) => `Week ${i + 1}`)}
-                        selectedWeekIndex={selectedWeek}
-                        onSelect={setSelectedWeek}
-                    />
-                </section>
-            
-                <section className={`${layoutStyles.contentSection} ${adminStyles.scheduleSection}`}>
-                    <h2 className={layoutStyles.sectionHeading}>Welcome to the dashboard!</h2>
-                    {error && (
-                        <div style={{
-                            padding: '15px',
-                            marginBottom: '15px',
-                            backgroundColor: '#fee',
-                            color: '#c00',
-                            borderRadius: '4px',
-                            textAlign: 'center'
-                        }}>
-                            {error}
-                        </div>
-                    )}
+        <>
+            <div className={layoutStyles.navbar}>
+                <Navbar navItems={NAV_ITEMS} />
+            </div>
 
-                    {matchesLoading ? (
-                        <div style={{
-                            textAlign: 'center',
-                            padding: '40px',
-                            color: '#666'
-                        }}>
-                            Loading matches...
-                        </div>
-                    ) : loading ? (
-                        <div style={{
-                            textAlign: 'center',
-                            padding: '40px',
-                            color: '#666'
-                        }}>
-                            Loading week {selectedWeek + 1} data...
-                        </div>
-                    ) : (
-                        <div className={adminStyles.scheduleCard}>
-                            <div className={adminStyles.scheduleInner}>
-                                <div className={adminStyles.dayGrid}>
-                                    {DAY_LABELS.map((day) => {
-                                        const assignments = activeWeekData[day] ?? []
-                                        return (
-                                            <div className={adminStyles.dayColumn} key={day}>
-                                                <div className={adminStyles.dayHeader}>{day}</div>
-                                                <div className={adminStyles.peopleList}>
-                                                    {assignments.length === 0 ? (
-                                                        <div style={{
-                                                            padding: '10px',
-                                                            color: '#999',
-                                                            fontSize: '0.85rem',
-                                                            fontStyle: 'italic'
-                                                        }}>
-                                                            No calls
-                                                        </div>
-                                                    ) : (
-                                                        assignments.map((assignment, index) => (
-                                                            <PersonTag
-                                                                key={`${day}-${index}-${assignment.names.join('-')}`}
-                                                                names={assignment.names}
-                                                                variant={assignment.variant}
-                                                            />
-                                                        ))
-                                                    )}
+            <div className={layoutStyles.page}>
+                <div className={layoutStyles.surface}>
+                    <section className={layoutStyles.selectorSection}>
+                        <WeekSelector
+                            weeks={Array.from({ length: WEEKS }, (_, i) => `Week ${i + 1}`)}
+                            selectedWeekIndex={selectedWeek}
+                            onSelect={setSelectedWeek}
+                        />
+                    </section>
+                
+                    <section className={`${layoutStyles.contentSection} ${adminStyles.scheduleSection}`}>
+                        <h2 className={layoutStyles.sectionHeading}>Welcome to the dashboard!</h2>
+                        {error && (
+                            <div style={{
+                                padding: '15px',
+                                marginBottom: '15px',
+                                backgroundColor: '#fee',
+                                color: '#c00',
+                                borderRadius: '4px',
+                                textAlign: 'center'
+                            }}>
+                                {error}
+                            </div>
+                        )}
+
+                        {matchesLoading ? (
+                            <div style={{
+                                textAlign: 'center',
+                                padding: '40px',
+                                color: '#666'
+                            }}>
+                                Loading matches...
+                            </div>
+                        ) : loading ? (
+                            <div style={{
+                                textAlign: 'center',
+                                padding: '40px',
+                                color: '#666'
+                            }}>
+                                Loading week {selectedWeek + 1} data...
+                            </div>
+                        ) : (
+                            <div className={adminStyles.scheduleCard}>
+                                <div className={adminStyles.scheduleInner}>
+                                    <div className={adminStyles.dayGrid}>
+                                        {DAY_LABELS.map((day) => {
+                                            const assignments = activeWeekData[day] ?? []
+                                            return (
+                                                <div className={adminStyles.dayColumn} key={day}>
+                                                    <div className={adminStyles.dayHeader}>{day}</div>
+                                                    <div className={adminStyles.peopleList}>
+                                                        {assignments.length === 0 ? (
+                                                            <div style={{
+                                                                padding: '10px',
+                                                                color: '#999',
+                                                                fontSize: '0.85rem',
+                                                                fontStyle: 'italic'
+                                                            }}>
+                                                                No calls
+                                                            </div>
+                                                        ) : (
+                                                            assignments.map((assignment, index) => (
+                                                                <PersonTag
+                                                                    key={`${day}-${index}-${assignment.names.join('-')}`}
+                                                                    names={assignment.names}
+                                                                    variant={assignment.variant}
+                                                                />
+                                                            ))
+                                                        )}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        )
-                                    })}
+                                            )
+                                        })}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    )}
+                        )}
 
-                    {!matchesLoading && !loading && allMatches.length === 0 && !error && (
-                        <div style={{
-                            textAlign: 'center',
-                            padding: '40px',
-                            color: '#666'
-                        }}>
-                            No matches found in the system. Create some matches to see them here.
-                        </div>
-                    )}
+                        {!matchesLoading && !loading && allMatches.length === 0 && !error && (
+                            <div style={{
+                                textAlign: 'center',
+                                padding: '40px',
+                                color: '#666'
+                            }}>
+                                No matches found in the system. Create some matches to see them here.
+                            </div>
+                        )}
 
-                    {/* Legend */}
-                    {!matchesLoading && !loading && allMatches.length > 0 && (
-                        <div style={{
-                            marginTop: '20px',
-                            padding: '15px',
-                            backgroundColor: '#f9f9f9',
-                            borderRadius: '8px',
-                            display: 'flex',
-                            gap: '20px',
-                            justifyContent: 'center',
-                            fontSize: '0.9rem'
-                        }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <div style={{
-                                    width: '16px',
-                                    height: '16px',
-                                    backgroundColor: '#90EE90',
-                                    borderRadius: '3px'
-                                }}></div>
-                                <span>Completed (at least 1 log)</span>
+                        {/* Legend */}
+                        {!matchesLoading && !loading && allMatches.length > 0 && (
+                            <div style={{
+                                marginTop: '20px',
+                                padding: '15px',
+                                backgroundColor: '#f9f9f9',
+                                borderRadius: '8px',
+                                display: 'flex',
+                                gap: '20px',
+                                justifyContent: 'center',
+                                fontSize: '0.9rem'
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <div style={{
+                                        width: '16px',
+                                        height: '16px',
+                                        backgroundColor: '#90EE90',
+                                        borderRadius: '3px'
+                                    }}></div>
+                                    <span>Completed (at least 1 log)</span>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <div style={{
+                                        width: '16px',
+                                        height: '16px',
+                                        backgroundColor: '#FFD700',
+                                        borderRadius: '3px'
+                                    }}></div>
+                                    <span>Pending</span>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <div style={{
+                                        width: '16px',
+                                        height: '16px',
+                                        backgroundColor: '#FFB6C1',
+                                        borderRadius: '3px'
+                                    }}></div>
+                                    <span>Missed</span>
+                                </div>
                             </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <div style={{
-                                    width: '16px',
-                                    height: '16px',
-                                    backgroundColor: '#FFD700',
-                                    borderRadius: '3px'
-                                }}></div>
-                                <span>Pending</span>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <div style={{
-                                    width: '16px',
-                                    height: '16px',
-                                    backgroundColor: '#FFB6C1',
-                                    borderRadius: '3px'
-                                }}></div>
-                                <span>Missed</span>
-                            </div>
-                        </div>
-                    )}
-                </section>
+                        )}
+                    </section>
+                </div>
             </div>
-        </div>
+        </>
     )
 }

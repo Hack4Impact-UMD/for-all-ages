@@ -32,20 +32,22 @@ export default function RecapPage() {
     const [selectedWeek] = useState(5)
 
     return (
+        <>
+            <div className={styles.navbar}>
+                <Navbar
+                    navItems={[
+                        { label: 'Main', path: '/admin/main' },
+                        { label: 'Admins', path: '/admin/creator' },
+                        { label: 'Dashboard', path: '/admin/dashboard' },
+                        { label: 'Matching', path: '/admin/rematching' },
+                        { label: 'Recap', path: '/admin/recap' },
+                        { label: 'Profile', path: '/profile' }
+                    ]}
+                />
+            </div>
         <div className={layoutStyles.page}>
-            <Navbar
-                navItems={[
-                    { label: 'Main', path: '/admin/main' },
-                    { label: 'Admins', path: '/admin/creator' },
-                    { label: 'Dashboard', path: '/admin/dashboard' },
-                    { label: 'Matching', path: '/admin/rematching' },
-                    { label: 'Recap', path: '/admin/recap' },
-                    { label: 'Profile', path: '/profile' }
-                ]}
-            />
             <div className={layoutStyles.surface}>
                 <h1 className={styles.pageTitle}>Week {selectedWeek} Recaps</h1>
-
                 <div className={styles.cardRow}>
                     <div className={styles.card}>
                         <h2 className={styles.cardTitle}>Participant Check-in Stats</h2>
@@ -127,16 +129,16 @@ export default function RecapPage() {
                     </div>
                 </div>
 
-                <div className={styles.cardRow}>
-                    <div className={styles.cardWide}>
-                        <h2 className={styles.cardTitle}>Participation Distribution</h2>
-                        <div className={styles.emptyState}>
+                    <div className={styles.cardRow}>
+                        <div className={styles.cardWide}>
+                            <h2 className={styles.cardTitle}>Participation Distribution</h2>
+                            <div className={styles.emptyState}>
 
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
-    )
+        </>
+    );
 }
-

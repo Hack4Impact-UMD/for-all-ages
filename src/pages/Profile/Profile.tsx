@@ -92,26 +92,29 @@ const Profile = () => {
   };
 
   return (
-    <div className={styles.page}>
-      <Navbar
-        navItems={[
-          { label: "Dashboard", path: "/user/dashboard" },
-          { label: "Profile", path: "/profile" },
-        ]}
-      />
+    <div>
+      <div className={styles.navbar}>
+        <Navbar
+          navItems={[
+            { label: "Dashboard", path: "/user/dashboard" },
+            { label: "Profile", path: "/profile" },
+          ]}
+        />
+      </div>
 
-      <div className={styles.container}>
-        {/* LEFT COLUMN */}
-        <div className={styles.leftColumn}>
-          <div className={styles.infoCard}>
-            <img
-              src="https://thumbs.dreamstime.com/b/default-profile-picture-avatar-photo-placeholder-vector-illustration-default-profile-picture-avatar-photo-placeholder-vector-189495158.jpg"
-              alt="Profile"
-              className={styles.profileImage}
-            />
-            <h2 className={styles.profileName}>{user.name}</h2>
-            <span className={styles.statusTag}>{user.status}</span>
-          </div>
+      <div className={styles.page}>
+        <div className={styles.container}>
+          {/* LEFT COLUMN */}
+          <div className={styles.leftColumn}>
+            <div className={styles.infoCard}>
+              <img
+                src="https://thumbs.dreamstime.com/b/default-profile-picture-avatar-photo-placeholder-vector-illustration-default-profile-picture-avatar-photo-placeholder-vector-189495158.jpg"
+                alt="Profile"
+                className={styles.profileImage}
+              />
+              <h2 className={styles.profileName}>{user.name}</h2>
+              <span className={styles.statusTag}>{user.status}</span>
+            </div>
 
           <div className={styles.infoCard}>
             <h3>Your Match</h3>
@@ -159,13 +162,44 @@ const Profile = () => {
               ].map((field) => (
                 <div key={field.name} className={styles.fieldBox}>
                   {editingField === field.name ? (
-                    <input
-                      name={field.name}
-                      value={user[field.name as keyof UserProfile] as string}
-                      onChange={handleChange}
-                      autoFocus
-                      className={styles.input}
-                    />
+                    <div className={styles.boxContent}>
+                      <div className={styles.boxHeader}>
+                        <span className={styles.boxLabel}>{field.label}</span>
+                        {(field.name === "email" ||
+                          field.name === "password" ||
+                          field.name === "address" ||
+                          field.name === "phone" ||
+                          field.name === "pronouns") && (
+                          <EditIcon
+                            className={styles.editIcon}
+                            onClick={() => {
+                              setEditingField(field.name);
+                              setIsEditing(true);
+                            }}
+                          />
+                        )}
+                      </div>
+                      {field.name === "address" ? (
+                        <textarea
+                          name={field.name}
+                          value={user[field.name as keyof UserProfile] as string}
+                          onChange={handleChange}
+                          onBlur={() => setEditingField(null)}
+                          autoFocus
+                          className={styles.textarea}
+                          rows={2}
+                        />
+                      ) : (
+                        <input
+                          name={field.name}
+                          value={user[field.name as keyof UserProfile] as string}
+                          onChange={handleChange}
+                          onBlur={() => setEditingField(null)}
+                          autoFocus
+                          className={styles.input}
+                        />
+                      )}
+                    </div>
                   ) : (
                     <div className={styles.boxContent}>
                       <div className={styles.boxHeader}>
@@ -194,57 +228,66 @@ const Profile = () => {
                   )}
                 </div>
               ))}
+              </div>
             </div>
-          </div>
 
-          {/* interests */}
-          <div className={styles.infoSection}>
-            <h3 className={styles.sectionTitle}>About Me</h3>
-            <div className={styles.fieldBox}>
-              {editingField === "interests" ? (
-                <textarea
-                  name="interests"
-                  value={user.interests}
-                  onChange={(e) =>
-                    setUser({
-                      ...user,
-                      interests: e.target.value
-                    })
-                  }
-                  rows={3}
-                  autoFocus
-                  className={styles.textarea}
-                />
-              ) : (
-                <div className={styles.boxContent}>
-                  <div className={styles.boxHeader}>
+            {/* interests */}
+            <div className={styles.infoSection}>
+              <h3 className={styles.sectionTitle}>About Me</h3>
+              <div className={styles.fieldBox}>
+                {editingField === "interests" ? (
+                  <div className={styles.boxContent}>
+                    <div className={styles.boxHeader}>
                     <span className={styles.boxLabel}>Interests</span>
-                    <EditIcon
-                      className={styles.editIcon}
-                      onClick={() => {
-                        setEditingField("interests");
-                        setIsEditing(true);
-                      }}
-                    />
+                    </div>
+                      <textarea
+                        name="interests"
+                        value={user.interests}
+                        onChange={(e) =>
+                          setUser({
+                            ...user,
+                            interests: e.target.value
+                          })
+                        }
+                        onBlur={() => setEditingField(null)}
+                        rows={3}
+                        autoFocus
+                        className={styles.textarea}
+                      />
                   </div>
-                  <span className={styles.boxValue}>
-                    {user.interests}
-                  </span>
-                </div>
-              )}
+                  
+                ) : (
+                  <div className={styles.boxContent}>
+                    <div className={styles.boxHeader}>
+                      <span className={styles.boxLabel}>Interests</span>
+                      <EditIcon
+                        className={styles.editIcon}
+                        onClick={() => {
+                          setEditingField("interests");
+                          setIsEditing(true);
+                        }}
+                      />
+                    </div>
+                    <span className={styles.boxValue}>
+                      {user.interests}
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
 
-          {isEditing && (
-            <div className={styles.buttons}>
-              <button type="submit" className={styles.save}>
-                Save
-              </button>
-            </div>
-          )}
-        </form>
+            {isEditing && (
+              <div className={styles.buttons}>
+                <button type="submit" className={styles.save}>
+                  Save
+                </button>
+              </div>
+            )}
+          </form>
+        </div>
       </div>
     </div>
+
   );
 };
 
