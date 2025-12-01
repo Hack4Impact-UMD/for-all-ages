@@ -232,16 +232,7 @@ export default function RecapPage() {
 
     return (
         <div className={layoutStyles.page}>
-            <Navbar
-                navItems={[
-                    { label: 'Main', path: '/admin/main' },
-                    { label: 'Admins', path: '/admin/creator' },
-                    { label: 'Dashboard', path: '/admin/dashboard' },
-                    { label: 'Matching', path: '/admin/rematching' },
-                    { label: 'Recap', path: '/admin/recap' },
-                    { label: 'Profile', path: '/profile' }
-                ]}
-            />
+            <Navbar/>
             <div className={layoutStyles.surface}>
                 <div className={styles.header}>
                     <div className={styles.weekSelector}>
@@ -265,54 +256,54 @@ export default function RecapPage() {
                     <h1 className={styles.pageTitle}>Week {selectedWeek} Recaps</h1>
                 </div>
 
-                <div className={styles.cardRow}>
-                    <div className={styles.card}>
-                        <h2 className={styles.cardTitle}>Participant Check-in Stats</h2>
-                        <div className={styles.chartContainer}>
-                            <ResponsiveContainer width="100%" height={250}>
-                                <PieChart>
-                                    <Pie
-                                        data={checkInData}
-                                        cx="50%"
-                                        cy="50%"
-                                        innerRadius={60}
-                                        outerRadius={100}
-                                        dataKey="value"
-                                    >
-                                        {checkInData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={entry.color} />
-                                        ))}
-                                    </Pie>
-                                </PieChart>
-                            </ResponsiveContainer>
-                            <div className={styles.legend}>
-                                {checkInData.map((item) => (
-                                    <div key={item.name} className={styles.legendItem}>
-                                        <div
-                                            className={styles.legendColor}
-                                            style={{ backgroundColor: item.color }}
-                                        ></div>
-                                        <span className={styles.legendText}>
-                                            {item.name} - {item.value.toFixed(2)}%
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
+        <div className={styles.cardRow}>
+          <div className={styles.card}>
+            <h2 className={styles.cardTitle}>Participant Check-in Stats</h2>
+            <div className={styles.chartContainer}>
+              <ResponsiveContainer width="100%" height={250}>
+                <PieChart>
+                  <Pie
+                    data={checkInData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={100}
+                    dataKey="value"
+                  >
+                    {checkInData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+              <div className={styles.legend}>
+                {checkInData.map((item) => (
+                  <div key={item.name} className={styles.legendItem}>
+                    <div
+                      className={styles.legendColor}
+                      style={{ backgroundColor: item.color }}
+                    ></div>
+                    <span className={styles.legendText}>
+                      {item.name} - {item.value.toFixed(2)}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
 
-                    <div className={styles.card}>
-                        <h2 className={styles.cardTitle}>Length of Participant Calls</h2>
-                        <div className={styles.chartContainer}>
-                            <ResponsiveContainer width="100%" height={280}>
-                                <BarChart data={callLengthData}>
-                                    <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                                    <YAxis tick={{ fontSize: 12 }} />
-                                    <Bar dataKey="value" fill="#127BBE" />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </div>
+          <div className={styles.card}>
+            <h2 className={styles.cardTitle}>Length of Participant Calls</h2>
+            <div className={styles.chartContainer}>
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={callLengthData}>
+                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <Bar dataKey="value" fill="#127BBE" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
 
                     <div className={styles.card}>
                         <h2 className={styles.cardTitle}>Average Quality Rating of Calls</h2>
@@ -373,9 +364,23 @@ export default function RecapPage() {
                             )}
                         </div>
                     </div>
-                </div>
+                    <span className={styles.percentage}>
+                      {item.percentage}%
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
+          </div>
         </div>
-    )
-}
 
+        <div className={styles.cardRow}>
+          <div className={styles.cardWide}>
+            <h2 className={styles.cardTitle}>Participation Distribution</h2>
+            <div className={styles.emptyState}></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
