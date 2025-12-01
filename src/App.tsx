@@ -122,8 +122,6 @@ function App() {
       <Routes>
         <Route path="/" element={<LoginSignup />} />
         <Route path="/registration" element={<RegistrationGate />} />
-        <Route path="/waiting" element={<Waiting />} />
-
 
           <Route path={"/"} element={<LoginSignup></LoginSignup>}></Route>
           <Route path={"/registration"} element={<Registration></Registration>}></Route>

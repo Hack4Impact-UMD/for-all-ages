@@ -29,21 +29,58 @@ export interface Survey {
 export interface Match {
     participant1_id: string
     participant2_id: string
-    day_of_call: number // 1-7 (Monday-Sunday)
+    day_of_call: number
     similarity: number
 }
 
-export interface Week {
-    week: number  // 1-20, acts as primary key
-    calls: string[]  // Array of match_ids (document IDs)
+export interface LogFormData {
+    callComplete?: boolean;
+    duration?: number;
+    satisfactionScore?: number;
+    meetingNotes: string;
+    mode: "edit" | "saved";
 }
 
-export interface Logs {
+export interface Week {
     week: number
-    uid: string
-    duration: number
-    rating: number
-    concerns: string
+    calls: {match_id: {duration: number, concerns: string}}[]
+}
+
+/**
+ * Log document as stored in Firestore logs collection
+ * Structure: logs/{logId}
+ *
+ * NOTE: This matches the actual Firestore schema.
+ * Field mapping:
+ *   - uid: participant's user ID
+ *   - week: week number (1-indexed)
+ *   - duration: call duration in minutes
+ *   - rating: satisfaction score (1-5)
+ *   - concerns: meeting notes/comments
+ */
+export interface Log {
+    uid: string;
+    week: number;
+    duration: number;
+    rating: number;
+    concerns: string;
+}
+
+// Individual user log for the admin modal
+export interface UserLog {
+    name: string;
+    hasSubmitted: boolean;
+    callComplete?: boolean;
+    duration?: number;          
+    satisfactionScore?: number;
+    meetingNotes?: string;
+}
+
+// Combined log data for displaying both users' logs in the admin modal
+export interface MatchLogPair {
+    matchId: string;
+    weekNumber: number;
+    logs: UserLog[];
 }
 
 

@@ -1,6 +1,5 @@
 .scheduleSection {
     gap: 1.5rem;
-    align-items: stretch;
 }
 
 .scheduleCard {
@@ -8,7 +7,7 @@
     /* border: 4px solid #0f6bb1; */
     border-radius: 1.75rem;
     box-shadow: 0 16px 36px rgba(15, 107, 177, 0.18);
-    padding: clamp(1.5rem, 4vw, 2rem);
+    padding: clamp(1.5rem, 4vw, 2.25rem);
     width: 100%;
     box-sizing: border-box;
     overflow-x: auto;
@@ -30,10 +29,10 @@
 .dayColumn {
     display: flex;
     flex-direction: column;
-    padding: 1.1rem 0.9rem 1.9rem;
+    padding: 1.25rem 0.9rem 1.75rem;
     
     border-left: 1px solid rgba(15, 107, 177, 0.12);
-    min-height: 420px;
+    min-height: 320px;
     gap: 0.75rem;
     /* background: rgba(251, 251, 251, 0.92); */
     background: white;
@@ -57,6 +56,68 @@
     flex-direction: column;
     gap: 0.65rem;
     flex: 1;
+}
+
+.matchWrapper {
+    cursor: pointer;
+    transition: transform 0.1s;
+}
+
+.matchWrapper:hover {
+    transform: scale(1.02);
+}
+
+.modalBackdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    padding: 1.5rem;
+}
+
+.modalCard {
+    width: min(1000px, 95vw);
+    background: #ffffff;
+    border-radius: 24px;
+    border: 4px solid #0f6bb1;
+    box-shadow: 0 24px 60px rgba(15, 107, 177, 0.35);
+    padding: 1.75rem;
+    max-height: min(90vh, 800px);
+    overflow-y: auto;
+    position: relative;
+}
+
+.modalHeader {
+    text-align: center;
+    margin-bottom: 1.25rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+}
+
+.modalTitle {
+    margin: 0;
+    font-size: 1.45rem;
+    color: #0f6bb1;
+    font-weight: 700;
+}
+
+.closeButton {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    font-size: 2rem;
+    line-height: 1;
+    cursor: pointer;
+    color: #0f6bb1;
+    padding: 0 0.5rem;
 }
 
 @media (max-width: 860px) {
