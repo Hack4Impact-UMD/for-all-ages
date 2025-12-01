@@ -1,24 +1,13 @@
-import { useMemo, useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import layoutStyles from './Dashboard.module.css'
 import adminStyles from './AdminDashboard.module.css'
 import WeekSelector from './components/WeekSelector/WeekSelector'
 import PersonTag from './components/PersonTag/PersonTag'
 import Navbar from '../../components/Navbar'
 import AdminMatchModal from './components/AdminMatchModal/AdminMatchModal'
-import { getAllMatches, type WeekSchedule, type PersonAssignment } from '../../services/matchLogs'
-
-// Toggle this to switch between mock data and real Firestore data
-// When true: Uses dummy schedule data and mock logs
-// When false: Uses Firestore matches and Firestore logs
-const USE_MOCK_DATA = false
+import { getAllMatches, type WeekSchedule } from '../../services/matchLogs'
 
 type DayKey = 'Sun' | 'Mon' | 'Tue' | 'Wed' | 'Thurs' | 'Fri' | 'Sat'
-
-// Extended type for dummy data (without participantIds)
-type DummyPersonAssignment = {
-    names: string[]
-    variant?: 'rose' | 'green' | 'gold'
-}
 
 const DAY_LABELS: DayKey[] = ['Sun', 'Mon', 'Tue', 'Wed', 'Thurs', 'Fri', 'Sat']
 
@@ -26,75 +15,6 @@ const WEEKS = 20
 
 // NOTE: selectedWeek is 0-indexed internally (0 = Week 1, 1 = Week 2, etc.)
 // When passing to Firestore functions, always use (selectedWeek + 1) for 1-indexed week numbers
-
-
-// Dummy data for admin schedules (fallback when Firestore has no matches)
-const ADMIN_WEEK_SCHEDULES: Record<DayKey, DummyPersonAssignment[]>[] = [
-    {
-        Sun: [{ names: ['Jane', 'Mary'], variant: 'rose' }],
-        Mon: [{ names: ['Jane', 'Mary'], variant: 'green' }],
-        Tue: [{ names: ['Jane', 'Mary'], variant: 'rose' }],
-        Wed: [
-            { names: ['Jane', 'Mary'], variant: 'gold' },
-            { names: ['Jane', 'Mary'], variant: 'green' }
-        ],
-        Thurs: [{ names: ['Jane', 'Mary'], variant: 'gold' }],
-        Fri: [{ names: ['Jane', 'Mary'], variant: 'gold' }],
-        Sat: [{ names: ['Jane', 'Mary'], variant: 'gold' }]
-    },
-    {
-        Sun: [{ names: ['Jane', 'Mary'], variant: 'rose' }],
-        Mon: [{ names: ['Mary'], variant: 'green' }],
-        Tue: [{ names: ['Jane'], variant: 'rose' }],
-        Wed: [{ names: ['Mary'], variant: 'green' }],
-        Thurs: [{ names: ['Jane'], variant: 'gold' }],
-        Fri: [{ names: ['Mary'], variant: 'gold' }],
-        Sat: []
-    },
-    {
-        Sun: [
-            { names: ['Jane', 'Mary'], variant: 'rose' },
-            { names: ['Jane', 'Mary'], variant: 'rose' }
-        ],
-        Mon: [{ names: ['Jane', 'Mary'], variant: 'green' }],
-        Tue: [
-            { names: ['Jane', 'Mary'], variant: 'rose' },
-            { names: ['Jane', 'Mary'], variant: 'green' }
-        ],
-        Wed: [
-            { names: ['Jane', 'Mary'], variant: 'gold' },
-            { names: ['Jane', 'Mary'], variant: 'green' },
-            { names: ['Jane', 'Mary'], variant: 'gold' }
-        ],
-        Thurs: [{ names: ['Jane', 'Mary'], variant: 'gold' }],
-        Fri: [
-            { names: ['Jane', 'Mary'], variant: 'gold' },
-            { names: ['Jane', 'Mary'], variant: 'gold' }
-        ],
-        Sat: [
-            { names: ['Jane', 'Mary'], variant: 'gold' },
-            { names: ['Jane', 'Mary'], variant: 'gold' }
-        ]
-    },
-    {
-        Sun: [],
-        Mon: [],
-        Tue: [{ names: ['Jane', 'Mary'], variant: 'green' }],
-        Wed: [{ names: ['Jane', 'Mary'], variant: 'gold' }],
-        Thurs: [{ names: ['Jane', 'Mary'], variant: 'gold' }],
-        Fri: [{ names: ['Jane', 'Mary'], variant: 'gold' }],
-        Sat: []
-    },
-    {
-        Sun: [],
-        Mon: [{ names: ['Jane', 'Mary'], variant: 'green' }],
-        Tue: [],
-        Wed: [{ names: ['Jane', 'Mary'], variant: 'gold' }],
-        Thurs: [],
-        Fri: [{ names: ['Jane', 'Mary'], variant: 'gold' }],
-        Sat: [{ names: ['Jane', 'Mary'], variant: 'rose' }]
-    }
-]
 
 const NAV_ITEMS = [
     { label: 'Main', path: '/admin/creator' },
@@ -107,13 +27,8 @@ export default function AdminDashboard () {
     const [selectedMatch, setSelectedMatch] = useState<{ names: string[], week: number, variant?: 'rose' | 'green' | 'gold', participantIds?: string[] } | null>(null)
     const [firestoreMatches, setFirestoreMatches] = useState<WeekSchedule | null>(null)
 
-    // Load matches from Firestore when week changes (only if not using mock data)
+    // Load matches from Firestore when week changes
     useEffect(() => {
-        if (USE_MOCK_DATA) {
-            // Skip Firestore fetch when using mock data
-            return
-        }
-
         let cancelled = false
         async function loadMatches() {
             try {
@@ -130,23 +45,10 @@ export default function AdminDashboard () {
         return () => { cancelled = true }
     }, [selectedWeek])
 
-    // Use Firestore data if available and not in mock mode, otherwise fall back to dummy data
-    const activeWeekData = useMemo(() => {
-        // When USE_MOCK_DATA is true, always use dummy data
-        if (USE_MOCK_DATA) {
-            return ADMIN_WEEK_SCHEDULES[selectedWeek] ?? ADMIN_WEEK_SCHEDULES[0]
-        }
-
-        // Check if Firestore has any matches
-        if (firestoreMatches) {
-            const hasAnyMatches = Object.values(firestoreMatches).some(day => day.length > 0)
-            if (hasAnyMatches) {
-                return firestoreMatches
-            }
-        }
-        // Fall back to dummy data if Firestore is empty
-        return ADMIN_WEEK_SCHEDULES[selectedWeek] ?? ADMIN_WEEK_SCHEDULES[0]
-    }, [selectedWeek, firestoreMatches])
+    // Use Firestore data - if no matches, calendar will be blank
+    const activeWeekData: WeekSchedule = firestoreMatches ?? {
+        Sun: [], Mon: [], Tue: [], Wed: [], Thurs: [], Fri: [], Sat: []
+    }
 
     const handleCloseModal = useCallback(() => {
         setSelectedMatch(null)
@@ -174,13 +76,7 @@ export default function AdminDashboard () {
                                         <div className={adminStyles.dayColumn} key={day}>
                                             <div className={adminStyles.dayHeader}>{day}</div>
                                             <div className={adminStyles.peopleList}>
-                                                {assignments.map((assignment, index) => {
-                                                    // Type guard: check if assignment has participantIds (from Firestore)
-                                                    const participantIds = 'participantIds' in assignment 
-                                                        ? (assignment as PersonAssignment).participantIds 
-                                                        : undefined
-                                                    
-                                                    return (
+                                                {assignments.map((assignment, index) => (
                                                     <div 
                                                         key={`${day}-${index}-${assignment.names.join('-')}`}
                                                         className={adminStyles.matchWrapper}
@@ -188,7 +84,7 @@ export default function AdminDashboard () {
                                                             names: assignment.names, 
                                                             week: selectedWeek + 1, 
                                                             variant: assignment.variant,
-                                                            participantIds
+                                                            participantIds: assignment.participantIds
                                                         })}
                                                     >
                                                         <PersonTag
@@ -196,8 +92,7 @@ export default function AdminDashboard () {
                                                             variant={assignment.variant}
                                                         />
                                                     </div>
-                                                    )
-                                                })}
+                                                ))}
                                             </div>
                                         </div>
                                     )

@@ -1,12 +1,9 @@
 import { useState, useEffect } from 'react';
 import styles from './AdminMatchModal.module.css';
-import type { MatchLogPair, UserLog } from '../../../../types';
+import type { MatchLogPair } from '../../../../types';
 import { getMatchLogs } from '../../../../services/matchLogs';
 
 type MatchVariant = 'rose' | 'green' | 'gold';
-
-// Toggle this to switch between mock data and real Firestore
-const USE_MOCK_DATA = false;
 
 interface AdminMatchModalProps {
     onClose: () => void;
@@ -18,69 +15,6 @@ interface AdminMatchModalProps {
     };
 }
 
-// Mock data fetcher - used when USE_MOCK_DATA is true
-async function fetchMockLogs(names: string[], week: number, variant?: MatchVariant): Promise<MatchLogPair> {
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 400));
-    
-    // Generate mock logs based on variant
-    // green = both completed, others = simulate partial/no completion
-    const logs: UserLog[] = names.map((name, index) => {
-        // For green variant, both users have submitted
-        if (variant === 'green') {
-            return {
-                name,
-                hasSubmitted: true,
-                callComplete: true,
-                duration: index === 0 ? 60 : 45,
-                satisfactionScore: index === 0 ? 5 : 4,
-                meetingNotes: index === 0 
-                    ? `It was great chatting with ${names[1] || 'my partner'}!`
-                    : `Was nice! Looking forward to the next!`
-            };
-        }
-        
-        // For other variants, simulate partial completion (first user submitted, second didn't)
-        if (index === 0) {
-            return {
-                name,
-                hasSubmitted: true,
-                callComplete: true,
-                duration: 60,
-                satisfactionScore: 5,
-                meetingNotes: `It was great chatting with ${names[1] || 'my partner'}!`
-            };
-        }
-        
-        // Second user hasn't submitted
-        return {
-            name,
-            hasSubmitted: false
-        };
-    });
-    
-    return {
-        matchId: 'mock-match-id',
-        weekNumber: week,
-        logs
-    };
-}
-
-// Fetches logs - uses mock or Firestore based on USE_MOCK_DATA flag
-async function fetchMatchLogs(
-    names: string[], 
-    week: number, 
-    variant?: MatchVariant,
-    participantIds?: string[]
-): Promise<MatchLogPair> {
-    if (USE_MOCK_DATA || !participantIds || participantIds.length === 0) {
-        return fetchMockLogs(names, week, variant);
-    }
-    
-    // READ-ONLY Firestore query using participant UIDs
-    return getMatchLogs(participantIds, week);
-}
-
 export default function AdminMatchModal({ onClose, matchData }: AdminMatchModalProps) {
     const [logPair, setLogPair] = useState<MatchLogPair | null>(null);
     const [loading, setLoading] = useState(true);
@@ -89,11 +23,29 @@ export default function AdminMatchModal({ onClose, matchData }: AdminMatchModalP
         let mounted = true;
         
         const loadLogs = async () => {
-            setLoading(true);
-            const data = await fetchMatchLogs(matchData.names, matchData.week, matchData.variant, matchData.participantIds);
-            if (mounted) {
-                setLogPair(data);
+            // If no participantIds, we can't fetch logs from Firestore
+            if (!matchData.participantIds || matchData.participantIds.length === 0) {
+                setLogPair(null);
                 setLoading(false);
+                return;
+            }
+
+            setLoading(true);
+            try {
+                // READ-ONLY Firestore query using participant UIDs
+                const data = await getMatchLogs(matchData.participantIds, matchData.week);
+                if (mounted) {
+                    setLogPair(data);
+                }
+            } catch (error) {
+                console.error('Failed to load match logs:', error);
+                if (mounted) {
+                    setLogPair(null);
+                }
+            } finally {
+                if (mounted) {
+                    setLoading(false);
+                }
             }
         };
         
