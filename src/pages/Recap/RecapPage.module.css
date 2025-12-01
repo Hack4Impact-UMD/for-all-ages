@@ -186,6 +186,14 @@
     margin-bottom: 8px;
 }
 
+.header {
+    position: relative;      
+    display: flex;
+    justify-content: center;   
+    align-items: center;
+    margin-bottom: 32px;
+}
+
 .concernUser {
     font-weight: 600;
     color: #333;
@@ -215,6 +223,32 @@
     color: #999;
     padding: 32px;
 }
+
+/* Week selector*/
+.weekSelector {
+    position: absolute;
+    left: 0;                  
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.weekLabel {
+    font-size: 1rem;
+    font-weight: 600;
+    color: white;
+}
+
+.weekDropdown {
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    font-size: 1rem;
+    background: white;
+    cursor: pointer;
+    width: fit-content;
+}
+
 
 @media (max-width: 1024px) {
     .cardRow {

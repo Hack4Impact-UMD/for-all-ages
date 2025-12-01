@@ -61,7 +61,8 @@ async function fetchParticipantName(uid: string): Promise<string> {
 
 
 export default function RecapPage() {
-    const [selectedWeek] = useState<number>(3);
+    const [selectedWeek, setSelectedWeek] = useState<number>();
+    const [actualWeek, setActualWeek] = useState<number>();
     const [logs, setLogs] = useState<RecapLog[]>([]);
     const [matches, setMatches] = useState<Matches[]>([]);
     const [participantNames, setParticipantNames] = useState<Record<string, string>>({});
@@ -96,9 +97,33 @@ export default function RecapPage() {
         }
     }, [logs]);
 
+    useEffect(() => {
+        async function loadProgramWeek() {
+            try {
+                const docRef = doc(db, "config", "programState");
+                const snapshot = await getDoc(docRef);
+
+                if (snapshot.exists()) {
+                    const data = snapshot.data();
+                    if (data.week) {
+                        setSelectedWeek(data.week);
+                        setActualWeek(data.week);
+                    }
+                }
+            } catch (error) {
+                console.error("Error loading program week:", error);
+            }
+        }
+
+        loadProgramWeek();
+    }, []);
+
 
     useEffect(() => {
         try {
+            if (!selectedWeek) {
+                return
+            }
             fetchLogsByWeek(selectedWeek).then((logs) => {
                 console.log("Fetched logs for week", selectedWeek, ":", logs);
                 setLogs(logs);
@@ -109,9 +134,17 @@ export default function RecapPage() {
     }, [selectedWeek])
 
     const todayWeekday = useMemo(() => {
-        const jsDay = new Date().getDay();
-        return ((jsDay + 6) % 7) + 1; //starts from Monday as 1
-    }, []);
+        if (!selectedWeek || !actualWeek) return undefined; 
+
+        if (selectedWeek === actualWeek) {
+            const jsDay = new Date().getDay(); 
+            return ((jsDay + 6) % 7) + 1;      
+        }
+
+        if (selectedWeek < actualWeek) return 7;
+        if (selectedWeek > actualWeek) return 1;
+    }, [selectedWeek, actualWeek]);
+
 
     const participantsWithLogs = useMemo(() => {
         const set = new Set<string>();
@@ -119,42 +152,32 @@ export default function RecapPage() {
         return set;
     }, [logs]);
 
-        const checkInData = useMemo(() => {
+    const checkInData = useMemo(() => {
+        if (!todayWeekday) return []; //wait until actualWeek is loaded
+
         let checkedIn = 0;
         let missed = 0;
         let pending = 0;
 
         matches.forEach(m => {
-            if (m.day_of_call > todayWeekday) {
+            const hasLog =
+                participantsWithLogs.has(m.participant1_id) ||
+                participantsWithLogs.has(m.participant2_id);
+            if (hasLog) {
+                checkedIn++;
+            } else if (m.day_of_call > todayWeekday) {
                 pending++;
             } else {
-                const hasLog =
-                    participantsWithLogs.has(m.participant1_id) ||
-                    participantsWithLogs.has(m.participant2_id);
-                if (hasLog) checkedIn++;
-                else missed++;
+                missed++;
             }
         });
 
+        if (!matches.length) return []; //prevent divide by zero
+
         return [
-            {
-                name: 'Checked In',
-                count: checkedIn,
-                value: (checkedIn / matches.length) * 100,
-                color: '#7FBC41'
-            },
-            {
-                name: 'Missed',
-                count: missed,
-                value: (missed / matches.length) * 100,
-                color: '#F76D6D'
-            },
-            {
-                name: 'Pending',
-                count: pending,
-                value: (pending / matches.length) * 100,
-                color: '#EAB419'
-            }
+            { name: 'Checked In', count: checkedIn, value: (checkedIn / matches.length) * 100, color: '#7FBC41' },
+            { name: 'Missed', count: missed, value: (missed / matches.length) * 100, color: '#F76D6D' },
+            { name: 'Pending', count: pending, value: (pending / matches.length) * 100, color: '#EAB419' }
         ];
     }, [matches, todayWeekday, participantsWithLogs]);
 
@@ -220,7 +243,27 @@ export default function RecapPage() {
                 ]}
             />
             <div className={layoutStyles.surface}>
-                <h1 className={styles.pageTitle}>Week {selectedWeek} Recaps</h1>
+                <div className={styles.header}>
+                    <div className={styles.weekSelector}>
+                        <label htmlFor="weekSelect" className={styles.weekLabel}>
+                            Select Week:
+                        </label>
+                        <select
+                            id="weekSelect"
+                            className={styles.weekDropdown}
+                            value={selectedWeek}
+                            onChange={(e) => setSelectedWeek(Number(e.target.value))}
+                        >
+                            {Array.from({ length: 20 }, (_, i) => i + 1).map((week) => (
+                                <option key={week} value={week}>
+                                    Week {week}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <h1 className={styles.pageTitle}>Week {selectedWeek} Recaps</h1>
+                </div>
 
                 <div className={styles.cardRow}>
                     <div className={styles.card}>
