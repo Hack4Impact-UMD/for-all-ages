@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
+import { useNavigate } from 'react-router-dom';
 import { FaCoffee, FaSearch } from "react-icons/fa";
 import styles from "./Rematching.module.css";
 import layoutStyles from "../Dashboard/Dashboard.module.css";
@@ -43,19 +44,6 @@ export interface RematchingParticipant {
 }
 
 // ============================================================================
-// CONSTANTS
-// ============================================================================
-
-const NAV_ITEMS = [
-  { label: "Main", path: "/admin/main" },
-  { label: "Admins", path: "/admin/creator" },
-  { label: "Dashboard", path: "/admin/dashboard" },
-  { label: "Matching", path: "/admin/rematching" },
-  { label: "Recap", path: "/admin/recap" },
-  { label: "Profile", path: "/profile" },
-];
-
-// ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
 
@@ -82,6 +70,7 @@ const filterParticipants = (
 // ============================================================================
 
 export default function Rematching() {
+  const navigate = useNavigate();
   const [students, setStudents] = useState<RematchingParticipant[]>([]);
   const [adults, setAdults] = useState<RematchingParticipant[]>([]);
   const [approvedCount, setApprovedCount] = useState<number>(0);
@@ -360,8 +349,16 @@ export default function Rematching() {
 
   return (
     <div className={`${layoutStyles.page} ${styles.rematchingPage}`}>
-      <Navbar navItems={NAV_ITEMS} />
+      <Navbar />
       <div className={`${layoutStyles.surface} ${styles.rematchingSurface}`}>
+        <button
+          type="button"
+          className={styles.backButton}
+          onClick={() => navigate('/admin/main')}
+          aria-label="Back to PreProgram"
+        >
+          ←
+        </button>
         <h1 className={styles.pageTitle}>AI Assisted Matching</h1>
         <h2 className={styles.pageSubtitle}>
           Match students with older adults based on interests and preferences

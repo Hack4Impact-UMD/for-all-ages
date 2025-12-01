@@ -10,6 +10,23 @@
     color: #0f6bb1; /* Standard blue color for all text */
 }
 
+.backButton {
+  position: absolute;
+  top: 7rem;
+  left: 3rem;
+  background: #ffffff;
+  color: #0f6bb1;
+  border: 1px solid rgba(15, 107, 177, 0.15);
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.backButton:hover {
+  background: #f4fbff;
+}
+
 /* page header */
 
 .pageTitle,
@@ -30,6 +47,11 @@
     font-weight: 400;
     color: #ffffff;
     margin-bottom: 1rem;
+}
+
+.actionError {
+    color: #c0392b;
+    font-size: 0.9rem;
 }
 
 /* Statistic sections */

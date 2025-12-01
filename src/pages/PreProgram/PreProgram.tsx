@@ -4,14 +4,16 @@ import styles from "./PreProgram.module.css";
 import { useNavigate } from "react-router-dom";
 import SearchIcon from "@mui/icons-material/Search";
 import AutorenewIcon from "@mui/icons-material/Autorenew";
+import SendIcon from "@mui/icons-material/Send";
+import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 import { db, getUser, matchAll } from "../../firebase";
+import { collection, doc, getDocs, updateDoc, writeBatch } from "firebase/firestore";
 import {
-  collection,
-  doc,
-  getDocs,
-  writeBatch,
-  updateDoc,
-} from "firebase/firestore";
+  finalizeMatches,
+  startProgram,
+  subscribeToProgramState,
+  type ProgramState,
+} from "../../services/programState";
 
 interface BackendMatch {
   studentId: string;
@@ -44,6 +46,12 @@ const PreProgram = () => {
   const [matches, setMatches] = useState<UI_Match[]>([]);
   const [search, setSearch] = useState("");
   const [matching, setMatching] = useState(false);
+  const [programState, setProgramState] = useState<ProgramState | null>(null);
+  const [programStateLoading, setProgramStateLoading] = useState(true);
+  const [programStateError, setProgramStateError] = useState<string | null>(null);
+  const [startingProgram, setStartingProgram] = useState(false);
+  const [finalizing, setFinalizing] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<"start" | "finalize" | null>(null);
 
   const navigate = useNavigate();
 
@@ -59,6 +67,23 @@ const PreProgram = () => {
     };
     return [...list].sort((a, b) => order[a.status] - order[b.status]);
   };
+  
+  useEffect(() => {
+    const unsubscribe = subscribeToProgramState(
+      (state) => {
+        setProgramState(state);
+        setProgramStateLoading(false);
+      },
+      (err) => {
+        console.error("Failed to subscribe to program state", err);
+        setProgramStateError("Unable to load program state.");
+        setProgramStateLoading(false);
+      }
+    );
+
+    return unsubscribe;
+  }, []);
+
 
   /**
    * Convert backend match results + unmatched arrays into UI_Match rows.
@@ -305,6 +330,35 @@ const PreProgram = () => {
       setMatching(false);
     }
   };
+  
+  // handlers for program state buttons
+  const handleStartProgram = async () => {
+    try {
+      setProgramStateError(null);
+      setStartingProgram(true);
+      await startProgram();
+    } catch (err) {
+      console.error("Failed to start program", err);
+      setProgramStateError("Failed to start the program. Please try again.");
+    } finally {
+      setStartingProgram(false);
+      setConfirmAction(null);
+    }
+  };
+
+  const handleFinalizeMatches = async () => {
+    try {
+      setProgramStateError(null);
+      setFinalizing(true);
+      await finalizeMatches();
+    } catch (err) {
+      console.error("Failed to finalize matches", err);
+      setProgramStateError("Failed to finalize matches. Please try again.");
+    } finally {
+      setFinalizing(false);
+      setConfirmAction(null);
+    }
+  };
 
   const handleStatusChange = async (
     index: number,
@@ -334,18 +388,13 @@ const PreProgram = () => {
       m.name2.toLowerCase().includes(search.toLowerCase())
   );
 
+  // global bools for program state
+  const programStarted = programState?.started ?? false;
+  const matchesFinalized = programState?.matches_final ?? false;
+
   return (
     <div className={styles.page}>
-      <Navbar
-        navItems={[
-          { label: "Main", path: "/admin/main" },
-          { label: "Admins", path: "/admin/creator" },
-          { label: "Dashboard", path: "/admin/dashboard" },
-          { label: "Matching", path: "/admin/rematching" },
-          { label: "Recap", path: "/admin/recap" },
-          { label: "Profile", path: "/profile" },
-        ]}
-      />
+      <Navbar />
 
       <div className={styles.header}>
         <div className={styles.searchContainer}>
@@ -360,6 +409,30 @@ const PreProgram = () => {
         </div>
 
         <div className={styles.buttonGroup}>
+          <button
+            onClick={() => setConfirmAction("start")}
+            className={styles.adminBtn}
+            disabled={programStateLoading || startingProgram || programStarted}
+          >
+            <SendIcon className={styles.icon} />
+            {programStarted
+              ? "Program Started"
+              : startingProgram
+              ? "Starting..."
+              : "Start Program"}
+          </button>
+          <button
+            onClick={() => setConfirmAction("finalize")}
+            className={styles.adminBtn}
+            disabled={programStateLoading || finalizing || matchesFinalized}
+          >
+            <LockOutlinedIcon className={styles.icon} />
+            {matchesFinalized
+              ? "Matches Locked"
+              : finalizing
+              ? "Locking..."
+              : "Lock In All Matches"}
+          </button>
           <button onClick={handleMatch} className={styles.rematchBtn} disabled={matching}>
             <AutorenewIcon className={styles.icon} />
             {matching ? 'Creating...' : 'Create Matches'}
@@ -371,7 +444,47 @@ const PreProgram = () => {
             Manual Rematch
           </button>
         </div>
+        {programStateError && (
+          <div className={styles.stateError}>{programStateError}</div>
+        )}
       </div>
+
+      {confirmAction && (
+        <div className={styles.confirmOverlay}>
+          <div className={styles.confirmCard}>
+            <h3 className={styles.confirmTitle}>
+              {confirmAction === "start"
+                ? "Starting the Program"
+                : "Finalizing..."}
+            </h3>
+            <p className={styles.confirmText}>
+              {confirmAction === "start"
+                ? "Are you sure you want to start the program?"
+                : "Are you sure you want to lock all matches?"}
+            </p>
+            <div className={styles.confirmActions}>
+              <button
+                className={styles.cancelButton}
+                onClick={() => setConfirmAction(null)}
+                disabled={startingProgram || finalizing}
+              >
+                Cancel
+              </button>
+              <button
+                className={styles.confirmButton}
+                onClick={
+                  confirmAction === "start"
+                    ? handleStartProgram
+                    : handleFinalizeMatches
+                }
+                disabled={startingProgram || finalizing}
+              >
+                Yes, I'm sure
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* --- Match Table --- */}
       <div className={styles.container}>
