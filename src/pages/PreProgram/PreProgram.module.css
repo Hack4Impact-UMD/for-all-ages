@@ -94,6 +94,87 @@
     text-align: right;
 }
 
+.confirmOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 16px;
+}
+
+.confirmCard {
+    background: #127bbe;
+    color: #ffffff;
+    border-radius: 16px;
+    padding: 24px 28px;
+    width: min(520px, 100%);
+    text-align: center;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+    font-family: "Merriweather", serif;
+}
+
+.confirmTitle {
+    margin: 0 0 6px;
+    font-size: 26px;
+    font-weight: 700;
+}
+
+.confirmText {
+    margin: 0 0 18px;
+    font-size: 16px;
+    font-weight: 500;
+    color: white;
+}
+
+.confirmActions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+}
+
+.cancelButton {
+    background: #d1d1d1;
+    color: #333;
+    border: none;
+    border-radius: 999px;
+    padding: 8px 18px;
+    font-family: "Merriweather", serif;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.1s ease, box-shadow 0.2s ease;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.confirmButton {
+    background: #ffffff;
+    color: #127bbe;
+    border: none;
+    border-radius: 999px;
+    padding: 8px 18px;
+    font-family: "Merriweather", serif;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.1s ease, box-shadow 0.2s ease;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+}
+
+.cancelButton:hover:not(:disabled),
+.confirmButton:hover:not(:disabled) {
+    transform: translateY(-1px);
+}
+
+.cancelButton:disabled,
+.confirmButton:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
 .container {
   background-color: white;
   border-radius: 0 0 12px 12px;

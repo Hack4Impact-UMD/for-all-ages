@@ -49,6 +49,7 @@ const PreProgram = () => {
   const [programStateError, setProgramStateError] = useState<string | null>(null);
   const [startingProgram, setStartingProgram] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<"start" | "finalize" | null>(null);
 
   const navigate = useNavigate();
 
@@ -173,13 +174,8 @@ const PreProgram = () => {
     console.log("Matches stored successfully.");
   };
 
-  //handlers for program state buttons
+  // handlers for program state buttons
   const handleStartProgram = async () => {
-    const confirmed = window.confirm(
-      "Start the program now? This will mark it as started for everyone."
-    );
-    if (!confirmed) return;
-
     try {
       setProgramStateError(null);
       setStartingProgram(true);
@@ -189,15 +185,11 @@ const PreProgram = () => {
       setProgramStateError("Failed to start the program. Please try again.");
     } finally {
       setStartingProgram(false);
+      setConfirmAction(null);
     }
   };
- // finalize matches handler 
-  const handleFinalizeMatches = async () => {
-    const confirmed = window.confirm(
-      "Lock in all matches? This will finalize matching."
-    );
-    if (!confirmed) return;
 
+  const handleFinalizeMatches = async () => {
     try {
       setProgramStateError(null);
       setFinalizing(true);
@@ -207,6 +199,7 @@ const PreProgram = () => {
       setProgramStateError("Failed to finalize matches. Please try again.");
     } finally {
       setFinalizing(false);
+      setConfirmAction(null);
     }
   };
 
@@ -272,7 +265,7 @@ const PreProgram = () => {
 
         <div className={styles.buttonGroup}>
           <button
-            onClick={handleStartProgram}
+            onClick={() => setConfirmAction("start")}
             className={styles.adminBtn}
             disabled={programStateLoading || startingProgram || programStarted}
           >
@@ -284,7 +277,7 @@ const PreProgram = () => {
               : "Start Program"}
           </button>
           <button
-            onClick={handleFinalizeMatches}
+            onClick={() => setConfirmAction("finalize")}
             className={styles.adminBtn}
             disabled={programStateLoading || finalizing || matchesFinalized}
           >
@@ -313,6 +306,43 @@ const PreProgram = () => {
           <div className={styles.stateError}>{programStateError}</div>
         )}
       </div>
+
+      {confirmAction && (
+        <div className={styles.confirmOverlay}>
+          <div className={styles.confirmCard}>
+            <h3 className={styles.confirmTitle}>
+              {confirmAction === "start"
+                ? "Starting the Program"
+                : "Finalizing..."}
+            </h3>
+            <p className={styles.confirmText}>
+              {confirmAction === "start"
+                ? "Are you sure you want to start the program?"
+                : "Are you sure you want to lock all matches?"}
+            </p>
+            <div className={styles.confirmActions}>
+              <button
+                className={styles.cancelButton}
+                onClick={() => setConfirmAction(null)}
+                disabled={startingProgram || finalizing}
+              >
+                Cancel
+              </button>
+              <button
+                className={styles.confirmButton}
+                onClick={
+                  confirmAction === "start"
+                    ? handleStartProgram
+                    : handleFinalizeMatches
+                }
+                disabled={startingProgram || finalizing}
+              >
+                Yes, I'm sure
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* --- Match Table --- */}
       <div className={styles.container}>
