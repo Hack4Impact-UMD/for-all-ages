@@ -1,7 +1,6 @@
 import { useMemo, useState, useEffect } from 'react'
 import layoutStyles from './Dashboard.module.css'
 import adminStyles from './AdminDashboard.module.css'
-import creatorStyles from './AdminCreator.module.css'
 import WeekSelector from './components/WeekSelector/WeekSelector'
 import PersonTag from './components/PersonTag/PersonTag'
 import Navbar from '../../components/Navbar'
@@ -10,7 +9,7 @@ import { getWeek } from '../../services/weeks'
 import { getDoc, doc } from 'firebase/firestore'
 import { db } from '../../firebase'
 import type { Match, Week } from '../../types'
-import { startProgram, subscribeToProgramState, type ProgramState } from '../../services/programState'
+import { subscribeToProgramState, type ProgramState } from '../../services/programState'
 
 type DayKey = 'Sun' | 'Mon' | 'Tue' | 'Wed' | 'Thurs' | 'Fri' | 'Sat'
 type PersonAssignment = {
@@ -41,20 +40,14 @@ export default function AdminDashboard() {
     const [matchesLoading, setMatchesLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
     const [programState, setProgramState] = useState<ProgramState | null>(null)
-    const [programStateLoading, setProgramStateLoading] = useState(true)
-    const [programStateError, setProgramStateError] = useState<string | null>(null)
-    const [startingProgram, setStartingProgram] = useState(false)
 
     useEffect(() => {
         const unsubscribe = subscribeToProgramState(
             (state) => {
                 setProgramState(state)
-                setProgramStateLoading(false)
             },
             (err) => {
                 console.error('ProgramState subscription error', err)
-                setProgramStateError('Unable to load program status.')
-                setProgramStateLoading(false)
             }
         )
 
@@ -124,21 +117,6 @@ export default function AdminDashboard() {
 
         loadMatches()
     }, [])
-
-    const handleStartProgram = async () => {
-        const confirmed = window.confirm('Start the program now? This will mark it as started for everyone.');
-        if (!confirmed) return;
-        try {
-            setProgramStateError(null)
-            setStartingProgram(true)
-            await startProgram()
-        } catch (err) {
-            console.error('Error starting program:', err)
-            setProgramStateError('Failed to start the program. Please try again.')
-        } finally {
-            setStartingProgram(false)
-        }
-    }
 
     // Fetch week data when selected week changes
     useEffect(() => {
@@ -221,31 +199,11 @@ export default function AdminDashboard() {
         return schedule
     }, [allMatches, weekData, participantNames])
 
-    const programStarted = programState?.started ?? false
-
     return (
         <div className={layoutStyles.page}>
             <Navbar navItems={NAV_ITEMS} />
             <div className={layoutStyles.surface}>
                 <section className={layoutStyles.selectorSection}>
-                    <div className={adminStyles.programStateCard}>
-                        <div className={adminStyles.programStateText}>
-                            <p className={adminStyles.programLabel}>Program status</p>
-                            <div className={`${adminStyles.programStatusPill} ${programStarted ? adminStyles.programStatusActive : ''}`}>
-                                {programStateLoading ? 'Loading...' : programStarted ? 'Started' : 'Not started'}
-                            </div>
-                            {programStateError && (
-                                <p className={adminStyles.programError}>{programStateError}</p>
-                            )}
-                        </div>
-                        <button
-                            className={creatorStyles.submitButton}
-                            onClick={handleStartProgram}
-                            disabled={programStateLoading || startingProgram || programStarted}
-                        >
-                            {programStarted ? 'Program Started' : startingProgram ? 'Starting...' : 'Start Program'}
-                        </button>
-                    </div>
                     <WeekSelector
                         weeks={Array.from({ length: WEEKS }, (_, i) => `Week ${i + 1}`)}
                         selectedWeekIndex={selectedWeek}

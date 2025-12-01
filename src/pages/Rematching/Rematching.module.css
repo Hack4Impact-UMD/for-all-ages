@@ -32,50 +32,6 @@
     margin-bottom: 1rem;
 }
 
-.actionsBar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    background: #ffffff;
-    border-radius: 1rem;
-    padding: 1rem 1.25rem;
-    box-shadow: 0 8px 24px rgba(15, 107, 177, 0.15);
-    margin-bottom: 1.5rem;
-    flex-wrap: wrap;
-}
-
-.actionsCopy {
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-    color: #0f6bb1;
-}
-
-.actionLabel {
-    font-weight: 700;
-    font-size: 0.95rem;
-}
-
-.statusPill {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    background: rgba(15, 107, 177, 0.1);
-    color: #0f6bb1;
-    padding: 0.45rem 0.9rem;
-    border-radius: 999px;
-    font-weight: 700;
-    border: 1px solid rgba(15, 107, 177, 0.2);
-    width: fit-content;
-}
-
-.statusPillActive {
-    background: rgba(24, 160, 51, 0.12);
-    color: #1f7a2e;
-    border-color: rgba(24, 160, 51, 0.3);
-}
-
 .actionError {
     color: #c0392b;
     font-size: 0.9rem;
@@ -316,12 +272,6 @@
     transform: translateY(-2px);
 }
 
-.compactButton {
-    padding: 0.5rem 0.95rem;
-    font-size: 0.85rem;
-    min-width: 120px;
-}
-
 /* responsize design */
 
 @media (max-width: 1200px) {
@@ -344,10 +294,5 @@
     .statCard {
         width: 100%;
         max-width: 300px;
-    }
-
-    .actionsBar {
-        flex-direction: column;
-        align-items: stretch;
     }
 }
