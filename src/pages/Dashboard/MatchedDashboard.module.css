@@ -1,0 +1,286 @@
+.page {
+    min-height: 100vh;
+    width: 100%;
+    background: #3879B9;
+    display: flex;
+    justify-content: center;
+}
+
+.surface {
+    width: min(1200px, 100%);
+    padding: 120px clamp(1.5rem, 4vw, 3rem) 48px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+}
+
+.loadingMessage,
+.noMatchMessage {
+    color: #ffffff;
+    font-size: clamp(1.125rem, 2vw, 1.5rem);
+    font-weight: 600;
+    text-align: center;
+    padding: 40px 20px;
+}
+
+.noMatchMessage h2 {
+    margin: 0 0 16px 0;
+    font-size: clamp(1.5rem, 2.5vw, 2rem);
+}
+
+.noMatchMessage p {
+    margin: 0;
+}
+
+.welcomeHeading {
+    margin: 0;
+    color: #ffffff;
+    font-size: clamp(1.75rem, 2.8vw, 2.5rem);
+    text-align: center;
+    text-decoration: underline;
+    text-underline-offset: 8px;
+    font-weight: 600;
+}
+
+.cardsContainer {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 24px;
+    width: 100%;
+}
+
+.card {
+    background: #ffffff;
+    border-radius: 24px;
+    padding: clamp(1.5rem, 3vw, 2rem);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.cardTitle {
+    margin: 0 0 20px 0;
+    color: #3879B9;
+    font-size: clamp(1.25rem, 2vw, 1.5rem);
+    font-weight: 600;
+    text-align: center;
+}
+
+.matchContent {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.profileSection {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+
+.avatar {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background: #D3D3D3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.5rem;
+    font-weight: 600;
+    color: #666;
+}
+
+.partnerName {
+    margin: 0;
+    color: #3879B9;
+    font-size: clamp(1.125rem, 1.5vw, 1.375rem);
+    font-weight: 600;
+}
+
+.contactInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.contactTitle {
+    margin: 0;
+    color: #3879B9;
+    font-size: clamp(1rem, 1.25vw, 1.125rem);
+    font-weight: 600;
+}
+
+.contactDetails {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.contactItem {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.contactLabel {
+    color: #3879B9;
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.contactValue {
+    color: #0f6fb8;
+    font-size: 0.95rem;
+}
+
+.timeContent {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.formGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.label {
+    color: #3879B9;
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.select,
+.timeInput {
+    padding: 12px;
+    border: 2px solid #d0e7ff;
+    border-radius: 8px;
+    font-size: 1rem;
+    color: #333;
+    background: #f8fbff;
+    transition: border-color 0.2s ease;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.select:focus,
+.timeInput:focus {
+    outline: none;
+    border-color: #3879B9;
+}
+
+.finalizeButton {
+    padding: 12px 24px;
+    background: #3879B9;
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.1s ease;
+}
+
+.finalizeButton:hover:not(:disabled) {
+    background: #2d5f94;
+    transform: translateY(-1px);
+}
+
+.finalizeButton:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.concernsCard {
+    background: #ffffff;
+    border-radius: 24px;
+    padding: clamp(1.5rem, 3vw, 2rem);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.textarea {
+    width: 100%;
+    padding: 16px;
+    border: 2px solid #d0e7ff;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-family: inherit;
+    color: #333;
+    background: #f8fbff;
+    resize: vertical;
+    box-sizing: border-box;
+    transition: border-color 0.2s ease;
+}
+
+.textarea:focus {
+    outline: none;
+    border-color: #3879B9;
+}
+
+.sendButton {
+    align-self: flex-end;
+    padding: 10px 32px;
+    background: #3879B9;
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.1s ease;
+}
+
+.sendButton:hover {
+    background: #2d5f94;
+    transform: translateY(-1px);
+}
+
+.message {
+    padding: 16px;
+    border-radius: 8px;
+    text-align: center;
+    font-weight: 600;
+    animation: slideIn 0.3s ease;
+}
+
+.message.success {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.message.error {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (max-width: 768px) {
+    .surface {
+        padding-top: 96px;
+        gap: 24px;
+    }
+
+    .cardsContainer {
+        grid-template-columns: 1fr;
+    }
+}
+

@@ -11,12 +11,14 @@ import { useAuth } from "./auth/AuthProvider";
 import UserDashboard from "./pages/Dashboard/UserDashboard";
 import AdminDashboard from "./pages/Dashboard/AdminDashboard";
 import AdminCreator from "./pages/Dashboard/AdminCreator";
+import MatchedDashboard from "./pages/Dashboard/MatchedDashboard";
 import LoginSignup from "./pages/Login/Login-Signup";
 import Registration from "./pages/Registration/Registration";
 import Profile from "./pages/Profile/Profile";
 import RecapPage from "./pages/Recap/RecapPage";
 import Rematching from "./pages/Rematching/Rematching";
 import PreProgram from "./pages/PreProgram/PreProgram";
+import Waiting from "./pages/Waiting/Waiting";
 
 function RouteLoader() {
   return <div className="route-loading">Loading...</div>;
@@ -128,6 +130,8 @@ function App() {
           <Route path="/user/*" element={<ParticipantGate />}>
             <Route path="" element={<Navigate to="/user/dashboard" replace />} />
             <Route path="dashboard" element={<UserDashboard />} />
+            <Route path="matched" element={<MatchedDashboard />} />
+            <Route path="waiting" element={<Waiting />} />
           </Route>
 
           <Route path="/admin/*" element={<AdminGate />}>

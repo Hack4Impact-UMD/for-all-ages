@@ -13,6 +13,7 @@ export interface Participant {
     email: string
     dob: Date       //switch to luxon datetime
     pronouns: string
+    user_type?: 'student' | 'adult'
 }
 
 export interface SurveyResponse {

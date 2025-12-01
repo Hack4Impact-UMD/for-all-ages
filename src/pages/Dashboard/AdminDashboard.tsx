@@ -8,6 +8,7 @@ import PersonTag from './components/PersonTag/PersonTag'
 import Navbar from '../../components/Navbar'
 import AdminMatchModal from './components/AdminMatchModal/AdminMatchModal'
 import { getAllMatches } from '../../services/matches'
+import { subscribeToProgramState, type ProgramState } from '../../services/programState'
 import type { Log } from '../../types'
 
 // Types
@@ -65,18 +66,43 @@ export default function AdminDashboard() {
     const [selectedWeek, setSelectedWeek] = useState(0)
     const [selectedMatch, setSelectedMatch] = useState<SelectedMatch | null>(null)
     const [weekSchedule, setWeekSchedule] = useState<WeekSchedule | null>(null)
+    const [loading, setLoading] = useState(true)
+    const [error, setError] = useState<string | null>(null)
+    const [programState, setProgramState] = useState<ProgramState | null>(null)
 
+    // Subscribe to program state for auto-selecting current week
+    useEffect(() => {
+        const unsubscribe = subscribeToProgramState(
+            (state) => setProgramState(state),
+            (err) => console.error('ProgramState subscription error', err)
+        )
+        return unsubscribe
+    }, [])
+
+    // Update selected week when programState.week changes
+    useEffect(() => {
+        if (programState && typeof programState.week === 'number') {
+            setSelectedWeek(Math.max(0, programState.week - 1))
+        }
+    }, [programState?.week])
+
+    // Load matches and compute schedule when week changes
     useEffect(() => {
         let cancelled = false
         
         async function loadMatches() {
             try {
+                setLoading(true)
+                setError(null)
                 const weekNumber = selectedWeek + 1
                 
                 const [rawMatches, logsSnapshot] = await Promise.all([
                     getAllMatches(),
                     getDocs(query(collection(db, 'logs'), where('week', '==', weekNumber)))
                 ])
+                
+                console.log('Raw matches from Firestore:', rawMatches)
+                console.log('Number of matches:', rawMatches.length)
 
                 const submittedUids = new Set(
                     logsSnapshot.docs
@@ -111,9 +137,16 @@ export default function AdminDashboard() {
                     result[dayKey].push(assignment)
                 }
 
-                if (!cancelled) setWeekSchedule(result)
-            } catch (error) {
-                console.error('Failed to load matches:', error)
+                if (!cancelled) {
+                    setWeekSchedule(result)
+                    setLoading(false)
+                }
+            } catch (err) {
+                console.error('Failed to load matches:', err)
+                if (!cancelled) {
+                    setError('Failed to load matches')
+                    setLoading(false)
+                }
             }
         }
         
@@ -122,7 +155,6 @@ export default function AdminDashboard() {
     }, [selectedWeek])
 
     const activeWeekData = weekSchedule ?? EMPTY_SCHEDULE
-
     const handleCloseModal = useCallback(() => setSelectedMatch(null), [])
 
     return (
@@ -138,40 +170,71 @@ export default function AdminDashboard() {
                 </section>
 
                 <section className={`${layoutStyles.contentSection} ${adminStyles.scheduleSection}`}>
-                    <div className={adminStyles.scheduleCard}>
-                        <div className={adminStyles.scheduleInner}>
-                            <div className={adminStyles.dayGrid}>
-                                {DAY_KEYS.map((day) => {
-                                    const assignments = activeWeekData[day] ?? []
-                                    return (
-                                        <div className={adminStyles.dayColumn} key={day}>
-                                            <div className={adminStyles.dayHeader}>{day}</div>
-                                            <div className={adminStyles.peopleList}>
-                                                {assignments.map((assignment, index) => (
-                                                    <div 
-                                                        key={`${day}-${index}-${assignment.names.join('-')}`}
-                                                        className={adminStyles.matchWrapper}
-                                                        onClick={() => setSelectedMatch({ 
-                                                            names: assignment.names, 
-                                                            week: selectedWeek + 1, 
-                                                            variant: assignment.variant,
-                                                            participantIds: assignment.participantIds
-                                                        })}
-                                                    >
-                                                        <PersonTag
-                                                            names={assignment.names}
-                                                            variant={assignment.variant}
-                                                        />
-                                                    </div>
-                                                ))}
+                    {error && (
+                        <div style={{ padding: '15px', marginBottom: '15px', backgroundColor: '#fee', color: '#c00', borderRadius: '4px', textAlign: 'center' }}>
+                            {error}
+                        </div>
+                    )}
+
+                    {loading ? (
+                        <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
+                            Loading week {selectedWeek + 1} data...
+                        </div>
+                    ) : (
+                        <div className={adminStyles.scheduleCard}>
+                            <div className={adminStyles.scheduleInner}>
+                                <div className={adminStyles.dayGrid}>
+                                    {DAY_KEYS.map((day) => {
+                                        const assignments = activeWeekData[day] ?? []
+                                        return (
+                                            <div className={adminStyles.dayColumn} key={day}>
+                                                <div className={adminStyles.dayHeader}>{day}</div>
+                                                <div className={adminStyles.peopleList}>
+                                                    {assignments.map((assignment, index) => (
+                                                        <div 
+                                                            key={`${day}-${index}-${assignment.names.join('-')}`}
+                                                            className={adminStyles.matchWrapper}
+                                                            onClick={() => setSelectedMatch({ 
+                                                                names: assignment.names, 
+                                                                week: selectedWeek + 1, 
+                                                                variant: assignment.variant,
+                                                                participantIds: assignment.participantIds
+                                                            })}
+                                                        >
+                                                            <PersonTag
+                                                                names={assignment.names}
+                                                                variant={assignment.variant}
+                                                            />
+                                                        </div>
+                                                    ))}
+                                                </div>
                                             </div>
-                                        </div>
-                                    )
-                                })}
+                                        )
+                                    })}
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    )}
+
+                    {/* Legend */}
+                    {!loading && (
+                        <div style={{ marginTop: '20px', padding: '15px', backgroundColor: '#f9f9f9', borderRadius: '8px', display: 'flex', gap: '20px', justifyContent: 'center', fontSize: '0.9rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div style={{ width: '16px', height: '16px', backgroundColor: '#90EE90', borderRadius: '3px' }}></div>
+                                <span>Both logged</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div style={{ width: '16px', height: '16px', backgroundColor: '#FFB6C1', borderRadius: '3px' }}></div>
+                                <span>One logged</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div style={{ width: '16px', height: '16px', backgroundColor: '#FFD700', borderRadius: '3px' }}></div>
+                                <span>Neither logged</span>
+                            </div>
+                        </div>
+                    )}
                 </section>
+
                 {selectedMatch && (
                     <AdminMatchModal 
                         onClose={handleCloseModal} 

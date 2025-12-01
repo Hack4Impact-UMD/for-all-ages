@@ -29,17 +29,6 @@ export default function ParticipantCard({
       {isStudentColumn && participant.school && (
         <div className={styles.participantSchool}>{participant.school}</div>
       )}
-      <div
-        className={`${styles.interests} ${
-          isStudentColumn ? styles.studentInterests : styles.adultInterests
-        }`}
-      >
-        {participant.interests.map((interest, idx) => (
-          <span key={idx} className={styles.interestTag}>
-            {interest}
-          </span>
-        ))}
-      </div>
     </div>
   );
 }
