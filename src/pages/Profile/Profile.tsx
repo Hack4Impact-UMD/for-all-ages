@@ -79,9 +79,9 @@ const Profile = () => {
 
   const handleLogout = async () => {
     setLogoutError(null);
-    const confirmed = window.confirm('To log out, please confirm.');
+    const confirmed = window.confirm("To log out, please confirm.");
     if (!confirmed) return;
-    
+
     try {
       await signOut(auth);
       navigate("/", { replace: true });
@@ -93,12 +93,7 @@ const Profile = () => {
 
   return (
     <div className={styles.page}>
-      <Navbar
-        navItems={[
-          { label: "Dashboard", path: "/user/dashboard" },
-          { label: "Profile", path: "/profile" },
-        ]}
-      />
+      <Navbar />
 
       <div className={styles.container}>
         {/* LEFT COLUMN */}
@@ -136,7 +131,11 @@ const Profile = () => {
 
           <div className={styles.infoCard}>
             <h3>Account</h3>
-            <button type="button" className={styles.logoutButton} onClick={handleLogout}>
+            <button
+              type="button"
+              className={styles.logoutButton}
+              onClick={handleLogout}
+            >
               Log Out
             </button>
             {logoutError && <p className={styles.logoutError}>{logoutError}</p>}
@@ -208,7 +207,7 @@ const Profile = () => {
                   onChange={(e) =>
                     setUser({
                       ...user,
-                      interests: e.target.value
+                      interests: e.target.value,
                     })
                   }
                   rows={3}
@@ -227,9 +226,7 @@ const Profile = () => {
                       }}
                     />
                   </div>
-                  <span className={styles.boxValue}>
-                    {user.interests}
-                  </span>
+                  <span className={styles.boxValue}>{user.interests}</span>
                 </div>
               )}
             </div>

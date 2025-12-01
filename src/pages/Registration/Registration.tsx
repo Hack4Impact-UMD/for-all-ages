@@ -4,10 +4,9 @@ import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 import styles from "./Registration.module.css";
 import { useAuth } from "../../auth/AuthProvider";
 import { db } from "../../firebase";
-import { phoneNumberRegex } from '../../regex';
+import { phoneNumberRegex } from "../../regex";
 import Navbar from "../../components/Navbar";
 import { upsertUser } from "../../firebase";
-
 
 // Defines the shape of the registration form state
 type RegistrationFormState = {
@@ -73,8 +72,9 @@ const Registration = () => {
     participantLoading,
   } = useAuth();
 
-
-  const [form, setForm] = useState<RegistrationFormState>(() => buildInitialState(user?.email ?? ""));
+  const [form, setForm] = useState<RegistrationFormState>(() =>
+    buildInitialState(user?.email ?? "")
+  );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
@@ -95,14 +95,26 @@ const Registration = () => {
       navigate("/", { replace: true });
       return;
     }
-    if (participant && (participant as { type?: string }).type === "Participant") {
+    if (
+      participant &&
+      (participant as { type?: string }).type === "Participant"
+    ) {
       navigate("/user/dashboard", { replace: true });
     }
-  }, [authLoading, participantLoading, user, emailVerified, participant, navigate]);
+  }, [
+    authLoading,
+    participantLoading,
+    user,
+    emailVerified,
+    participant,
+    navigate,
+  ]);
 
   // Handles changes to form inputs
   const handleInputChange = (
-    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
+    event: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
   ) => {
     const { name, value } = event.target;
     setForm((prev) => ({
@@ -122,7 +134,10 @@ const Registration = () => {
   };
 
   // Handles slider changes for preference scores
-  const handlePreferenceScoreChange = (questionId: "q1" | "q2" | "q3", value: number) => {
+  const handlePreferenceScoreChange = (
+    questionId: "q1" | "q2" | "q3",
+    value: number
+  ) => {
     setForm((prev) => ({
       ...prev,
       preferenceScores: {
@@ -132,11 +147,15 @@ const Registration = () => {
     }));
   };
 
-  const isPhoneInvalid = form.phone !== "" && !phoneNumberRegex.test(form.phone);
-  const isConfirmPhoneInvalid = form.confirmPhone !== "" && !phoneNumberRegex.test(form.confirmPhone);
-  
+  const isPhoneInvalid =
+    form.phone !== "" && !phoneNumberRegex.test(form.phone);
+  const isConfirmPhoneInvalid =
+    form.confirmPhone !== "" && !phoneNumberRegex.test(form.confirmPhone);
+
   const isPhoneMismatch =
-    form.phone !== "" && form.confirmPhone !== "" && form.phone !== form.confirmPhone;
+    form.phone !== "" &&
+    form.confirmPhone !== "" &&
+    form.phone !== form.confirmPhone;
 
   const allRequiredFilled =
     Boolean(form.addressLine1) &&
@@ -152,7 +171,7 @@ const Registration = () => {
     Boolean(form.heardAbout) &&
     Boolean(form.user_type) &&
     // university is required only if the user_type is 'student'
-    (form.user_type !== 'student' || Boolean(form.university)) &&
+    (form.user_type !== "student" || Boolean(form.university)) &&
     Boolean(form.interests) &&
     Boolean(form.teaPreference) &&
     form.preferredContactMethods.length > 0 &&
@@ -172,7 +191,7 @@ const Registration = () => {
     setError(null);
     setStatus(null);
 
-    // stores the time stamp 
+    // stores the time stamp
     const timestamp = serverTimestamp();
     // builds the payload to store in firestore
     const payload = {
@@ -209,22 +228,33 @@ const Registration = () => {
       const docRef = doc(db, "participants", user.uid);
       // For testing purposes
       const docTest = doc(db, "participants-test2", user.uid);
-      const dataToWrite = participant ? payload : { ...payload, createdAt: timestamp };
+      const dataToWrite = participant
+        ? payload
+        : { ...payload, createdAt: timestamp };
       await setDoc(docRef, dataToWrite, { merge: true });
       // For testing purposes
       await setDoc(docTest, dataToWrite, { merge: true });
 
       try {
-        await upsertUser({ uid: user.uid, freeResponse: form.interests, q1: form.preferenceScores.q1, q2: form.preferenceScores.q2, q3: form.preferenceScores.q3, user_type: form.user_type });
+        await upsertUser({
+          uid: user.uid,
+          freeResponse: form.interests,
+          q1: form.preferenceScores.q1,
+          q2: form.preferenceScores.q2,
+          q3: form.preferenceScores.q3,
+          user_type: form.user_type,
+        });
       } catch (fnErr) {
-        console.error('upsertUser cloud function failed:', fnErr);
+        console.error("upsertUser cloud function failed:", fnErr);
       }
 
       setStatus("Registration complete! Redirecting to your dashboard...");
       navigate("/user/dashboard", { replace: true });
     } catch (err) {
       console.error("Failed to save participant profile", err);
-      setError("We couldn't save your registration right now. Please try again.");
+      setError(
+        "We couldn't save your registration right now. Please try again."
+      );
     } finally {
       setSubmitting(false);
     }
@@ -241,7 +271,7 @@ const Registration = () => {
   return (
     <>
       <div id={styles.navbar}>
-        <Navbar navItems={[{label: "Registration Form", path: "/registration"}]}/>
+        <Navbar />
       </div>
 
       <form id={styles.page} onSubmit={handleSubmit}>
@@ -273,14 +303,26 @@ const Registration = () => {
           <div id={styles.addr_details}>
             <div>
               <label className={styles.sublabel}>
-                <input type="text" name="city" value={form.city} onChange={handleInputChange} required />
+                <input
+                  type="text"
+                  name="city"
+                  value={form.city}
+                  onChange={handleInputChange}
+                  required
+                />
                 City
               </label>
             </div>
 
             <div>
               <label className={styles.sublabel}>
-                <input type="text" name="state" value={form.state} onChange={handleInputChange} required />
+                <input
+                  type="text"
+                  name="state"
+                  value={form.state}
+                  onChange={handleInputChange}
+                  required
+                />
                 State / Province
               </label>
             </div>
@@ -316,21 +358,21 @@ const Registration = () => {
         <div className={styles.confirm}>
           <label className={styles.label}>
             Phone Number
-            <input 
+            <input
               type="tel"
               name="phone"
               value={form.phone}
               onChange={handleInputChange}
-              placeholder='(XXX) XXX-XXXX'
+              placeholder="(XXX) XXX-XXXX"
               required
             />
-            {isPhoneInvalid && 
+            {isPhoneInvalid && (
               <span className={styles.errorText}>
                 Please enter a valid phone number format.
               </span>
-            }
+            )}
             <span className={styles.helpText}>
-              Valid phone number formats: <br/>
+              Valid phone number formats: <br />
               <ul>
                 <li>123-456-7890</li>
                 <li>(123) 456-7890</li>
@@ -349,11 +391,11 @@ const Registration = () => {
               onChange={handleInputChange}
               required
             />
-            {isPhoneMismatch && 
+            {isPhoneMismatch && (
               <span className={styles.errorText}>
                 Phone numbers must match.
               </span>
-            }
+            )}
           </label>
         </div>
 
@@ -377,7 +419,9 @@ const Registration = () => {
               <input
                 type="checkbox"
                 checked={form.preferredContactMethods.includes("Phone")}
-                onChange={(e) => handleContactMethodChange("Phone", e.target.checked)}
+                onChange={(e) =>
+                  handleContactMethodChange("Phone", e.target.checked)
+                }
               />
               Phone
             </label>
@@ -385,21 +429,29 @@ const Registration = () => {
               <input
                 type="checkbox"
                 checked={form.preferredContactMethods.includes("Email")}
-                onChange={(e) => handleContactMethodChange("Email", e.target.checked)}
+                onChange={(e) =>
+                  handleContactMethodChange("Email", e.target.checked)
+                }
               />
               Email
             </label>
             <label className={styles.checkboxLabel}>
               <input
                 type="checkbox"
-                checked={form.preferredContactMethods.includes("Portal notification")}
-                onChange={(e) => handleContactMethodChange("Portal notification", e.target.checked)}
+                checked={form.preferredContactMethods.includes(
+                  "Portal notification"
+                )}
+                onChange={(e) =>
+                  handleContactMethodChange(
+                    "Portal notification",
+                    e.target.checked
+                  )
+                }
               />
               Portal notification
             </label>
           </div>
         </label>
-
 
         <label className={styles.label}>
           Date of Birth
@@ -427,7 +479,12 @@ const Registration = () => {
 
         <label className={styles.label}>
           How did you hear about this program?
-          <select name="heardAbout" value={form.heardAbout} onChange={handleInputChange} required>
+          <select
+            name="heardAbout"
+            value={form.heardAbout}
+            onChange={handleInputChange}
+            required
+          >
             <option value="" disabled>
               Select an option
             </option>
@@ -482,7 +539,8 @@ const Registration = () => {
         )}
 
         <label className={styles.label}>
-          What are your interests? This will better help us pair you with your Tea-mate!
+          What are your interests? This will better help us pair you with your
+          Tea-mate!
           <textarea
             id={styles.interests}
             name="interests"
@@ -495,7 +553,6 @@ const Registration = () => {
 
         <label className={styles.label}>
           What type of tea do you prefer?
-
           <label>
             <input
               type="radio"
@@ -508,7 +565,6 @@ const Registration = () => {
             />
             Black
           </label>
-
           <label htmlFor="green">
             <input
               type="radio"
@@ -521,7 +577,6 @@ const Registration = () => {
             />
             Green
           </label>
-
           <label htmlFor="herbal">
             <input
               type="radio"
@@ -534,7 +589,6 @@ const Registration = () => {
             />
             Herbal
           </label>
-
           <label htmlFor="variety">
             <input
               type="radio"
@@ -558,7 +612,9 @@ const Registration = () => {
               max="5"
               step="1"
               value={form.preferenceScores.q1}
-              onChange={(e) => handlePreferenceScoreChange("q1", parseInt(e.target.value))}
+              onChange={(e) =>
+                handlePreferenceScoreChange("q1", parseInt(e.target.value))
+              }
               className={styles.slider}
             />
             <div className={styles.sliderLabels}>
@@ -580,7 +636,9 @@ const Registration = () => {
               max="5"
               step="1"
               value={form.preferenceScores.q2}
-              onChange={(e) => handlePreferenceScoreChange("q2", parseInt(e.target.value))}
+              onChange={(e) =>
+                handlePreferenceScoreChange("q2", parseInt(e.target.value))
+              }
               className={styles.slider}
             />
             <div className={styles.sliderLabels}>
@@ -602,7 +660,9 @@ const Registration = () => {
               max="5"
               step="1"
               value={form.preferenceScores.q3}
-              onChange={(e) => handlePreferenceScoreChange("q3", parseInt(e.target.value))}
+              onChange={(e) =>
+                handlePreferenceScoreChange("q3", parseInt(e.target.value))
+              }
               className={styles.slider}
             />
             <div className={styles.sliderLabels}>
@@ -618,7 +678,11 @@ const Registration = () => {
         {error && <div className={styles.errorBanner}>{error}</div>}
         {status && <div className={styles.statusBanner}>{status}</div>}
 
-        <button id={styles.submit} type="submit" disabled={!allRequiredFilled || submitting}>
+        <button
+          id={styles.submit}
+          type="submit"
+          disabled={!allRequiredFilled || submitting}
+        >
           {submitting ? "Submitting..." : "Submit"}
         </button>
       </form>

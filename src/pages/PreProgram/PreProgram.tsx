@@ -31,8 +31,8 @@ interface BackendMatch {
 interface UI_Match {
   name1: string;
   name2: string;
-  participant1_id: string
-  participant2_id: string
+  participant1_id: string;
+  participant2_id: string;
   confidence?: number;
   status?: string;
   score: number;
@@ -143,7 +143,6 @@ const PreProgram = () => {
     setMatches(sorted);
   };
 
-
   const storeMatches = async (matches: UI_Match[]) => {
     const colRef = collection(db, "matches-test");
 
@@ -160,12 +159,12 @@ const PreProgram = () => {
     const writeBatchRef = writeBatch(db);
 
     matches.forEach((m) => {
-      const newDoc = doc(colRef); 
+      const newDoc = doc(colRef);
       writeBatchRef.set(newDoc, {
         day_of_call: 0,
         participant1_id: m.participant1_id,
         participant2_id: m.participant2_id,
-        similarity: m.confidence
+        similarity: m.confidence,
       });
     });
 
@@ -206,9 +205,9 @@ const PreProgram = () => {
 
   const handleMatch = async () => {
     if (buttonLabel === "Create match") {
-      const res = await matchAll(); 
+      const res = await matchAll();
       const converted = await convertMatches(res.result.matches);
-      storeMatches(converted)
+      storeMatches(converted);
       //sort
       const sorted = converted.sort((a, b) => {
         const order = { Pending: 1, "No Match": 2, Approved: 3 };
@@ -240,16 +239,7 @@ const PreProgram = () => {
 
   return (
     <div className={styles.page}>
-      <Navbar
-        navItems={[
-          { label: "Main", path: "/admin/main" },
-          { label: "Admins", path: "/admin/creator" },
-          { label: "Dashboard", path: "/admin/dashboard" },
-          { label: "Matching", path: "/admin/rematching" },
-          { label: "Recap", path: "/admin/recap" },
-          { label: "Profile", path: "/profile" },
-        ]}
-      />
+      <Navbar />
 
       <div className={styles.header}>
         <div className={styles.searchContainer}>
