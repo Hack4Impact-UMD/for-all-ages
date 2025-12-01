@@ -3,6 +3,9 @@ import Navbar from "../../components/Navbar";
 import { useState } from "react";
 import { phoneNumberRegex, emailRegex, dateRegex } from "../../regex";
 import EditIcon from "@mui/icons-material/Edit";
+import { signOut } from "firebase/auth";
+import { auth } from "../../firebase";
+import { useNavigate } from "react-router-dom";
 
 interface UserProfile {
   name: string;
@@ -26,6 +29,7 @@ type ErrorState = {
 };
 
 const Profile = () => {
+  const navigate = useNavigate();
   const [user, setUser] = useState<UserProfile>({
     name: "Hermione Granger",
     email: "ron@hotmail.com",
@@ -43,6 +47,7 @@ const Profile = () => {
   const [errors, setErrors] = useState<ErrorState>({});
   const [editingField, setEditingField] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -70,6 +75,20 @@ const Profile = () => {
     setErrors({});
     setEditingField(null);
     setIsEditing(false);
+  };
+
+  const handleLogout = async () => {
+    setLogoutError(null);
+    const confirmed = window.confirm('To log out, please confirm.');
+    if (!confirmed) return;
+    
+    try {
+      await signOut(auth);
+      navigate("/", { replace: true });
+    } catch (error) {
+      console.error("Failed to log out", error);
+      setLogoutError("Could not log out. Please try again.");
+    }
   };
 
   return (
@@ -113,6 +132,14 @@ const Profile = () => {
               <span className={styles.date}>{user.endDate}</span>
             </p>
             <div className={styles.activeTag}>Active</div>
+          </div>
+
+          <div className={styles.infoCard}>
+            <h3>Account</h3>
+            <button type="button" className={styles.logoutButton} onClick={handleLogout}>
+              Log Out
+            </button>
+            {logoutError && <p className={styles.logoutError}>{logoutError}</p>}
           </div>
         </div>
 
