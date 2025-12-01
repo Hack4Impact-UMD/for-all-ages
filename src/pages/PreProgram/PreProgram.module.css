@@ -49,9 +49,9 @@
 
 .adminBtn,
 .rematchBtn {
-  background-color: #ffffff;
-  color: #127bbe;
-  border: none;
+    background-color: #ffffff;
+    color: #127bbe;
+    border: none;
   border-radius: 9999px;
   padding: 8px 20px;
   font-family: "Merriweather", serif;
@@ -67,8 +67,16 @@
 
 .adminBtn:hover,
 .rematchBtn:hover {
-  background-color: #e6eef8;
-  transform: translateY(-1px);
+    background-color: #e6eef8;
+    transform: translateY(-1px);
+}
+
+.adminBtn:disabled,
+.rematchBtn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
 }
 
 .icon {
@@ -76,7 +84,14 @@
 }
 
 .rematchActive {
-  opacity: 0.9;
+    opacity: 0.9;
+}
+
+.stateError {
+    color: #ffdede;
+    font-size: 0.9rem;
+    margin-top: 6px;
+    text-align: right;
 }
 
 .container {
