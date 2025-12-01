@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import { FaCoffee, FaSearch } from "react-icons/fa";
 import styles from "./Rematching.module.css";
 import layoutStyles from "../Dashboard/Dashboard.module.css";
@@ -165,6 +165,7 @@ export default function Rematching() {
   };
 
   const handleConfirmMatch = () => {
+    if (!window.confirm("Confirm this match?")) return;
     if (!selectedStudent || !selectedAdult) return;
 
     // Remove matched participants from pending lists

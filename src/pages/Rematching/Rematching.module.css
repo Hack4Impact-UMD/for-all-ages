@@ -32,6 +32,11 @@
     margin-bottom: 1rem;
 }
 
+.actionError {
+    color: #c0392b;
+    font-size: 0.9rem;
+}
+
 /* Statistic sections */
 
 .statistics {

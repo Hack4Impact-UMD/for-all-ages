@@ -3,10 +3,18 @@ import Navbar from "../../components/Navbar";
 import styles from "./PreProgram.module.css";
 import { useNavigate } from "react-router-dom";
 import SearchIcon from "@mui/icons-material/Search";
-import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
+// import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import AutorenewIcon from "@mui/icons-material/Autorenew";
+import SendIcon from "@mui/icons-material/Send";
+import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 import { db, getUser, matchAll } from "../../firebase";
 import { collection, doc, getDocs, writeBatch } from "firebase/firestore";
+import {
+  finalizeMatches,
+  startProgram,
+  subscribeToProgramState,
+  type ProgramState,
+} from "../../services/programState";
 
 interface BackendMatch {
   studentId: string;
@@ -36,6 +44,12 @@ const PreProgram = () => {
   const [buttonLabel, setButtonLabel] = useState<"Create match" | "Rematch">(
     "Create match"
   );
+  const [programState, setProgramState] = useState<ProgramState | null>(null);
+  const [programStateLoading, setProgramStateLoading] = useState(true);
+  const [programStateError, setProgramStateError] = useState<string | null>(null);
+  const [startingProgram, setStartingProgram] = useState(false);
+  const [finalizing, setFinalizing] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<"start" | "finalize" | null>(null);
 
   const navigate = useNavigate();
 
@@ -43,6 +57,23 @@ const PreProgram = () => {
   useEffect(() => {
     loadMatches();
   }, []);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToProgramState(
+      (state) => {
+        setProgramState(state);
+        setProgramStateLoading(false);
+      },
+      (err) => {
+        console.error("Failed to subscribe to program state", err);
+        setProgramStateError("Unable to load program state.");
+        setProgramStateLoading(false);
+      }
+    );
+
+    return unsubscribe;
+  }, []);
+
 
   const convertMatches = async (raw: BackendMatch[]): Promise<UI_Match[]> => {
     const matches = await Promise.all(
@@ -142,6 +173,36 @@ const PreProgram = () => {
     console.log("Matches stored successfully.");
   };
 
+  // handlers for program state buttons
+  const handleStartProgram = async () => {
+    try {
+      setProgramStateError(null);
+      setStartingProgram(true);
+      await startProgram();
+    } catch (err) {
+      console.error("Failed to start program", err);
+      setProgramStateError("Failed to start the program. Please try again.");
+    } finally {
+      setStartingProgram(false);
+      setConfirmAction(null);
+    }
+  };
+
+  const handleFinalizeMatches = async () => {
+    try {
+      setProgramStateError(null);
+      setFinalizing(true);
+      await finalizeMatches();
+    } catch (err) {
+      console.error("Failed to finalize matches", err);
+      setProgramStateError("Failed to finalize matches. Please try again.");
+    } finally {
+      setFinalizing(false);
+      setConfirmAction(null);
+    }
+  };
+
+
   const handleMatch = async () => {
     if (buttonLabel === "Create match") {
       const res = await matchAll();
@@ -172,6 +233,10 @@ const PreProgram = () => {
       m.name2.toLowerCase().includes(search.toLowerCase())
   );
 
+  // global bools for program state
+  const programStarted = programState?.started ?? false;
+  const matchesFinalized = programState?.matches_final ?? false;
+
   return (
     <div className={styles.page}>
       <Navbar />
@@ -189,10 +254,34 @@ const PreProgram = () => {
         </div>
 
         <div className={styles.buttonGroup}>
-          <button className={styles.adminBtn}>
+          <button
+            onClick={() => setConfirmAction("start")}
+            className={styles.adminBtn}
+            disabled={programStateLoading || startingProgram || programStarted}
+          >
+            <SendIcon className={styles.icon} />
+            {programStarted
+              ? "Program Started"
+              : startingProgram
+              ? "Starting..."
+              : "Start Program"}
+          </button>
+          <button
+            onClick={() => setConfirmAction("finalize")}
+            className={styles.adminBtn}
+            disabled={programStateLoading || finalizing || matchesFinalized}
+          >
+            <LockOutlinedIcon className={styles.icon} />
+            {matchesFinalized
+              ? "Matches Locked"
+              : finalizing
+              ? "Locking..."
+              : "Lock In All Matches"}
+          </button>
+          {/* <button className={styles.adminBtn}>
             <AdminPanelSettingsIcon className={styles.icon} />
             Admin Panel
-          </button>
+          </button> */}
           <button
             onClick={handleMatch}
             className={`${styles.rematchBtn} ${
@@ -203,7 +292,47 @@ const PreProgram = () => {
             {buttonLabel}
           </button>
         </div>
+        {programStateError && (
+          <div className={styles.stateError}>{programStateError}</div>
+        )}
       </div>
+
+      {confirmAction && (
+        <div className={styles.confirmOverlay}>
+          <div className={styles.confirmCard}>
+            <h3 className={styles.confirmTitle}>
+              {confirmAction === "start"
+                ? "Starting the Program"
+                : "Finalizing..."}
+            </h3>
+            <p className={styles.confirmText}>
+              {confirmAction === "start"
+                ? "Are you sure you want to start the program?"
+                : "Are you sure you want to lock all matches?"}
+            </p>
+            <div className={styles.confirmActions}>
+              <button
+                className={styles.cancelButton}
+                onClick={() => setConfirmAction(null)}
+                disabled={startingProgram || finalizing}
+              >
+                Cancel
+              </button>
+              <button
+                className={styles.confirmButton}
+                onClick={
+                  confirmAction === "start"
+                    ? handleStartProgram
+                    : handleFinalizeMatches
+                }
+                disabled={startingProgram || finalizing}
+              >
+                Yes, I'm sure
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* --- Match Table --- */}
       <div className={styles.container}>
