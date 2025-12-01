@@ -3,6 +3,9 @@ import Navbar from "../../components/Navbar";
 import { useState } from "react";
 import { phoneNumberRegex, emailRegex, dateRegex } from "../../regex";
 import EditIcon from "@mui/icons-material/Edit";
+import { signOut } from "firebase/auth";
+import { auth } from "../../firebase";
+import { useNavigate } from "react-router-dom";
 
 interface UserProfile {
   name: string;
@@ -26,6 +29,7 @@ type ErrorState = {
 };
 
 const Profile = () => {
+  const navigate = useNavigate();
   const [user, setUser] = useState<UserProfile>({
     name: "Hermione Granger",
     email: "ron@hotmail.com",
@@ -43,6 +47,7 @@ const Profile = () => {
   const [errors, setErrors] = useState<ErrorState>({});
   const [editingField, setEditingField] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -72,13 +77,27 @@ const Profile = () => {
     setIsEditing(false);
   };
 
+  const handleLogout = async () => {
+    setLogoutError(null);
+    const confirmed = window.confirm('To log out, please confirm.');
+    if (!confirmed) return;
+    
+    try {
+      await signOut(auth);
+      navigate("/", { replace: true });
+    } catch (error) {
+      console.error("Failed to log out", error);
+      setLogoutError("Could not log out. Please try again.");
+    }
+  };
+
   return (
-    <>
+    <div>
       <div className={styles.navbar}>
         <Navbar
           navItems={[
             { label: "Dashboard", path: "/user/dashboard" },
-            { label: "Profile", path: "/" },
+            { label: "Profile", path: "/profile" },
           ]}
         />
       </div>
@@ -97,111 +116,118 @@ const Profile = () => {
               <span className={styles.statusTag}>{user.status}</span>
             </div>
 
-            <div className={styles.infoCard}>
-              <h3>Your Match</h3>
-              <div className={styles.matchCircle}></div>
-              <p className={styles.matchText}>No match assigned yet</p>
-            </div>
-
-            <div className={styles.infoCard}>
-              <h3>Program Info</h3>
-              <p>
-                <strong>Start Date:</strong>
-                <br />
-                <span className={styles.date}>{user.startDate}</span>
-              </p>
-              <p>
-                <strong>End Date:</strong>
-                <br />
-                <span className={styles.date}>{user.endDate}</span>
-              </p>
-              <div className={styles.activeTag}>Active</div>
-            </div>
+          <div className={styles.infoCard}>
+            <h3>Your Match</h3>
+            <div className={styles.matchCircle}></div>
+            <p className={styles.matchText}>No match assigned yet</p>
           </div>
 
-          {/* RIGHT COLUMN */}
-          <form className={styles.rightColumn} onSubmit={handleSave}>
-            {/* personal info */}
-            <div className={styles.infoSection}>
-              <h3 className={styles.sectionTitle}>Personal Information</h3>
-              <div className={styles.grid}>
-                {[
-                  { label: "E-mail", name: "email", value: user.email },
-                  { label: "Password", name: "password", value: user.password },
-                  { label: "Pronouns", name: "pronouns", value: user.pronouns },
-                  { label: "Phone Number", name: "phone", value: user.phone },
-                  { label: "Birthday", name: "birthday", value: user.birthday },
-                  { label: "Address", name: "address", value: user.address },
-                ].map((field) => (
-                  <div key={field.name} className={styles.fieldBox}>
-                    {editingField === field.name ? (
-                      <div className={styles.boxContent}>
-                        <div className={styles.boxHeader}>
-                          <span className={styles.boxLabel}>{field.label}</span>
-                          {(field.name === "email" ||
-                            field.name === "password" ||
-                            field.name === "address" ||
-                            field.name === "phone" ||
-                            field.name === "pronouns") && (
-                            <EditIcon
-                              className={styles.editIcon}
-                              onClick={() => {
-                                setEditingField(field.name);
-                                setIsEditing(true);
-                              }}
-                            />
-                          )}
-                        </div>
-                        {field.name === "address" ? (
-                          <textarea
-                            name={field.name}
-                            value={user[field.name as keyof UserProfile] as string}
-                            onChange={handleChange}
-                            onBlur={() => setEditingField(null)}
-                            autoFocus
-                            className={styles.textarea}
-                            rows={2}
-                          />
-                        ) : (
-                          <input
-                            name={field.name}
-                            value={user[field.name as keyof UserProfile] as string}
-                            onChange={handleChange}
-                            onBlur={() => setEditingField(null)}
-                            autoFocus
-                            className={styles.input}
+          <div className={styles.infoCard}>
+            <h3>Program Info</h3>
+            <p>
+              <strong>Start Date:</strong>
+              <br />
+              <span className={styles.date}>{user.startDate}</span>
+            </p>
+            <p>
+              <strong>End Date:</strong>
+              <br />
+              <span className={styles.date}>{user.endDate}</span>
+            </p>
+            <div className={styles.activeTag}>Active</div>
+          </div>
+
+          <div className={styles.infoCard}>
+            <h3>Account</h3>
+            <button type="button" className={styles.logoutButton} onClick={handleLogout}>
+              Log Out
+            </button>
+            {logoutError && <p className={styles.logoutError}>{logoutError}</p>}
+          </div>
+        </div>
+
+        {/* RIGHT COLUMN */}
+        <form className={styles.rightColumn} onSubmit={handleSave}>
+          {/* personal info */}
+          <div className={styles.infoSection}>
+            <h3 className={styles.sectionTitle}>Personal Information</h3>
+            <div className={styles.grid}>
+              {[
+                { label: "E-mail", name: "email", value: user.email },
+                { label: "Password", name: "password", value: user.password },
+                { label: "Pronouns", name: "pronouns", value: user.pronouns },
+                { label: "Phone Number", name: "phone", value: user.phone },
+                { label: "Birthday", name: "birthday", value: user.birthday },
+                { label: "Address", name: "address", value: user.address },
+              ].map((field) => (
+                <div key={field.name} className={styles.fieldBox}>
+                  {editingField === field.name ? (
+                    <div className={styles.boxContent}>
+                      <div className={styles.boxHeader}>
+                        <span className={styles.boxLabel}>{field.label}</span>
+                        {(field.name === "email" ||
+                          field.name === "password" ||
+                          field.name === "address" ||
+                          field.name === "phone" ||
+                          field.name === "pronouns") && (
+                          <EditIcon
+                            className={styles.editIcon}
+                            onClick={() => {
+                              setEditingField(field.name);
+                              setIsEditing(true);
+                            }}
                           />
                         )}
                       </div>
-                        
-                    ) : (
-                      <div className={styles.boxContent}>
-                        <div className={styles.boxHeader}>
-                          <span className={styles.boxLabel}>{field.label}</span>
-                          {(field.name === "email" ||
-                            field.name === "password" ||
-                            field.name === "address" ||
-                            field.name === "phone" ||
-                            field.name === "pronouns") && (
-                            <EditIcon
-                              className={styles.editIcon}
-                              onClick={() => {
-                                setEditingField(field.name);
-                                setIsEditing(true);
-                              }}
-                            />
-                          )}
-                        </div>
-                        <span className={styles.boxValue}>{field.value}</span>
+                      {field.name === "address" ? (
+                        <textarea
+                          name={field.name}
+                          value={user[field.name as keyof UserProfile] as string}
+                          onChange={handleChange}
+                          onBlur={() => setEditingField(null)}
+                          autoFocus
+                          className={styles.textarea}
+                          rows={2}
+                        />
+                      ) : (
+                        <input
+                          name={field.name}
+                          value={user[field.name as keyof UserProfile] as string}
+                          onChange={handleChange}
+                          onBlur={() => setEditingField(null)}
+                          autoFocus
+                          className={styles.input}
+                        />
+                      )}
+                    </div>
+                  ) : (
+                    <div className={styles.boxContent}>
+                      <div className={styles.boxHeader}>
+                        <span className={styles.boxLabel}>{field.label}</span>
+                        {(field.name === "email" ||
+                          field.name === "password" ||
+                          field.name === "address" ||
+                          field.name === "phone" ||
+                          field.name === "pronouns") && (
+                          <EditIcon
+                            className={styles.editIcon}
+                            onClick={() => {
+                              setEditingField(field.name);
+                              setIsEditing(true);
+                            }}
+                          />
+                        )}
                       </div>
-                    )}
-                    {errors[field.name as keyof ErrorState] && (
-                      <span className={styles.error}>
-                        {errors[field.name as keyof ErrorState]}
-                      </span>
-                    )}
-                  </div>
-                ))}
+                      <span className={styles.boxValue}>{field.value}</span>
+                    </div>
+                  )}
+                  {errors[field.name as keyof ErrorState] && (
+                    <span className={styles.error}>
+                      {errors[field.name as keyof ErrorState]}
+                    </span>
+                  )}
+                </div>
+              ))}
               </div>
             </div>
 
@@ -260,7 +286,7 @@ const Profile = () => {
           </form>
         </div>
       </div>
-    </>
+    </div>
 
   );
 };

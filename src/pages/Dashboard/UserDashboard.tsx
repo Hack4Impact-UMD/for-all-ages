@@ -1,32 +1,24 @@
 import { useState } from 'react'
 import styles from './Dashboard.module.css'
 import WeekSelector from './components/WeekSelector/WeekSelector'
-import RoadmapTaskList from './components/RoadmapTaskList/RoadmapTaskList'
 import LogCallForm from './components/LogCallForm/LogCallForm'
 import Navbar from '../../components/Navbar'
 const WEEKS = 20
-const WEEK_TASKS = [
-    ['Introduce yourself in the forum', 'Review the course outline'],
-    ['Complete assessment checklist', 'Upload supporting documents'],
-    ['Task 1', 'Task 2', 'Task 3', 'Task 4', 'Task 5'],
-    ['Schedule mentor session', 'Submit feedback form'],
-    ['Prepare for final presentation', 'Share learnings with cohort', 'Celebrate completion!']
-]
-
 export default function UserDashboard () {
     const [selectedWeek, setSelectedWeek] = useState(2)
-    const tasksForWeek = WEEK_TASKS[selectedWeek] ?? []
+    
 
     return (
-        <>
+        <div>
             <div className={styles.navbar}>
-                <Navbar
-                    navItems={[
-                        { label: "Dashboard", path: "/user/dashboard" },
-                        { label: "Profile", path: "/" }
-                    ]}
-                />
+            <Navbar
+                navItems={[
+                    { label: "Dashboard", path: "/user/dashboard" },
+                    { label: "Profile", path: "/profile" }
+                ]}
+            />
             </div>
+            
             <div className={styles.page}>
                 <div className={styles.surface}>
                     <section className={styles.selectorSection}>
@@ -43,6 +35,6 @@ export default function UserDashboard () {
                     </section>
                 </div>
             </div>
-        </>
+        </div>
     )
 }

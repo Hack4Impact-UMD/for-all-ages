@@ -6,23 +6,28 @@
 
 .controlsRow {
     display: flex;
-    justify-content: space-between;
+    flex-direction: row;
+    justify-content: flex-start; /* Changed from center to flex-start */
     align-items: flex-end;
     flex-wrap: wrap;
     gap: 1.25rem;
+    width: 100%;
+    margin-bottom: 1.5rem;
 }
 
 .searchGroup {
     display: flex;
     flex-direction: column;
     gap: 0.45rem;
-    min-width: clamp(220px, 40vw, 360px);
+    min-width: clamp(180px, 25%, 280px); 
+    flex: 1; 
 }
 
 .searchLabel {
     font-size: 0.95rem;
     font-weight: 600;
     color: #ffffff;
+    white-space: nowrap;
 }
 
 .searchInput {
@@ -34,6 +39,8 @@
     color: #0f172a;
     outline: none;
     box-shadow: 0 6px 20px rgba(15, 107, 177, 0.15);
+    width: 100%; 
+    min-width: 0; 
 }
 
 .searchInput:focus {

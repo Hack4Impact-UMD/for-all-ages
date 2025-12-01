@@ -1,0 +1,29 @@
+{
+  "name": "tea3-profiles",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "AI-based matching service for Tea @ 3 program",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "build:clean": "rm -rf dist/ && tsc",
+    "start": "node dist/index.js",
+    "ingest": "node dist/index.js",
+    "match": "node dist/scripts/runMatching.js",
+    "verify": "node dist/scripts/verifySetup.js",
+    "delete-all": "node dist/scripts/deleteAllVectors.js",
+    "dev": "tsc --watch",
+    "dev:fast": "tsc --incremental --watch"
+  },
+  "dependencies": {
+    "@pinecone-database/pinecone": "^4.0.1",
+    "dotenv": "^16.4.5",
+    "munkres-js": "^1.2.2",
+    "xlsx": "^0.18.5",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.12",
+    "typescript": "~5.8.3"
+  }
+}

@@ -6,6 +6,7 @@ import { useAuth } from "../../auth/AuthProvider";
 import { db } from "../../firebase";
 import { phoneNumberRegex } from '../../regex';
 import Navbar from "../../components/Navbar";
+import { upsertUser } from "../../firebase";
 
 
 // Defines the shape of the registration form state
@@ -23,10 +24,15 @@ type RegistrationFormState = {
   pronouns: string;
   heardAbout: string;
   university: string;
+  user_type: string; // 'student' or 'adult'
   interests: string;
   teaPreference: string;
   preferredContactMethods: string[];
-  preferenceScores: Record<string, number>;
+  preferenceScores: {
+    q1: number;
+    q2: number;
+    q3: number;
+  };
 };
 
 // Builds the initial state for the registration form
@@ -44,10 +50,16 @@ const buildInitialState = (email?: string): RegistrationFormState => ({
   pronouns: "",
   heardAbout: "",
   university: "",
+  user_type: "",
   interests: "",
   teaPreference: "",
   preferredContactMethods: [],
-  preferenceScores: {},
+  // Provide default values so the preferences are saved even if user doesn't move sliders
+  preferenceScores: {
+    q1: 3,
+    q2: 3,
+    q3: 3,
+  },
 });
 
 const Registration = () => {
@@ -110,7 +122,7 @@ const Registration = () => {
   };
 
   // Handles slider changes for preference scores
-  const handlePreferenceScoreChange = (questionId: string, value: number) => {
+  const handlePreferenceScoreChange = (questionId: "q1" | "q2" | "q3", value: number) => {
     setForm((prev) => ({
       ...prev,
       preferenceScores: {
@@ -138,7 +150,9 @@ const Registration = () => {
     Boolean(form.dateOfBirth) &&
     Boolean(form.pronouns) &&
     Boolean(form.heardAbout) &&
-    Boolean(form.university) &&
+    Boolean(form.user_type) &&
+    // university is required only if the user_type is 'student'
+    (form.user_type !== 'student' || Boolean(form.university)) &&
     Boolean(form.interests) &&
     Boolean(form.teaPreference) &&
     form.preferredContactMethods.length > 0 &&
@@ -165,6 +179,7 @@ const Registration = () => {
       type: "Participant" as const,
       userUid: user.uid,
       email: form.email.trim().toLowerCase(),
+      user_type: form.user_type,
       phoneNumber: form.phone,
       address: {
         line1: form.addressLine1,
@@ -192,8 +207,19 @@ const Registration = () => {
     // always sets updatedAt to current timestamp
     try {
       const docRef = doc(db, "participants", user.uid);
+      // For testing purposes
+      const docTest = doc(db, "participants-test2", user.uid);
       const dataToWrite = participant ? payload : { ...payload, createdAt: timestamp };
       await setDoc(docRef, dataToWrite, { merge: true });
+      // For testing purposes
+      await setDoc(docTest, dataToWrite, { merge: true });
+
+      try {
+        await upsertUser({ uid: user.uid, freeResponse: form.interests, q1: form.preferenceScores.q1, q2: form.preferenceScores.q2, q3: form.preferenceScores.q3, user_type: form.user_type });
+      } catch (fnErr) {
+        console.error('upsertUser cloud function failed:', fnErr);
+      }
+
       setStatus("Registration complete! Redirecting to your dashboard...");
       navigate("/user/dashboard", { replace: true });
     } catch (err) {
@@ -416,15 +442,45 @@ const Registration = () => {
         </label>
 
         <label className={styles.label}>
-          If you are a college student, what University are you attending?
-          <input
-            type="text"
-            name="university"
-            value={form.university}
-            onChange={handleInputChange}
-            required
-          />
+          Are you a college student or an adult?
+          <div className={styles.radioGroup}>
+            <label>
+              <input
+                type="radio"
+                name="user_type"
+                value="student"
+                checked={form.user_type === "student"}
+                onChange={handleInputChange}
+                required
+              />
+              Student
+            </label>
+            <label>
+              <input
+                type="radio"
+                name="user_type"
+                value="adult"
+                checked={form.user_type === "adult"}
+                onChange={handleInputChange}
+                required
+              />
+              Adult
+            </label>
+          </div>
         </label>
+
+        {form.user_type === "student" && (
+          <label className={styles.label}>
+            If you are a college student, what University are you attending?
+            <input
+              type="text"
+              name="university"
+              value={form.university}
+              onChange={handleInputChange}
+              required={form.user_type === "student"}
+            />
+          </label>
+        )}
 
         <label className={styles.label}>
           What are your interests? This will better help us pair you with your Tea-mate!
@@ -502,8 +558,52 @@ const Registration = () => {
               min="1"
               max="5"
               step="1"
-              value={form.preferenceScores["indoor_outdoor"] || 3}
-              onChange={(e) => handlePreferenceScoreChange("indoor_outdoor", parseInt(e.target.value))}
+              value={form.preferenceScores.q1}
+              onChange={(e) => handlePreferenceScoreChange("q1", parseInt(e.target.value))}
+              className={styles.slider}
+            />
+            <div className={styles.sliderLabels}>
+              <span>1</span>
+              <span>2</span>
+              <span>3</span>
+              <span>4</span>
+              <span>5</span>
+            </div>
+          </div>
+        </label>
+
+        <label className={styles.label}>
+          Prefer early mornings (1) - Prefer late nights (5)
+          <div className={styles.sliderContainer}>
+            <input
+              type="range"
+              min="1"
+              max="5"
+              step="1"
+              value={form.preferenceScores.q2}
+              onChange={(e) => handlePreferenceScoreChange("q2", parseInt(e.target.value))}
+              className={styles.slider}
+            />
+            <div className={styles.sliderLabels}>
+              <span>1</span>
+              <span>2</span>
+              <span>3</span>
+              <span>4</span>
+              <span>5</span>
+            </div>
+          </div>
+        </label>
+
+        <label className={styles.label}>
+          Prefer quiet (1) - Prefer social (5)
+          <div className={styles.sliderContainer}>
+            <input
+              type="range"
+              min="1"
+              max="5"
+              step="1"
+              value={form.preferenceScores.q3}
+              onChange={(e) => handlePreferenceScoreChange("q3", parseInt(e.target.value))}
               className={styles.slider}
             />
             <div className={styles.sliderLabels}>
