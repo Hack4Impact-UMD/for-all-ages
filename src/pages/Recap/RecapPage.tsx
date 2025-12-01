@@ -1,64 +1,55 @@
-import { use, useEffect, useState, useMemo } from 'react'
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, ResponsiveContainer } from 'recharts'
-import Star from '@mui/icons-material/Star'
-import Navbar from '../../components/Navbar'
-import layoutStyles from '../Dashboard/Dashboard.module.css'
-import styles from './RecapPage.module.css'
-import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore'
-import { db } from '../../firebase'
+import { useEffect, useState, useMemo } from 'react';
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, ResponsiveContainer } from 'recharts';
+import Star from '@mui/icons-material/Star';
+import Navbar from '../../components/Navbar';
+import layoutStyles from '../Dashboard/Dashboard.module.css';
+import styles from './RecapPage.module.css';
+import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
+import { db } from '../../firebase';
 
 type RecapLog = {
-    id: string,
-    concerns: string,
-    duration: number,
-    rating: number,
-    uid: string,
-    week: number
-}
+    id: string;
+    concerns: string;
+    duration: number;
+    rating: number;
+    uid: string;
+    week: number;
+};
 
 type Matches = {
-    day_of_call: number,
-    participant1_id: string,
-    participant2_id: string,
-    similarity: number
-}
+    day_of_call: number;
+    participant1_id: string;
+    participant2_id: string;
+    similarity: number;
+};
 
 async function fetchLogsByWeek(week: number): Promise<RecapLog[]> {
-  const logsRef = collection(db, 'logs');
-  const q = query(logsRef, where('week', '==', week));
-  const snap = await getDocs(q);
-  return snap.docs.map(d => {
-    const data = d.data();
-    return data as RecapLog;
-  })
+    const logsRef = collection(db, 'logs');
+    const q = query(logsRef, where('week', '==', week));
+    const snap = await getDocs(q);
+    return snap.docs.map(d => d.data() as RecapLog);
 }
 
 async function fetchMatches(): Promise<Matches[]> {
-  const matchesRef = collection(db, 'matches');
-  const snap = await getDocs(matchesRef);
-  return snap.docs.map(d => {
-    const data = d.data();
-    return data as Matches;
-  })
+    const matchesRef = collection(db, 'matches');
+    const snap = await getDocs(matchesRef);
+    return snap.docs.map(d => d.data() as Matches);
 }
 
 async function fetchParticipantName(uid: string): Promise<string> {
-  try {
-    const docRef = doc(db, 'participants', uid);
-    const docSnap = await getDoc(docRef);
-    
-    if (docSnap.exists()) {
-      const data = docSnap.data() as { displayName?: string };
-      return data.displayName || `Participant ${uid.slice(0, 8)}`;
+    try {
+        const docRef = doc(db, 'participants', uid);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+            const data = docSnap.data() as { displayName?: string };
+            return data.displayName || `Participant ${uid.slice(0, 8)}`;
+        }
+        return `Participant ${uid.slice(0, 8)}`;
+    } catch (error) {
+        console.error(`Error fetching participant ${uid}:`, error);
+        return `Participant ${uid.slice(0, 8)}`;
     }
-    
-    return `Participant ${uid.slice(0, 8)}`;
-  } catch (error) {
-    console.error(`Error fetching participant ${uid}:`, error);
-    return `Participant ${uid.slice(0, 8)}`;
-  }
 }
-
 
 export default function RecapPage() {
     const [selectedWeek, setSelectedWeek] = useState<number>();
@@ -66,43 +57,30 @@ export default function RecapPage() {
     const [logs, setLogs] = useState<RecapLog[]>([]);
     const [matches, setMatches] = useState<Matches[]>([]);
     const [participantNames, setParticipantNames] = useState<Record<string, string>>({});
-    
+
     useEffect(() => {
-        try {
-            fetchMatches().then((matches) => {
-                console.log("Fetched matches:", matches);
-                setMatches(matches);
-            });
-        } catch (error) {
-            console.error("Error fetching matches:", error);
-        }
+        fetchMatches().then(setMatches).catch(console.error);
     }, []);
 
     useEffect(() => {
         const fetchNames = async () => {
             const uniqueUids = Array.from(new Set(logs.map(l => l.uid)));
             const names: Record<string, string> = {};
-            
             await Promise.all(
-                uniqueUids.map(async (uid) => {
+                uniqueUids.map(async uid => {
                     names[uid] = await fetchParticipantName(uid);
                 })
             );
-            
             setParticipantNames(names);
         };
-
-        if (logs.length > 0) {
-            fetchNames();
-        }
+        if (logs.length) fetchNames();
     }, [logs]);
 
     useEffect(() => {
-        async function loadProgramWeek() {
+        const loadProgramWeek = async () => {
             try {
-                const docRef = doc(db, "config", "programState");
+                const docRef = doc(db, 'config', 'programState');
                 const snapshot = await getDoc(docRef);
-
                 if (snapshot.exists()) {
                     const data = snapshot.data();
                     if (data.week) {
@@ -111,76 +89,42 @@ export default function RecapPage() {
                     }
                 }
             } catch (error) {
-                console.error("Error loading program week:", error);
+                console.error(error);
             }
-        }
-
+        };
         loadProgramWeek();
     }, []);
 
-
     useEffect(() => {
-        try {
-            if (!selectedWeek) {
-                return
-            }
-            fetchLogsByWeek(selectedWeek).then((logs) => {
-                console.log("Fetched logs for week", selectedWeek, ":", logs);
-                setLogs(logs);
-            });
-        } catch (error) {
-            console.error("Error fetching logs:", error);
-        }
-    }, [selectedWeek])
+        if (!selectedWeek) return;
+        fetchLogsByWeek(selectedWeek).then(setLogs).catch(console.error);
+    }, [selectedWeek]);
 
     const todayWeekday = useMemo(() => {
-        if (!selectedWeek || !actualWeek) return undefined; 
-
-        if (selectedWeek === actualWeek) {
-            const jsDay = new Date().getDay(); 
-            return ((jsDay + 6) % 7) + 1;      
-        }
-
-        if (selectedWeek < actualWeek) return 7;
-        if (selectedWeek > actualWeek) return 1;
+        if (!selectedWeek || !actualWeek) return undefined;
+        if (selectedWeek === actualWeek) return ((new Date().getDay() + 6) % 7) + 1;
+        return selectedWeek < actualWeek ? 7 : 1;
     }, [selectedWeek, actualWeek]);
 
-
     const participantsWithLogs = useMemo(() => {
-        const set = new Set<string>();
-        logs.forEach(l => set.add(l.uid));
-        return set;
+        return new Set(logs.map(l => l.uid));
     }, [logs]);
 
     const checkInData = useMemo(() => {
-        if (!todayWeekday) return []; //wait until actualWeek is loaded
-
-        let checkedIn = 0;
-        let missed = 0;
-        let pending = 0;
-
+        if (!todayWeekday || !matches.length) return [];
+        let checkedIn = 0, missed = 0, pending = 0;
         matches.forEach(m => {
-            const hasLog =
-                participantsWithLogs.has(m.participant1_id) ||
-                participantsWithLogs.has(m.participant2_id);
-            if (hasLog) {
-                checkedIn++;
-            } else if (m.day_of_call > todayWeekday) {
-                pending++;
-            } else {
-                missed++;
-            }
+            const hasLog = participantsWithLogs.has(m.participant1_id) || participantsWithLogs.has(m.participant2_id);
+            if (hasLog) checkedIn++;
+            else if (m.day_of_call > todayWeekday) pending++;
+            else missed++;
         });
-
-        if (!matches.length) return []; //prevent divide by zero
-
         return [
             { name: 'Checked In', count: checkedIn, value: (checkedIn / matches.length) * 100, color: '#7FBC41' },
             { name: 'Missed', count: missed, value: (missed / matches.length) * 100, color: '#F76D6D' },
             { name: 'Pending', count: pending, value: (pending / matches.length) * 100, color: '#EAB419' }
         ];
     }, [matches, todayWeekday, participantsWithLogs]);
-
 
     const callLengthData = useMemo(() => {
         const buckets = [
@@ -190,33 +134,26 @@ export default function RecapPage() {
             { name: '15-20 min', min: 15, max: 20 },
             { name: '20+ min', min: 20, max: Infinity }
         ];
-        const counts = buckets.map(b => ({
+        return buckets.map(b => ({
             name: b.name,
             value: logs.filter(l => l.duration >= b.min && l.duration < b.max).length
         }));
-        return counts;
     }, [logs]);
 
     const qualityData = useMemo(() => {
-        const total = logs.length || 0;
+        const total = logs.length;
         const ratingCounts: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-        logs.forEach(l => {
-            if (ratingCounts[l.rating] !== undefined) ratingCounts[l.rating] += 1;
-        });
-        return [5, 4, 3, 2, 1].map(r => {
-            const count = ratingCounts[r];
-            const percentage = total ? Math.round((count / total) * 100) : 0;
-            return {
-                stars: `${r} ${r === 1 ? 'Star' : 'Stars'}`,
-                percentage,
-                count
-            };
-        });
+        logs.forEach(l => { if (ratingCounts[l.rating] !== undefined) ratingCounts[l.rating]++; });
+        return [5,4,3,2,1].map(r => ({
+            stars: `${r} ${r===1?'Star':'Stars'}`,
+            percentage: total ? Math.round((ratingCounts[r]/total)*100) : 0,
+            count: ratingCounts[r]
+        }));
     }, [logs]);
 
     const averageRating = useMemo(() => {
         if (!logs.length) return 0;
-        return parseFloat((logs.reduce((sum, l) => sum + l.rating, 0) / logs.length).toFixed(1));
+        return parseFloat((logs.reduce((sum,l)=>sum+l.rating,0)/logs.length).toFixed(1));
     }, [logs]);
 
     const concernsList = useMemo(() => {
@@ -224,7 +161,7 @@ export default function RecapPage() {
             .filter(l => l.concerns && l.concerns.trim() !== '')
             .map(l => ({
                 uid: l.uid,
-                displayName: participantNames[l.uid] || `Participant ${l.uid.slice(0, 8)}`,
+                displayName: participantNames[l.uid] || `Participant ${l.uid.slice(0,8)}`,
                 concerns: l.concerns,
                 rating: l.rating
             }));
@@ -232,102 +169,88 @@ export default function RecapPage() {
 
     return (
         <div className={layoutStyles.page}>
-            <Navbar/>
+            <Navbar
+                navItems={[
+                    { label: 'Main', path: '/admin/main' },
+                    { label: 'Admins', path: '/admin/creator' },
+                    { label: 'Dashboard', path: '/admin/dashboard' },
+                    { label: 'Matching', path: '/admin/rematching' },
+                    { label: 'Recap', path: '/admin/recap' },
+                    { label: 'Profile', path: '/profile' }
+                ]}
+            />
             <div className={layoutStyles.surface}>
                 <div className={styles.header}>
                     <div className={styles.weekSelector}>
-                        <label htmlFor="weekSelect" className={styles.weekLabel}>
-                            Select Week:
-                        </label>
+                        <label htmlFor="weekSelect" className={styles.weekLabel}>Select Week:</label>
                         <select
                             id="weekSelect"
                             className={styles.weekDropdown}
                             value={selectedWeek}
-                            onChange={(e) => setSelectedWeek(Number(e.target.value))}
+                            onChange={e => setSelectedWeek(Number(e.target.value))}
                         >
-                            {Array.from({ length: 20 }, (_, i) => i + 1).map((week) => (
-                                <option key={week} value={week}>
-                                    Week {week}
-                                </option>
+                            {Array.from({length:20},(_,i)=>i+1).map(w=>(
+                                <option key={w} value={w}>Week {w}</option>
                             ))}
                         </select>
                     </div>
-
                     <h1 className={styles.pageTitle}>Week {selectedWeek} Recaps</h1>
                 </div>
 
-        <div className={styles.cardRow}>
-          <div className={styles.card}>
-            <h2 className={styles.cardTitle}>Participant Check-in Stats</h2>
-            <div className={styles.chartContainer}>
-              <ResponsiveContainer width="100%" height={250}>
-                <PieChart>
-                  <Pie
-                    data={checkInData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={100}
-                    dataKey="value"
-                  >
-                    {checkInData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
-              <div className={styles.legend}>
-                {checkInData.map((item) => (
-                  <div key={item.name} className={styles.legendItem}>
-                    <div
-                      className={styles.legendColor}
-                      style={{ backgroundColor: item.color }}
-                    ></div>
-                    <span className={styles.legendText}>
-                      {item.name} - {item.value.toFixed(2)}%
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+                <div className={styles.cardRow}>
+                    <div className={styles.card}>
+                        <h2 className={styles.cardTitle}>Participant Check-in Stats</h2>
+                        <div className={styles.chartContainer}>
+                            <ResponsiveContainer width="100%" height={250}>
+                                <PieChart>
+                                    <Pie data={checkInData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} dataKey="value">
+                                        {checkInData.map((entry,index)=>(
+                                            <Cell key={index} fill={entry.color} />
+                                        ))}
+                                    </Pie>
+                                </PieChart>
+                            </ResponsiveContainer>
+                            <div className={styles.legend}>
+                                {checkInData.map(item=>(
+                                    <div key={item.name} className={styles.legendItem}>
+                                        <div className={styles.legendColor} style={{backgroundColor:item.color}}></div>
+                                        <span className={styles.legendText}>{item.name} - {item.value.toFixed(2)}%</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
 
-          <div className={styles.card}>
-            <h2 className={styles.cardTitle}>Length of Participant Calls</h2>
-            <div className={styles.chartContainer}>
-              <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={callLengthData}>
-                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 12 }} />
-                  <Bar dataKey="value" fill="#127BBE" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+                    <div className={styles.card}>
+                        <h2 className={styles.cardTitle}>Length of Participant Calls</h2>
+                        <div className={styles.chartContainer}>
+                            <ResponsiveContainer width="100%" height={280}>
+                                <BarChart data={callLengthData}>
+                                    <XAxis dataKey="name" tick={{fontSize:12}}/>
+                                    <YAxis tick={{fontSize:12}}/>
+                                    <Bar dataKey="value" fill="#127BBE" />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
 
                     <div className={styles.card}>
                         <h2 className={styles.cardTitle}>Average Quality Rating of Calls</h2>
                         <div className={styles.qualityContent}>
                             <div className={styles.averageRating}>
                                 <div className={styles.stars}>
-                                    {[1, 2, 3, 4, 5].map((star) => (
-                                        <Star 
-                                            key={star} 
-                                            className={star <= Math.round(averageRating) ? styles.starFilled : styles.starEmpty} 
-                                        />
+                                    {[1,2,3,4,5].map(s=>(
+                                        <Star key={s} className={s<=Math.round(averageRating)?styles.starFilled:styles.starEmpty} />
                                     ))}
                                 </div>
                                 <p className={styles.ratingText}>{averageRating} out of 5</p>
                             </div>
                             <div className={styles.ratingBars}>
-                                {qualityData.map((item) => (
+                                {qualityData.map(item=>(
                                     <div key={item.stars} className={styles.ratingRow}>
                                         <span className={styles.ratingLabel}>{item.stars}</span>
                                         <div className={styles.barContainer}>
-                                            <div
-                                                className={styles.barFill}
-                                                style={{ width: `${item.percentage}%` }}
-                                            ></div>
+                                            <div className={styles.barFill} style={{width:`${item.percentage}%`}}></div>
                                         </div>
                                         <span className={styles.percentage}>{item.percentage}%</span>
                                     </div>
@@ -341,46 +264,25 @@ export default function RecapPage() {
                     <div className={styles.cardWide}>
                         <h2 className={styles.cardTitle}>Participant Concerns</h2>
                         <div className={styles.concernsList}>
-                            {concernsList.length === 0 ? (
+                            {concernsList.length===0 ? (
                                 <p className={styles.emptyState}>No concerns reported this week.</p>
-                            ) : (
-                                concernsList.map((item, index) => (
-                                    <div key={index} className={styles.concernItem}>
-                                        <div className={styles.concernHeader}>
-                                            <span className={styles.concernUser}>{item.displayName}</span>
-                                            <div className={styles.concernRating}>
-                                                {[...Array(5)].map((_, i) => (
-                                                    <Star 
-                                                        key={i}
-                                                        className={i < item.rating ? styles.starSmallFilled : styles.starSmallEmpty}
-                                                        sx={{ fontSize: 16 }}
-                                                    />
-                                                ))}
-                                            </div>
+                            ) : concernsList.map((item,index)=>(
+                                <div key={index} className={styles.concernItem}>
+                                    <div className={styles.concernHeader}>
+                                        <span className={styles.concernUser}>{item.displayName}</span>
+                                        <div className={styles.concernRating}>
+                                            {[...Array(5)].map((_,i)=>(
+                                                <Star key={i} className={i<item.rating?styles.starSmallFilled:styles.starSmallEmpty} sx={{fontSize:16}}/>
+                                            ))}
                                         </div>
-                                        <p className={styles.concernText}>{item.concerns}</p>
                                     </div>
-                                ))
-                            )}
+                                    <p className={styles.concernText}>{item.concerns}</p>
+                                </div>
+                            ))}
                         </div>
                     </div>
-                    <span className={styles.percentage}>
-                      {item.percentage}%
-                    </span>
-                  </div>
-                ))}
-              </div>
+                </div>
             </div>
-          </div>
         </div>
-
-        <div className={styles.cardRow}>
-          <div className={styles.cardWide}>
-            <h2 className={styles.cardTitle}>Participation Distribution</h2>
-            <div className={styles.emptyState}></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+    );
 }
