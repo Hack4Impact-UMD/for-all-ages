@@ -37,9 +37,7 @@ const PARTICIPANT_NAV_ITEMS: NavItem[] = [
 ];
 
 const DEFAULT_NAV_ITEMS: NavItem[] = [
-  { label: "Dashboard", path: "/dashboard" },
-  { label: "Calendar", path: "/calendar" },
-  { label: "Settings", path: "/settings" },
+  { label: "Login", path: "/" },
 ];
 
 export default function Navbar({ navItems }: NavbarProps) {
