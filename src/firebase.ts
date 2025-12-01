@@ -57,7 +57,6 @@ export async function matchAll(body: any = {}) {
 
 const UPSERT_USER_URL =
   "https://us-central1-for-all-ages-8a4e2.cloudfunctions.net/upsertUser";
-
 export async function upsertUser(body: { uid: string; freeResponse: string; q1: number, q2: number, q3: number, user_type: string }) {
   const res = await fetch(UPSERT_USER_URL, {
     method: 'POST',
@@ -73,6 +72,22 @@ export async function upsertUser(body: { uid: string; freeResponse: string; q1: 
   return res.json().catch(() => ({}));
 }
 
+const COMPUTE_MATCH_SCORE_URL = 
+  "https://us-central1-for-all-ages-8a4e2.cloudfunctions.net/computeMatchScore";
+export async function computeMatchScore(body: { uid1: string; uid2: string }) {
+  const res = await fetch(COMPUTE_MATCH_SCORE_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`computeMatchScore HTTP error ${res.status}: ${text}`);
+  }
+
+  return res.json();
+}
 
 export async function getUser(uid: string) {
   const userRef = doc(db, "participants-test2", uid);

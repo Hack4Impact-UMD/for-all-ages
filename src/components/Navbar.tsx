@@ -24,10 +24,10 @@ function isAdminRole(role?: string | null): boolean {
 }
 
 const ADMIN_NAV_ITEMS: NavItem[] = [
-  { label: "Stats", path: "/admin/recap" },
-  { label: "Users", path: "/admin/creator" },
-  { label: "Matching", path: "/admin/main" },
   { label: "Roadmap", path: "/admin/dashboard" },
+  { label: "Matching", path: "/admin/main" },
+  { label: "Users", path: "/admin/creator" },
+  { label: "Stats", path: "/admin/recap" },
   { label: "Profile", path: "/profile" },
 ];
 

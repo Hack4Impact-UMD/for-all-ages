@@ -10,6 +10,23 @@
     color: #0f6bb1; /* Standard blue color for all text */
 }
 
+.backButton {
+  position: absolute;
+  top: 7rem;
+  left: 3rem;
+  background: #ffffff;
+  color: #0f6bb1;
+  border: 1px solid rgba(15, 107, 177, 0.15);
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.backButton:hover {
+  background: #f4fbff;
+}
+
 /* page header */
 
 .pageTitle,
@@ -172,15 +189,6 @@
     gap: 1.5rem;
 }
 
-.commonInterestsLabel {
-    position: absolute;
-    top: 0.75rem;
-    left: 0.75rem;
-    font-size: 0.85rem;
-    font-weight: 600;
-    letter-spacing: 0.5px;
-}
-
 .coffeeIcon {
     display: flex;
     align-items: center;
@@ -188,41 +196,142 @@
     margin: 0.5rem 0;
 }
 
-.commonInterestsCard {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    padding: 1rem;
-    background: #ffffff;
-    border: 2px solid #0f6bb1;
-    border-radius: 0.75rem;
-    min-height: 100px;
-    position: relative;
-    text-align: left;
+.interestsContainer {
+  margin-top: 1.5rem;
+  padding: 1rem 1.25rem;
+  border-radius: 0.9rem;
+  background: rgba(15, 107, 177, 0.03);
+  border: 1px solid rgba(15, 107, 177, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
-.commonInterests {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    min-height: 2rem;
-    margin-top: 2rem;
+.interestsTitle {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #0f406b;
 }
 
-.commonInterestTag {
-    padding: 0.5rem 1rem;
-    background: #0f6bb1;
-    color: #ffffff;
-    border-radius: 1rem;
-    font-size: 0.9rem;
-    font-weight: 600;
-    
+.interestsBlock {
+  padding: 0.25rem 0;
+}
+
+.interestsRoleLabel {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #0f6bb1;
+  margin-bottom: 0.25rem;
+}
+
+.interestsDivider {
+  height: 1px;
+  background: rgba(15, 107, 177, 0.12);
+  margin: 0.25rem 0;
+}
+
+.interestsText {
+  font-size: 0.9rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  margin: 0;
 }
 
 .emptyInterests {
     color: #999;
     font-style: italic;
     padding: 0.5rem 0;
+}
+
+.matchSummary {
+  margin-top: 0.5rem;
+  margin-bottom: 1.25rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.matchSummaryLabel {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #55789a;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.matchBreakdown {
+  font-size: 0.9rem;
+  display: inline-flex;
+  gap: 0.4rem;
+  align-items: center;
+  justify-content: center;
+  color: #0f6bb1;
+}
+
+.quantContainer {
+  margin-top: 1.5rem;
+  border-radius: 0.9rem;
+  padding: 1rem 1.25rem;
+  background: rgba(15, 107, 177, 0.03);
+  border: 1px solid rgba(15, 107, 177, 0.12);
+}
+
+.quantTitle {
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  color: #0f406b;
+}
+
+.quantTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.quantTable th,
+.quantTable td {
+  padding: 0.5rem 0.75rem;
+  vertical-align: top;
+}
+
+.quantTable th {
+  font-weight: 600;
+  color: #0f6bb1;
+  border-bottom: 1px solid rgba(15, 107, 177, 0.18);
+}
+
+.quantTable tbody tr:nth-child(odd) {
+  background: rgba(15, 107, 177, 0.02);
+}
+
+.quantTable tbody tr:nth-child(even) {
+  background: transparent;
+}
+
+.quantTable tbody tr + tr td {
+  border-top: 1px solid rgba(15, 107, 177, 0.08);
+}
+
+.quantQuestionHeader {
+  text-align: left;
+  width: 60%;
+}
+
+.quantScoreHeader {
+  text-align: center;
+  width: 20%;
+}
+
+.quantQuestionCell {
+  text-align: left;
+  font-size: 0.86rem;
+  line-height: 1.4;
+}
+
+.quantScoreCell {
+  text-align: center;
+  font-weight: 500;
 }
 
 .buttonContainer {

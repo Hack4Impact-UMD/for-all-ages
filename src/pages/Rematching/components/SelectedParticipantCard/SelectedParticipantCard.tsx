@@ -52,11 +52,6 @@ export default function SelectedParticipantCard({
                 : styles.adultInterests
             }`}
           >
-            {participant.interests.map((interest, idx) => (
-              <span key={idx} className={styles.interestTag}>
-                {interest}
-              </span>
-            ))}
           </div>
         </>
       ) : (
