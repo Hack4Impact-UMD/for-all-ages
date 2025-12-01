@@ -1,58 +1,129 @@
 import { useState, useCallback, useEffect } from 'react'
+import { collection, getDocs, query, where, doc, getDoc } from 'firebase/firestore'
+import { db } from '../../firebase'
 import layoutStyles from './Dashboard.module.css'
 import adminStyles from './AdminDashboard.module.css'
 import WeekSelector from './components/WeekSelector/WeekSelector'
 import PersonTag from './components/PersonTag/PersonTag'
 import Navbar from '../../components/Navbar'
 import AdminMatchModal from './components/AdminMatchModal/AdminMatchModal'
-import { getAllMatches, type WeekSchedule } from '../../services/matchLogs'
+import { getAllMatches } from '../../services/matches'
+import type { Log } from '../../types'
 
+// Types
+type MatchVariant = 'rose' | 'green' | 'gold'
 type DayKey = 'Sun' | 'Mon' | 'Tue' | 'Wed' | 'Thurs' | 'Fri' | 'Sat'
 
-const DAY_LABELS: DayKey[] = ['Sun', 'Mon', 'Tue', 'Wed', 'Thurs', 'Fri', 'Sat']
+interface PersonAssignment {
+    names: string[]
+    variant?: MatchVariant
+    participantIds: string[]
+}
 
+interface SelectedMatch {
+    names: string[]
+    week: number
+    variant?: MatchVariant
+    participantIds?: string[]
+}
+
+type WeekSchedule = Record<DayKey, PersonAssignment[]>
+
+// Constants
+const DAY_KEYS: DayKey[] = ['Sun', 'Mon', 'Tue', 'Wed', 'Thurs', 'Fri', 'Sat']
 const WEEKS = 20
-
-// NOTE: selectedWeek is 0-indexed internally (0 = Week 1, 1 = Week 2, etc.)
-// When passing to Firestore functions, always use (selectedWeek + 1) for 1-indexed week numbers
-
 const NAV_ITEMS = [
     { label: 'Main', path: '/admin/creator' },
     { label: 'Dashboard', path: '/admin/dashboard' },
     { label: 'Profile', path: '/profile' }
 ]
 
-export default function AdminDashboard () {
-    const [selectedWeek, setSelectedWeek] = useState(2)
-    const [selectedMatch, setSelectedMatch] = useState<{ names: string[], week: number, variant?: 'rose' | 'green' | 'gold', participantIds?: string[] } | null>(null)
-    const [firestoreMatches, setFirestoreMatches] = useState<WeekSchedule | null>(null)
+const EMPTY_SCHEDULE: WeekSchedule = {
+    Sun: [], Mon: [], Tue: [], Wed: [], Thurs: [], Fri: [], Sat: []
+}
 
-    // Load matches from Firestore when week changes
+/** Fetches a participant's display name from Firestore */
+async function getParticipantName(uid: string): Promise<string> {
+    const snapshot = await getDoc(doc(db, 'participants', uid))
+    if (!snapshot.exists()) return 'Unknown'
+    
+    const data = snapshot.data()
+    return data.displayName || data.name || 
+           `${data.firstName || ''} ${data.lastName || ''}`.trim() || 
+           'Unknown'
+}
+
+/** Determines variant based on log submission status */
+function getVariant(p1Submitted: boolean, p2Submitted: boolean): MatchVariant {
+    if (p1Submitted && p2Submitted) return 'green'
+    if (p1Submitted || p2Submitted) return 'rose'
+    return 'gold'
+}
+
+export default function AdminDashboard() {
+    // selectedWeek is 0-indexed (0 = Week 1, 1 = Week 2, etc.)
+    const [selectedWeek, setSelectedWeek] = useState(0)
+    const [selectedMatch, setSelectedMatch] = useState<SelectedMatch | null>(null)
+    const [weekSchedule, setWeekSchedule] = useState<WeekSchedule | null>(null)
+
     useEffect(() => {
         let cancelled = false
+        
         async function loadMatches() {
             try {
-                // Pass week number (1-indexed) to compute variant based on log submissions
-                const data = await getAllMatches(selectedWeek + 1)
-                if (!cancelled) {
-                    setFirestoreMatches(data)
+                const weekNumber = selectedWeek + 1
+                
+                const [rawMatches, logsSnapshot] = await Promise.all([
+                    getAllMatches(),
+                    getDocs(query(collection(db, 'logs'), where('week', '==', weekNumber)))
+                ])
+
+                const submittedUids = new Set(
+                    logsSnapshot.docs
+                        .map(d => (d.data() as Log).uid)
+                        .filter(Boolean)
+                )
+
+                const result: WeekSchedule = { Sun: [], Mon: [], Tue: [], Wed: [], Thurs: [], Fri: [], Sat: [] }
+
+                const assignments = await Promise.all(
+                    rawMatches.map(async (m) => {
+                        const [name1, name2] = await Promise.all([
+                            getParticipantName(m.participant1_id),
+                            getParticipantName(m.participant2_id),
+                        ])
+
+                        return {
+                            dayKey: DAY_KEYS[m.day_of_call] ?? 'Sun',
+                            assignment: {
+                                names: [name1, name2],
+                                variant: getVariant(
+                                    submittedUids.has(m.participant1_id),
+                                    submittedUids.has(m.participant2_id)
+                                ),
+                                participantIds: [m.participant1_id, m.participant2_id],
+                            } as PersonAssignment
+                        }
+                    })
+                )
+
+                for (const { dayKey, assignment } of assignments) {
+                    result[dayKey].push(assignment)
                 }
+
+                if (!cancelled) setWeekSchedule(result)
             } catch (error) {
-                console.error('Failed to load matches from Firestore:', error)
+                console.error('Failed to load matches:', error)
             }
         }
+        
         loadMatches()
         return () => { cancelled = true }
     }, [selectedWeek])
 
-    // Use Firestore data - if no matches, calendar will be blank
-    const activeWeekData: WeekSchedule = firestoreMatches ?? {
-        Sun: [], Mon: [], Tue: [], Wed: [], Thurs: [], Fri: [], Sat: []
-    }
+    const activeWeekData = weekSchedule ?? EMPTY_SCHEDULE
 
-    const handleCloseModal = useCallback(() => {
-        setSelectedMatch(null)
-    }, [])
+    const handleCloseModal = useCallback(() => setSelectedMatch(null), [])
 
     return (
         <div className={layoutStyles.page}>
@@ -70,7 +141,7 @@ export default function AdminDashboard () {
                     <div className={adminStyles.scheduleCard}>
                         <div className={adminStyles.scheduleInner}>
                             <div className={adminStyles.dayGrid}>
-                                {DAY_LABELS.map((day) => {
+                                {DAY_KEYS.map((day) => {
                                     const assignments = activeWeekData[day] ?? []
                                     return (
                                         <div className={adminStyles.dayColumn} key={day}>

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
+import { collection, getDocs, query, where, doc, getDoc } from 'firebase/firestore';
+import { db } from '../../../../firebase';
 import styles from './AdminMatchModal.module.css';
-import type { MatchLogPair } from '../../../../types';
-import { getMatchLogs } from '../../../../services/matchLogs';
+import type { MatchLogPair, Log, UserLog } from '../../../../types';
 
 type MatchVariant = 'rose' | 'green' | 'gold';
 
@@ -13,6 +14,19 @@ interface AdminMatchModalProps {
         variant?: MatchVariant;
         participantIds?: string[]; // UIDs of participants in the match
     };
+}
+
+/** Fetches a participant's display name from Firestore */
+async function getParticipantName(uid: string): Promise<string> {
+    const docRef = doc(db, 'participants', uid);
+    const snapshot = await getDoc(docRef);
+    if (snapshot.exists()) {
+        const data = snapshot.data();
+        return data.displayName || data.name || 
+               `${data.firstName || ''} ${data.lastName || ''}`.trim() || 
+               'Unknown';
+    }
+    return 'Unknown';
 }
 
 export default function AdminMatchModal({ onClose, matchData }: AdminMatchModalProps) {
@@ -32,10 +46,42 @@ export default function AdminMatchModal({ onClose, matchData }: AdminMatchModalP
 
             setLoading(true);
             try {
-                // READ-ONLY Firestore query using participant UIDs
-                const data = await getMatchLogs(matchData.participantIds, matchData.week);
+                const logsRef = collection(db, 'logs');
+                
+                // Fetch logs for each participant
+                const logs: UserLog[] = await Promise.all(
+                    matchData.participantIds.map(async (uid) => {
+                        const q = query(
+                            logsRef,
+                            where('uid', '==', uid),
+                            where('week', '==', matchData.week)
+                        );
+                        
+                        const snapshot = await getDocs(q);
+                        const name = await getParticipantName(uid);
+                        
+                        if (!snapshot.empty) {
+                            const data = snapshot.docs[0].data() as Log;
+                            return {
+                                name,
+                                hasSubmitted: true,
+                                callComplete: true,
+                                duration: data.duration,
+                                satisfactionScore: data.rating,
+                                meetingNotes: data.concerns
+                            };
+                        }
+                        
+                        return { name, hasSubmitted: false };
+                    })
+                );
+
                 if (mounted) {
-                    setLogPair(data);
+                    setLogPair({
+                        matchId: matchData.participantIds.join('-'),
+                        weekNumber: matchData.week,
+                        logs
+                    });
                 }
             } catch (error) {
                 console.error('Failed to load match logs:', error);
