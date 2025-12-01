@@ -5,6 +5,7 @@ import { onAuthStateChanged, getIdTokenResult } from "firebase/auth";
 import type { User } from "firebase/auth";
 import { auth, db } from "../firebase";
 import { doc, onSnapshot, type Unsubscribe } from "firebase/firestore";
+import { subscribeToProgramState, type ProgramState } from "../services/programState";
 
 // Define the shape of the authentication context
 type AuthCtx = {
@@ -14,6 +15,9 @@ type AuthCtx = {
   claims?: Record<string, any>;
   participant: Record<string, unknown> | null;
   participantLoading: boolean;
+  programState: ProgramState | null;
+  programStateLoading: boolean;
+  setProgramState?: (ps: ProgramState | null) => void;
   refreshUser: () => Promise<void>;
 };
 const AuthContext = createContext<AuthCtx>({
@@ -23,6 +27,9 @@ const AuthContext = createContext<AuthCtx>({
   claims: undefined,
   participant: null,
   participantLoading: true,
+  programState: null,
+  programStateLoading: true,
+  setProgramState: undefined,
   refreshUser: async () => {},
 });
 
@@ -32,8 +39,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [participant, setParticipant] = useState<Record<string, unknown> | null>(null);
   const [participantLoading, setParticipantLoading] = useState(true);
+  const [programState, setProgramState] = useState<ProgramState | null>(null);
+  const [programStateLoading, setProgramStateLoading] = useState(true);
 
   useEffect(() => {
+    setProgramStateLoading(true);
     // Subscribes to Firebase Auth
     const unsub = onAuthStateChanged(auth, async (u) => {
       setUser(u);
@@ -83,6 +93,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [user]);
 
+  useEffect(() => {
+    // subscribe to realtime program state
+    setProgramStateLoading(true);
+    const unsub = subscribeToProgramState(
+      (state) => {
+        setProgramState(state);
+        setProgramStateLoading(false);
+      },
+      (err) => {
+        console.error("ProgramState subscription error in AuthProvider", err);
+        setProgramState(null);
+        setProgramStateLoading(false);
+      }
+    );
+
+    return () => {
+      if (typeof unsub === "function") unsub();
+    };
+  }, []);
+
   // Forces a fresh fetch of the current user
   const refreshUser = useCallback(async () => {
     if (!auth.currentUser) return;
@@ -99,9 +129,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       claims,
       participant,
       participantLoading,
+      programState,
+      programStateLoading,
+      setProgramState,
       refreshUser,
     }),
-    [claims, loading, participant, participantLoading, refreshUser, user],
+    [claims, loading, participant, participantLoading, programState, programStateLoading, refreshUser, user],
   );
 
   return (

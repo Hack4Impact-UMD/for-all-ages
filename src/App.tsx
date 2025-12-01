@@ -25,12 +25,12 @@ function RouteLoader() {
 }
 
 function RegistrationGate() {
-  const { user, loading, emailVerified, participant, participantLoading } =
+  const { user, loading, emailVerified, participant, participantLoading, programState, programStateLoading } =
     useAuth();
   const location = useLocation();
   const role = (participant as { role?: string | null } | null)?.role ?? null;
 
-  if (loading || participantLoading) {
+  if (loading || participantLoading || programStateLoading) {
     return <RouteLoader />;
   }
 
@@ -47,6 +47,17 @@ function RegistrationGate() {
   }
 
   if (participant && (participant as { type?: string }).type === "Participant") {
+    const started = !!programState?.started;
+    const matchesFinal = !!programState?.matches_final;
+
+    if (!matchesFinal && !started) {
+      return <Navigate to="/waiting" replace />;
+    }
+
+    if (matchesFinal && !started) {
+      return <Navigate to="/user/matched" replace />;
+    }
+
     return <Navigate to="/user/dashboard" replace />;
   }
 
@@ -54,7 +65,7 @@ function RegistrationGate() {
 }
 
 function ParticipantGate() {
-  const { user, loading, emailVerified, participant, participantLoading } =
+  const { user, loading, emailVerified, participant, participantLoading, programState, programStateLoading } =
     useAuth();
   const location = useLocation();
 
@@ -77,7 +88,60 @@ function ParticipantGate() {
     return <Navigate to="/registration" replace />;
   }
 
+  // derive program flags (safe defaults)
+  const started = !!programState?.started;
+  const matchesFinal = !!programState?.matches_final;
+
+  if (programStateLoading) return <RouteLoader />;
+
+  // matches not final && program not started -> participants only see waiting
+  if (!matchesFinal && !started) {
+    if (location.pathname !== "/waiting") return <Navigate to="/waiting" replace />;
+    return <Outlet />;
+  }
+
+  // matches finalized && program not started -> participants only see matched
+  if (matchesFinal && !started) {
+    if (!location.pathname.startsWith("/user/matched")) return <Navigate to="/user/matched" replace />;
+    return <Outlet />;
+  }
+
+  // program started && matches finalized -> normal access, but disallow waiting/matched pages
+  if (matchesFinal && started) {
+    if (location.pathname === "/waiting" || location.pathname.startsWith("/user/matched")) {
+      return <Navigate to="/user/dashboard" replace />;
+    }
+    return <Outlet />;
+  }
+
+  // Default: allow through
   return <Outlet />;
+}
+
+function WaitingGuard() {
+  const { user, participant, loading, participantLoading, programState, programStateLoading } = useAuth();
+  if (loading || participantLoading || programStateLoading) return <RouteLoader />;
+
+  if (!user) return <Navigate to="/" replace />;
+
+  const started = !!programState?.started;
+  const matchesFinal = !!programState?.matches_final;
+
+  // Only participants should generally land here; redirect others to registration
+  if (!participant || (participant as { type?: string }).type !== "Participant") {
+    return <Navigate to="/registration" replace />;
+  }
+
+  // If matches not final and program not started -> stay on waiting
+  if (!matchesFinal && !started) return <Waiting />;
+
+  // If matches finalized and program not started -> go to matched
+  if (matchesFinal && !started) return <Navigate to="/user/matched" replace />;
+
+  // If program started and matches finalized -> go to dashboard
+  if (matchesFinal && started) return <Navigate to="/user/dashboard" replace />;
+
+  return <Waiting />;
 }
 
 function isAdminRole(role?: string | null) {
@@ -122,7 +186,7 @@ function App() {
       <Routes>
         <Route path="/" element={<LoginSignup />} />
         <Route path="/registration" element={<RegistrationGate />} />
-        <Route path="/waiting" element={<Waiting />} />
+        <Route path="/waiting" element={<WaitingGuard />} />
 
 
           <Route path={"/"} element={<LoginSignup></LoginSignup>}></Route>

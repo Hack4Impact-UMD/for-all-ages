@@ -333,6 +333,13 @@ const PreProgram = () => {
   
   // handlers for program state buttons
   const handleStartProgram = async () => {
+    // Prevent starting before matches are finalized
+    if (!matchesFinalized) {
+      setProgramStateError("Cannot start program until matches are finalized.");
+      setConfirmAction(null);
+      return;
+    }
+
     try {
       setProgramStateError(null);
       setStartingProgram(true);
@@ -412,13 +419,15 @@ const PreProgram = () => {
           <button
             onClick={() => setConfirmAction("start")}
             className={styles.adminBtn}
-            disabled={programStateLoading || startingProgram || programStarted}
+            disabled={programStateLoading || startingProgram || programStarted || !matchesFinalized}
           >
             <SendIcon className={styles.icon} />
             {programStarted
               ? "Program Started"
               : startingProgram
               ? "Starting..."
+              : !matchesFinalized
+              ? "Start Program (Finalize Matches First)"
               : "Start Program"}
           </button>
           <button
@@ -428,10 +437,10 @@ const PreProgram = () => {
           >
             <LockOutlinedIcon className={styles.icon} />
             {matchesFinalized
-              ? "Matches Locked"
+              ? "Matches Finalized"
               : finalizing
-              ? "Locking..."
-              : "Lock In All Matches"}
+              ? "Finalizing..."
+              : "Finalize Matches"}
           </button>
           <button onClick={handleMatch} className={styles.rematchBtn} disabled={matching}>
             <AutorenewIcon className={styles.icon} />

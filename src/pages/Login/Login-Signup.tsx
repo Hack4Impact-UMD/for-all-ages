@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 // Firebase SDK usage moved behind service helpers
 import { useNavigate } from "react-router-dom";
 import styles from "./Login.module.css";
-import { auth } from "../../firebase";
+import { auth, db } from "../../firebase";
 import { useAuth } from "../../auth/AuthProvider";
 import {
   friendlyAuthError,
@@ -10,6 +10,7 @@ import {
   signupWithEmailPassword,
   resendVerificationEmail,
 } from "../../services/auth";
+import { doc, getDoc } from "firebase/firestore";
 
 type Tab = "login" | "signup";
 
@@ -37,6 +38,7 @@ function LoginSignup() {
     participant,
     participantLoading,
     refreshUser,
+    setProgramState,
   } = useAuth();
 
 
@@ -103,6 +105,40 @@ function LoginSignup() {
       await loginWithEmailPassword(loginForm.email, loginForm.password);
       // Reload user to get fresh emailVerified status
       await refreshUser();
+      try {
+        const psnap = await getDoc(doc(db, "config", "programState"));
+
+        const ps = psnap.exists() ? (psnap.data() as any) : null;
+        // If auth context exposes setter, update it immediately so guards see latest state
+        try {
+          setProgramState?.(ps ?? null);
+        } catch (e) {
+          // ignore
+        }
+        const started = !!ps?.started;
+        const matchesFinal = !!ps?.matches_final;
+
+        // If matches are finalized (regardless of whether this user has a match), go to matched
+        if (matchesFinal && !started) {
+          navigate("/user/matched", { replace: true });
+          console.log("Redirecting to /user/matched after login");
+          return;
+        }
+
+        // Otherwise, if matches not final -> waiting
+        if (!matchesFinal && !started) {
+          navigate("/waiting", { replace: true });
+          console.log("Redirecting to /waiting after login");
+          return;
+        }
+
+        // Default to dashboard
+        navigate("/user/dashboard", { replace: true });
+        return;
+      } catch (fetchErr) {
+        // ignore and allow existing effect logic to handle routing
+        console.error("Failed to fetch programState/matches during login redirect", fetchErr);
+      }
     } catch (err) {
       setError(friendlyAuthError(err));
     } finally {
