@@ -169,16 +169,7 @@ export default function RecapPage() {
 
     return (
         <div className={layoutStyles.page}>
-            <Navbar
-                navItems={[
-                    { label: 'Main', path: '/admin/main' },
-                    { label: 'Admins', path: '/admin/creator' },
-                    { label: 'Dashboard', path: '/admin/dashboard' },
-                    { label: 'Matching', path: '/admin/rematching' },
-                    { label: 'Recap', path: '/admin/recap' },
-                    { label: 'Profile', path: '/profile' }
-                ]}
-            />
+            <Navbar/>
             <div className={layoutStyles.surface}>
                 <div className={styles.header}>
                     <div className={styles.weekSelector}>
