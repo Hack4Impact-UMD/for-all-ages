@@ -163,12 +163,7 @@
     text-decoration: underline;
 }
 
-.statusActive {
-    color: #2f9a47;
-    font-weight: 600;
-}
-
-.statusDefault {
+.userType {
     color: #475569;
     font-weight: 500;
 }
