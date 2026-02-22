@@ -80,11 +80,11 @@ export const DEFAULT_MATCHING_CONFIG: MatchingConfig = {
   quantWeight: 0.3,
   scoreRanges: {
     q1Min: 1,
-    q1Max: 10,
+    q1Max: 5,
     q2Min: 1,
-    q2Max: 10,
+    q2Max: 5,
     q3Min: 1,
-    q3Max: 10,
+    q3Max: 5,
   },
   confidenceThresholds: {
     high: 0.8,

@@ -7,6 +7,7 @@ import { db } from "../../firebase";
 import { phoneNumberRegex } from "../../regex";
 import Navbar from "../../components/Navbar";
 import { upsertUser } from "../../firebase";
+import { PREFERENCE_QUESTION_LABELS } from "./preferenceQuestions";
 
 // Defines the shape of the registration form state
 type RegistrationFormState = {
@@ -604,7 +605,7 @@ const Registration = () => {
         </label>
 
         <label className={styles.label}>
-          Prefer indoor movie (1) - Prefer outdoor camping (5)
+          {PREFERENCE_QUESTION_LABELS.q1}
           <div className={styles.sliderContainer}>
             <input
               type="range"
@@ -628,7 +629,7 @@ const Registration = () => {
         </label>
 
         <label className={styles.label}>
-          Prefer early mornings (1) - Prefer late nights (5)
+          {PREFERENCE_QUESTION_LABELS.q2}
           <div className={styles.sliderContainer}>
             <input
               type="range"
@@ -652,7 +653,7 @@ const Registration = () => {
         </label>
 
         <label className={styles.label}>
-          Prefer quiet (1) - Prefer social (5)
+          {PREFERENCE_QUESTION_LABELS.q3}
           <div className={styles.sliderContainer}>
             <input
               type="range"

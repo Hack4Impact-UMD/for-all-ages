@@ -1,14 +1,15 @@
-import { useMemo, useState, useEffect } from "react";
-import layoutStyles from "./Dashboard.module.css";
-import adminStyles from "./AdminDashboard.module.css";
-import WeekSelector from "./components/WeekSelector/WeekSelector";
-import PersonTag from "./components/PersonTag/PersonTag";
-import Navbar from "../../components/Navbar";
-import { getAllMatches } from "../../services/matches";
-import { getWeek } from "../../services/weeks";
-import { getDoc, doc } from "firebase/firestore";
-import { db } from "../../firebase";
-import type { Match, Week } from "../../types";
+import { useMemo, useState, useEffect } from 'react'
+import layoutStyles from './Dashboard.module.css'
+import adminStyles from './AdminDashboard.module.css'
+import WeekSelector from './components/WeekSelector/WeekSelector'
+import PersonTag from './components/PersonTag/PersonTag'
+import Navbar from '../../components/Navbar'
+import { getAllMatches } from '../../services/matches'
+import { getWeek } from '../../services/weeks'
+import { getDoc, doc } from 'firebase/firestore'
+import { db } from '../../firebase'
+import type { Match, Week } from '../../types'
+import { subscribeToProgramState, type ProgramState } from '../../services/programState'
 
 type DayKey = "Sun" | "Mon" | "Tue" | "Wed" | "Thurs" | "Fri" | "Sat";
 type PersonAssignment = {
@@ -30,15 +31,35 @@ const WEEKS = 20;
 const CURRENT_GLOBAL_WEEK = 4; // will be determined through firebase
 
 export default function AdminDashboard() {
-  const [selectedWeek, setSelectedWeek] = useState(0); // 0-indexed (Week 1)
-  const [allMatches, setAllMatches] = useState<(Match & { id: string })[]>([]);
-  const [weekData, setWeekData] = useState<Week | null>(null);
-  const [participantNames, setParticipantNames] = useState<
-    Record<string, string>
-  >({});
-  const [loading, setLoading] = useState(true);
-  const [matchesLoading, setMatchesLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+    const [selectedWeek, setSelectedWeek] = useState(0) // 0-indexed (Week 1)
+    const [allMatches, setAllMatches] = useState<(Match & { id: string })[]>([])
+    const [weekData, setWeekData] = useState<Week | null>(null)
+    const [participantNames, setParticipantNames] = useState<Record<string, string>>({})
+    const [loading, setLoading] = useState(true)
+    const [matchesLoading, setMatchesLoading] = useState(true)
+    const [error, setError] = useState<string | null>(null)
+    const [programState, setProgramState] = useState<ProgramState | null>(null)
+
+    useEffect(() => {
+        const unsubscribe = subscribeToProgramState(
+            (state) => {
+                setProgramState(state)
+            },
+            (err) => {
+                console.error('ProgramState subscription error', err)
+            }
+        )
+
+        return unsubscribe
+    }, [])
+
+    // Update selected week when programState.week changes
+    useEffect(() => {
+        if (programState && typeof programState.week === 'number') {
+            const nextWeekIndex = Math.max(0, programState.week - 1)
+            setSelectedWeek(nextWeekIndex)
+        }
+    }, [programState?.week])
 
   // Fetch all matches once on mount
   useEffect(() => {

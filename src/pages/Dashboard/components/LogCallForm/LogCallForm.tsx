@@ -23,7 +23,7 @@ export default function LogCallForm({ weekNumber, onSuccess }: LogCallFormProps)
   const { user } = useAuth();
   const [formData, setFormData] = useState(defaultForm);
   const [match, setMatch] = useState<(Match & { id: string }) | null>(null);
-  const [partnerName, setPartnerName] = useState<string>('Your Partner');
+  const [partnerName, setPartnerName] = useState<string>('Your Tea-mate');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,7 +61,7 @@ export default function LogCallForm({ weekNumber, onSuccess }: LogCallFormProps)
             
             if (partnerDoc.exists()) {
               const partnerData = partnerDoc.data();
-              const name = partnerData.displayName || partnerData.name || partnerData.email || 'Your Partner';
+              const name = partnerData.displayName || partnerData.name || partnerData.email || 'Your Tea-mate';
               setPartnerName(name);
             } else {
               setPartnerName('Your Partner');
@@ -163,12 +163,13 @@ export default function LogCallForm({ weekNumber, onSuccess }: LogCallFormProps)
 
   return (
     <div className={`${styles.container}`}>
-      <h1>Log Call Notes - Week {weekNumber}</h1>
+      <h1>Call Log - Week {weekNumber}</h1>
       {partnerName && (
         <p style={{ marginBottom: '1rem', color: '#666' }}>
-          Your partner: <strong>{partnerName}</strong>
+          Your tea-mate: <strong>{partnerName}</strong>
         </p>
       )}
+      <b className={styles.warning}>Note: your answers will NOT be shared with your tea-mate</b>
 
       {error && (
         <div style={{ padding: '10px', marginBottom: '10px', backgroundColor: '#fee', color: '#c00', borderRadius: '4px' }}>
@@ -222,7 +223,7 @@ export default function LogCallForm({ weekNumber, onSuccess }: LogCallFormProps)
 
         <div className={`${styles.right}`}>
           {/* Concerns */}
-          <p>Any concerns or notes:</p>
+          <p>Do you have any concerns? (Leave empty if not)</p>
           <textarea
             className={styles.meetingNotesInput}
             value={formData.concerns}
