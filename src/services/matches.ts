@@ -54,7 +54,7 @@ export async function getMatchById(matchId: string): Promise<(Match & { id: stri
 
 export async function getMatchesByParticipant(participantId: string): Promise<(Match & { id: string })[]> {
   try {
-    const matchesRef = collection(db, 'matches-test');
+    const matchesRef = collection(db, 'matches');
     const q1 = query(matchesRef, where('participant1_id', '==', participantId));
     const q2 = query(matchesRef, where('participant2_id', '==', participantId));
 
@@ -75,7 +75,7 @@ export async function getMatchesByParticipant(participantId: string): Promise<(M
 
 export async function getAllMatches(): Promise<(Match & { id: string })[]> {
   try {
-    const matchesRef = collection(db, 'matches-test');
+    const matchesRef = collection(db, 'matches');
     const snapshot = await getDocs(matchesRef);
 
     return snapshot.docs.map(documentToMatch).sort((a, b) => a.day_of_call - b.day_of_call);

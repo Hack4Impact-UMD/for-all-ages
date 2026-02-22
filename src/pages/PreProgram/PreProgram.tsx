@@ -152,7 +152,7 @@ const PreProgram = () => {
   };
 
   const loadMatches = async () => {
-    const matchesRef = collection(db, "matches-test");
+    const matchesRef = collection(db, "matches");
     const snap = await getDocs(matchesRef);
 
     const loadedPairs: UI_Match[] = [];
@@ -205,7 +205,7 @@ const PreProgram = () => {
     }
 
     // Now find any participants with NO match at all (like rematching page)
-    const participantsRef = collection(db, "participants-test2");
+    const participantsRef = collection(db, "participants");
     const participantsSnap = await getDocs(participantsRef);
 
     const unmatchedRows: UI_Match[] = [];
@@ -266,7 +266,7 @@ const PreProgram = () => {
    * Returns UI_Match with matchId filled in for stored docs.
    */
   const storeMatches = async (list: UI_Match[]): Promise<UI_Match[]> => {
-    const colRef = collection(db, "matches-test");
+    const colRef = collection(db, "matches");
 
     // Delete all existing match docs
     const existingDocs = await getDocs(colRef);
@@ -377,7 +377,7 @@ const PreProgram = () => {
 
     if (!match.matchId) return;
 
-    const matchRef = doc(db, "matches-test", match.matchId);
+    const matchRef = doc(db, "matches", match.matchId);
     const firestoreStatus = newStatus === "Approved" ? "approved" : "pending";
     await updateDoc(matchRef, { status: firestoreStatus });
   };
