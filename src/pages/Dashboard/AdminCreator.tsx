@@ -18,44 +18,7 @@ import {
   inviteAdminAccount,
 } from "../../services/adminAccounts";
 import { friendlyAuthError } from "../../services/auth";
-import type { Role } from "../../types";
-
-type RawAddress = {
-  line1?: string | null;
-  line2?: string | null;
-  city?: string | null;
-  state?: string | null;
-  postalCode?: string | null;
-  country?: string | null;
-};
-
-type ParticipantDoc = {
-  displayName?: string | null;
-  firstName?: string | null;
-  lastName?: string | null;
-  role?: Role | null;
-  email?: string | null;
-  phoneNumber?: string | null;
-  address?: RawAddress | null;
-  status?: string | null;
-  university?: string | null;
-};
-
-type AdminRecord = {
-  id: string;
-  name: string;
-  role: Role | "Participant";
-  email: string;
-  phoneNumber?: string | null;
-  address?: string | null;
-  status?: string | null;
-  university?: string | null;
-};
-
-type BannerState = {
-  type: "success" | "error";
-  message: string;
-};
+import type { Role, ParticipantDoc, RawAddress, AdminRecord, BannerState } from "../../types";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 

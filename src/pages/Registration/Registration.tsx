@@ -8,32 +8,7 @@ import { phoneNumberRegex } from "../../regex";
 import Navbar from "../../components/Navbar";
 import { upsertUser } from "../../firebase";
 import { PREFERENCE_QUESTION_LABELS } from "./preferenceQuestions";
-
-// Defines the shape of the registration form state
-type RegistrationFormState = {
-  addressLine1: string;
-  addressLine2: string;
-  city: string;
-  state: string;
-  postalCode: string;
-  country: string;
-  phone: string;
-  confirmPhone: string;
-  email: string;
-  dateOfBirth: string;
-  pronouns: string;
-  heardAbout: string;
-  university: string;
-  user_type: string; // 'student' or 'adult'
-  interests: string;
-  teaPreference: string;
-  preferredContactMethods: string[];
-  preferenceScores: {
-    q1: number;
-    q2: number;
-    q3: number;
-  };
-};
+import type { RegistrationFormState } from "../../types";
 
 // Builds the initial state for the registration form
 const buildInitialState = (email?: string): RegistrationFormState => ({

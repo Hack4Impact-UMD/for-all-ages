@@ -5,16 +5,7 @@ import { getMatchesByParticipant, getPartnerId, updateMatchDayOfWeek } from '../
 import { db } from '../../firebase';
 import Navbar from '../../components/Navbar';
 import styles from './MatchedDashboard.module.css';
-import type { Match } from '../../types';
-
-interface PartnerInfo {
-  id: string;
-  name: string;
-  displayName: string;
-  email: string;
-  phone_number: string;
-  user_type: string;
-}
+import type { Match, PartnerInfo } from '../../types';
 
 const NAV_ITEMS = [
   { label: 'Dashboard', path: '/user/matched' },

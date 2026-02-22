@@ -6,27 +6,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import { signOut } from "firebase/auth";
 import { auth } from "../../firebase";
 import { useNavigate } from "react-router-dom";
-
-interface UserProfile {
-  name: string;
-  email: string;
-  password: string;
-  pronouns: string;
-  phone: string;
-  birthday: string;
-  address: string;
-  interests: string;
-  startDate: string;
-  endDate: string;
-  status: string;
-}
-
-type ErrorState = {
-  email?: string;
-  phone?: string;
-  birthday?: string;
-  address?: string;
-};
+import type { UserProfile, ErrorState } from "../../types";
 
 const Profile = () => {
   const navigate = useNavigate();

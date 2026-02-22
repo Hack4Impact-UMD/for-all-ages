@@ -6,34 +6,19 @@ import layoutStyles from '../Dashboard/Dashboard.module.css';
 import styles from './RecapPage.module.css';
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
+import type { Match, LogWithId } from '../../types';
 
-type RecapLog = {
-    id: string;
-    concerns: string;
-    duration: number;
-    rating: number;
-    uid: string;
-    week: number;
-};
-
-type Matches = {
-    day_of_call: number;
-    participant1_id: string;
-    participant2_id: string;
-    similarity: number;
-};
-
-async function fetchLogsByWeek(week: number): Promise<RecapLog[]> {
+async function fetchLogsByWeek(week: number): Promise<LogWithId[]> {
     const logsRef = collection(db, 'logs');
     const q = query(logsRef, where('week', '==', week));
     const snap = await getDocs(q);
-    return snap.docs.map(d => d.data() as RecapLog);
+    return snap.docs.map(d => ({ id: d.id, ...d.data() } as LogWithId));
 }
 
-async function fetchMatches(): Promise<Matches[]> {
+async function fetchMatches(): Promise<Match[]> {
     const matchesRef = collection(db, 'matches');
     const snap = await getDocs(matchesRef);
-    return snap.docs.map(d => d.data() as Matches);
+    return snap.docs.map(d => d.data() as Match);
 }
 
 async function fetchParticipantName(uid: string): Promise<string> {
@@ -54,8 +39,8 @@ async function fetchParticipantName(uid: string): Promise<string> {
 export default function RecapPage() {
     const [selectedWeek, setSelectedWeek] = useState<number>();
     const [actualWeek, setActualWeek] = useState<number>();
-    const [logs, setLogs] = useState<RecapLog[]>([]);
-    const [matches, setMatches] = useState<Matches[]>([]);
+    const [logs, setLogs] = useState<LogWithId[]>([]);
+    const [matches, setMatches] = useState<Match[]>([]);
     const [participantNames, setParticipantNames] = useState<Record<string, string>>({});
 
     useEffect(() => {

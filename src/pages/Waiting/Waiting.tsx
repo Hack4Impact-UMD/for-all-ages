@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import Navbar from "../../components/Navbar";
 import { useAuth } from "../../auth/AuthProvider";
+import type { ParticipantProfile } from "../../types";
 import styles from "./Waiting.module.css";
 
 const NAV_ITEMS = [
@@ -9,12 +10,6 @@ const NAV_ITEMS = [
 ];
 
 const ADMIN_EMAIL = "info@forallages.org";
-
-type ParticipantProfile = {
-  displayName?: string | null;
-  firstName?: string | null;
-  lastName?: string | null;
-};
 
 function buildGreetingName(participant: ParticipantProfile | null, fallbackEmail?: string | null) {
   const candidate =

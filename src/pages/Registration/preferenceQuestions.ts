@@ -1,4 +1,6 @@
-export type PreferenceQuestionId = "q1" | "q2" | "q3";
+import type { PreferenceQuestionId } from "../../types";
+
+export type { PreferenceQuestionId } from "../../types";
 
 export const PREFERENCE_QUESTION_LABELS: Record<PreferenceQuestionId, string> = {
   q1: "Prefer indoor movie (1) - Prefer outdoor camping (5)",
