@@ -26,7 +26,7 @@ interface UI_Match {
   participant1_id: string;
   participant2_id: string;
   confidence?: number;
-  status?: string;
+  status?: "Pending" | "Approved" | "No Match";
   score: number;
 }
 
@@ -67,11 +67,11 @@ const PreProgram = () => {
       })
     );
 
-    return matches;
+    return matches.filter((m) => m !== null) as UI_Match[];
   };
 
   const loadMatches = async () => {
-    const colRef = collection(db, "matches-test");
+    const colRef = collection(db, "matches");
     const snap = await getDocs(colRef);
 
     if (snap.empty) {
@@ -113,7 +113,7 @@ const PreProgram = () => {
   };
 
   const storeMatches = async (matches: UI_Match[]) => {
-    const colRef = collection(db, "matches-test");
+    const colRef = collection(db, "matches");
 
     //delete all matches
     const existingDocs = await getDocs(colRef);

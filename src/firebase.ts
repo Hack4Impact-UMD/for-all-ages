@@ -75,7 +75,7 @@ export async function upsertUser(body: { uid: string; freeResponse: string; q1: 
 
 
 export async function getUser(uid: string) {
-  const userRef = doc(db, "participants-test2", uid);
+  const userRef = doc(db, "participants", uid);
   const snapshot = await getDoc(userRef);
 
   if (!snapshot.exists()) {
