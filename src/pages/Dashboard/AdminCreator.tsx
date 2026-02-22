@@ -87,7 +87,7 @@ function normaliseRole(role?: string | null): Role | "Participant" {
 
 function normaliseUserType(user_type?: string | null): string | null {
   if (!user_type) return null;
-  return user_type.charAt(0).toUpperCase() + user_type.slice(1);
+  return user_type.charAt(0).toUpperCase() + user_type.slice(1).toLowerCase();
 }
 
 // Composes a display name for an admin from their ParticipantDoc
@@ -275,9 +275,7 @@ export default function AdminDashboard() {
                 <option value="Adult">Adult</option>
               </select>
             </div>
-          ) : (
-            <div></div>
-          )}
+          ) : null}
 
           <button
             type="button"
