@@ -11,7 +11,6 @@ import {
 import { FirebaseError } from "firebase/app";
 import layoutStyles from "./Dashboard.module.css";
 import styles from "./AdminCreator.module.css";
-import Navbar from "../../components/Navbar";
 import { db } from "../../firebase";
 import {
   assignAdminRoleToExistingUser,
@@ -202,7 +201,6 @@ export default function AdminDashboard() {
 
   return (
     <div className={layoutStyles.page}>
-      <Navbar />
       <div className={layoutStyles.surface}>
         <section className={styles.controlsRow}>
           <label className={styles.searchLabel} htmlFor="admin-search">

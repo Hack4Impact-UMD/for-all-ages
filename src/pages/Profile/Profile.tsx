@@ -1,5 +1,4 @@
 import styles from "./Profile.module.css";
-import Navbar from "../../components/Navbar";
 import { useState } from "react";
 import { phoneNumberRegex, emailRegex, dateRegex } from "../../regex";
 import EditIcon from "@mui/icons-material/Edit";
@@ -93,8 +92,6 @@ const Profile = () => {
 
   return (
     <div className={styles.page}>
-      <Navbar />
-
       <div className={styles.container}>
         {/* LEFT COLUMN */}
         <div className={styles.leftColumn}>

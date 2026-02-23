@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import Navbar from "../../components/Navbar";
 import styles from "./PreProgram.module.css";
 import { useNavigate } from "react-router-dom";
 import SearchIcon from "@mui/icons-material/Search";
@@ -394,8 +393,6 @@ const PreProgram = () => {
 
   return (
     <div className={styles.page}>
-      <Navbar />
-
       <div className={styles.header}>
         <div className={styles.searchContainer}>
           <SearchIcon className={styles.searchIcon} />

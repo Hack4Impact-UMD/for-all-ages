@@ -1,12 +1,6 @@
 import { useMemo } from "react";
-import Navbar from "../../components/Navbar";
 import { useAuth } from "../../auth/AuthProvider";
 import styles from "./Waiting.module.css";
-
-const NAV_ITEMS = [
-  { label: "Dashboard", path: "/user/waiting" },
-  { label: "Profile", path: "/profile" },
-];
 
 const ADMIN_EMAIL = "info@forallages.org";
 
@@ -53,7 +47,6 @@ export default function Waiting() {
 
   return (
     <div className={styles.page}>
-      <Navbar navItems={NAV_ITEMS} />
       <div className={styles.waitingSurface}>
         {isLoading ? (
           <div className={styles.loadingMessage}>Loading your dashboard…</div>
