@@ -1,0 +1,168 @@
+.backdrop {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+}
+.modal {
+    background: white;
+    width: 95%;
+    max-width: 1000px;
+    border-radius: 12px;
+    position: relative;
+    padding: 40px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+}
+.closeBtn {
+    position: absolute;
+    top: 25px;
+    right: 25px;
+    background: #eef4fa;
+    border: none;
+    color: #1a6099;
+    width: 32px;
+    height: 32px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+/* Header - Full width, left aligned */
+.headerContainer {
+    width: 100%;
+    margin-bottom: 35px;
+}
+.headerBox {
+    background-color: #e3f0f9;
+    padding: 20px 30px;
+    border-radius: 8px;
+    width: 100%;
+    text-align: left;
+    box-sizing: border-box;
+}
+.mainTitle {
+    margin: 0;
+    color: #1a6099;
+    font-size: 2.2rem;
+    font-family: 'Merriweather', serif;
+    font-weight: 700; /* Bold */
+}
+.subTitle {
+    margin: 5px 0 0 0;
+    color: #4a86b8;
+    font-size: 1.6rem;
+}
+.fromText {
+    font-family: 'Merriweather', serif;
+    font-style: italic; /* From/And are italic Merriweather */
+}
+.participantName {
+    font-family: 'Inter', sans-serif;
+    font-style: normal;
+    font-weight: 400; /* Names are normal Inter */
+}
+/* Typography & Layout spacing */
+.merriweatherTitle {
+    font-family: 'Merriweather', serif;
+    color: #1a6099;
+    font-size: 1.15rem;
+    margin-bottom: 6px; /* Decreased margin to content */
+    font-weight: 600;
+    text-align: left;
+}
+.interText {
+    font-family: 'Inter', sans-serif;
+    color: #1a6099;
+    font-size: 1rem;
+}
+.section {
+    margin-bottom: 25px;
+    text-align: left;
+}
+/* Dimming Logic */
+.dimmed {
+    opacity: 0.4;
+}
+/* Shared Alignment for Duration and Ratings */
+.infoRow {
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+}
+.infoName {
+    width: 140px; /* Fixed width ensures stars/boxes start at the same X position */
+    flex-shrink: 0;
+    color: #1a6099;
+}
+/* Duration Elements */
+.durationInputBox {
+    background-color: #e3f0f9;
+    padding: 0 15px;
+    width: 180px;
+    border-radius: 4px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+}
+/* Rating Elements */
+.stars {
+    display: flex;
+    gap: 10px; /* Increased margin between stars */
+}
+.star {
+    font-size: 1.6rem;
+    color: #d1e3f2;
+  }
+   .starFilled {
+    color: #1a6099;
+}
+/* Checkboxes */
+.checkboxRow {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+.square {
+    width: 18px;
+    height: 18px;
+    background-color: #d1e3f2;
+    border-radius: 2px;
+}
+.square.checked {
+    background-color: #1a6099;
+}
+/* Notes Column */
+.body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 60px;
+}
+.notesArea {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+.noteBox {
+    background-color: #fff9e6;
+    padding: 18px;
+    border-radius: 10px;
+    text-align: left;
+}
+.noteName {
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+.noteText {
+    line-height: 1.5;
+}
+.loadingState {
+    padding: 60px;
+    text-align: center;
+    font-family: 'Inter', sans-serif;
+    color: #1a6099;
+}
