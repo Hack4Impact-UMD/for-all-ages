@@ -3,7 +3,6 @@ import layoutStyles from './Dashboard.module.css'
 import adminStyles from './AdminDashboard.module.css'
 import WeekSelector from './components/WeekSelector/WeekSelector'
 import PersonTag from './components/PersonTag/PersonTag'
-import Navbar from '../../components/Navbar'
 import { getAllMatches } from '../../services/matches'
 import { getWeek } from '../../services/weeks'
 import { getDoc, doc } from 'firebase/firestore'
@@ -218,7 +217,6 @@ export default function AdminDashboard() {
 
   return (
     <div className={layoutStyles.page}>
-      <Navbar />
       <div className={layoutStyles.surface}>
         <section className={layoutStyles.selectorSection}>
           <WeekSelector

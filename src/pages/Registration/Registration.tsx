@@ -5,7 +5,6 @@ import styles from "./Registration.module.css";
 import { useAuth } from "../../auth/AuthProvider";
 import { db } from "../../firebase";
 import { phoneNumberRegex } from "../../regex";
-import Navbar from "../../components/Navbar";
 import { upsertUser } from "../../firebase";
 import { PREFERENCE_QUESTION_LABELS } from "./preferenceQuestions";
 
@@ -271,10 +270,6 @@ const Registration = () => {
 
   return (
     <>
-      <div id={styles.navbar}>
-        <Navbar />
-      </div>
-
       <form id={styles.page} onSubmit={handleSubmit}>
         <div id={styles.addr_container}>
           <div id={styles.addr_street}>

@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { FaCoffee, FaSearch } from "react-icons/fa";
 import styles from "./Rematching.module.css";
 import layoutStyles from "../Dashboard/Dashboard.module.css";
-import Navbar from "../../components/Navbar";
 import ParticipantCard from "./components/ParticipantCard/ParticipantCard";
 import SelectedParticipantCard from "./components/SelectedParticipantCard/SelectedParticipantCard";
 import MatchConfidenceCircle from "./components/MatchConfidenceCircle/MatchConfidenceCircle";
@@ -349,7 +348,6 @@ export default function Rematching() {
 
   return (
     <div className={`${layoutStyles.page} ${styles.rematchingPage}`}>
-      <Navbar />
       <div className={`${layoutStyles.surface} ${styles.rematchingSurface}`}>
         <button
           type="button"
