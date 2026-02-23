@@ -42,7 +42,6 @@ export default function CallLogModal({
        console.error('Error fetching logs:', err)
      } finally {
        setLoading(false)
-       console.log("hello", log1)
      }
    }
    fetchLogs()
