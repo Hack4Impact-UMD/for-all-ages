@@ -8,6 +8,7 @@ import { MatchingService } from "./matching/src/services/matchingService";
 
 import { upsertFreeResponse } from './matching/src/services/upsertUser.js';
 import computeMatchScoreService from './matching/src/services/calculateMatchScore.js';
+import { deleteUserFromPinecone } from './matching/src/services/deleteUser.js';
 
 admin.initializeApp();
 
@@ -138,6 +139,38 @@ export const computeMatchScore = onRequest(async (req, res) => {
     res.status(200).json(result);
   } catch (err) {
     console.error('Error computing match score:', err);
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+export const deletePineconeUser = onRequest(async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "http://localhost:5173");
+  res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+
+  if (req.method !== "POST") {
+    res.status(405).json({ error: "Method not allowed. Use POST." });
+    return;
+  }
+
+  try {
+    const { uid } = req.body;
+
+    if (!uid || typeof uid !== "string" || uid.trim() === "") {
+      res.status(400).json({ error: "Missing or invalid required field: uid" });
+      return;
+    }
+
+    await deleteUserFromPinecone(uid);
+
+    res.status(200).json({ message: "User deleted from Pinecone." });
+  } catch (err) {
+    console.error("Error deleting user from Pinecone:", err);
     res.status(500).json({ error: String(err) });
   }
 });

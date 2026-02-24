@@ -89,6 +89,23 @@ export async function computeMatchScore(body: { uid1: string; uid2: string }) {
   return res.json();
 }
 
+const DELETE_PINECONE_USER_URL =
+  "https://us-central1-for-all-ages-8a4e2.cloudfunctions.net/deletePineconeUser";
+export async function deleteUserFromPinecone(uid: string) {
+  const res = await fetch(DELETE_PINECONE_USER_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ uid }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`deleteUserFromPinecone HTTP error ${res.status}: ${text}`);
+  }
+
+  return res.json().catch(() => ({}));
+}
+
 export async function getUser(uid: string) {
   const userRef = doc(db, "participants-test2", uid);
   const snapshot = await getDoc(userRef);
