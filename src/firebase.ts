@@ -90,7 +90,7 @@ export async function computeMatchScore(body: { uid1: string; uid2: string }) {
 }
 
 export async function getUser(uid: string) {
-  const userRef = doc(db, "participants-test2", uid);
+  const userRef = doc(db, "participants", uid);
   const snapshot = await getDoc(userRef);
 
   if (!snapshot.exists()) {
