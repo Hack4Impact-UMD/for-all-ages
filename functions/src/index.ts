@@ -12,6 +12,7 @@ import { deleteUserFromPinecone } from './matching/src/services/deleteUser.js';
 
 admin.initializeApp();
 
+const CORS_ORIGIN = process.env.CORS_ORIGIN || "http://localhost:5173";
 
 type ProgramState = {
   started: boolean;
@@ -22,7 +23,7 @@ type ProgramState = {
 
 export const matchAll = onRequest(async (req, res) => {
   // CORS headers
-  res.set("Access-Control-Allow-Origin", "http://localhost:5173");
+  res.set("Access-Control-Allow-Origin", CORS_ORIGIN);
   res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.set("Access-Control-Allow-Headers", "Content-Type");
   
@@ -46,7 +47,7 @@ export const matchAll = onRequest(async (req, res) => {
 
 export const upsertUser = onRequest(async (req, res) => {
   // CORS headers
-  res.set("Access-Control-Allow-Origin", "http://localhost:5173");
+  res.set("Access-Control-Allow-Origin", CORS_ORIGIN);
   res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.set("Access-Control-Allow-Headers", "Content-Type");
 
@@ -112,7 +113,7 @@ export const incrementProgramWeek = onSchedule(
 
 export const computeMatchScore = onRequest(async (req, res) => {
   // CORS headers
-  res.set('Access-Control-Allow-Origin', 'http://localhost:5173');
+  res.set('Access-Control-Allow-Origin', CORS_ORIGIN);
   res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type');
 
@@ -144,7 +145,7 @@ export const computeMatchScore = onRequest(async (req, res) => {
 });
 
 export const deletePineconeUser = onRequest(async (req, res) => {
-  res.set("Access-Control-Allow-Origin", "http://localhost:5173");
+  res.set("Access-Control-Allow-Origin", CORS_ORIGIN);
   res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.set("Access-Control-Allow-Headers", "Content-Type");
 
