@@ -2,7 +2,7 @@ import { initializeApp } from "firebase/app";
 import { getAnalytics, isSupported as isAnalyticsSupported } from "firebase/analytics";
 import { getAuth } from "firebase/auth";
 import { doc, getDoc, getFirestore } from "firebase/firestore";
-import { getFunctions } from "firebase/functions";
+import { getFunctions, httpsCallable } from "firebase/functions";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -89,21 +89,10 @@ export async function computeMatchScore(body: { uid1: string; uid2: string }) {
   return res.json();
 }
 
-const DELETE_PINECONE_USER_URL =
-  "https://us-central1-for-all-ages-8a4e2.cloudfunctions.net/deletePineconeUser";
-export async function deleteUserFromPinecone(uid: string) {
-  const res = await fetch(DELETE_PINECONE_USER_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ uid }),
-  });
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`deleteUserFromPinecone HTTP error ${res.status}: ${text}`);
-  }
-
-  return res.json().catch(() => ({}));
+export async function deleteUser(targetUserId: string) {
+  const callable = httpsCallable(functions, "deleteUser");
+  const result = await callable({ targetUserId });
+  return result.data;
 }
 
 export async function getUser(uid: string) {
