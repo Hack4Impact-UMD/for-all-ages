@@ -3,7 +3,6 @@ import { doc, getDoc } from 'firebase/firestore';
 import { useAuth } from '../../auth/AuthProvider';
 import { getMatchesByParticipant, getPartnerId, updateMatchDayOfWeek } from '../../services/matches';
 import { db } from '../../firebase';
-import Navbar from '../../components/Navbar';
 import styles from './MatchedDashboard.module.css';
 import type { Match } from '../../types';
 
@@ -15,11 +14,6 @@ interface PartnerInfo {
   phone_number: string;
   user_type: string;
 }
-
-const NAV_ITEMS = [
-  { label: 'Dashboard', path: '/user/matched' },
-  { label: 'Profile', path: '/profile' },
-];
 
 const DAYS_OF_WEEK = [
   { value: 1, label: 'Monday' },
@@ -161,7 +155,6 @@ export default function MatchedDashboard() {
   if (isLoading) {
     return (
       <div className={styles.page}>
-        <Navbar navItems={NAV_ITEMS} />
         <div className={styles.surface}>
           <div className={styles.loadingMessage}>Loading your dashboard…</div>
         </div>
@@ -172,7 +165,6 @@ export default function MatchedDashboard() {
   if (!match || !partner) {
     return (
       <div className={styles.page}>
-        <Navbar navItems={NAV_ITEMS} />
         <div className={styles.surface}>
           <div className={styles.noMatchMessage}>
             <h2>No Match Found</h2>
@@ -185,7 +177,6 @@ export default function MatchedDashboard() {
 
   return (
     <div className={styles.page}>
-      <Navbar navItems={NAV_ITEMS} />
       <div className={styles.surface}>
         <h1 className={styles.welcomeHeading}>Welcome, {greetingName}!</h1>
 

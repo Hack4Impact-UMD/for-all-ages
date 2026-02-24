@@ -2,14 +2,12 @@ import { useState } from "react";
 import styles from "./Dashboard.module.css";
 import WeekSelector from "./components/WeekSelector/WeekSelector";
 import LogCallForm from "./components/LogCallForm/LogCallForm";
-import Navbar from "../../components/Navbar";
 const WEEKS = 20;
 export default function UserDashboard() {
   const [selectedWeek, setSelectedWeek] = useState(2);
 
   return (
     <div className={styles.page}>
-      <Navbar />
       <div className={styles.surface}>
         <section className={styles.selectorSection}>
           <WeekSelector

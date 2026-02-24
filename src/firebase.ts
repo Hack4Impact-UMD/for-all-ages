@@ -96,7 +96,7 @@ export async function deleteUser(targetUserId: string) {
 }
 
 export async function getUser(uid: string) {
-  const userRef = doc(db, "participants-test2", uid);
+  const userRef = doc(db, "participants", uid);
   const snapshot = await getDoc(userRef);
 
   if (!snapshot.exists()) {

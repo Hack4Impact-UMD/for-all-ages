@@ -1,0 +1,195 @@
+/* */
+.backdrop {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+}
+
+.modal {
+    background: white;
+    width: 90%; /* Expands to fill 90% of the screen */
+    max-width: 1400px; /* Sensible cap for ultra-wide monitors */
+    border-radius: 12px;
+    position: relative;
+    padding: 40px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+}
+
+.closeBtn {
+    position: absolute;
+    top: 25px;
+    right: 25px;
+    background: #eef4fa;
+    border: none;
+    color: #1a6099;
+    width: 32px;
+    height: 32px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}
+
+/* Header - Constrained to 85% */
+.headerContainer {
+    width: 100%;
+    margin-bottom: 35px;
+    display: flex;
+    justify-content: flex-start;
+}
+
+.headerBox {
+    background-color: #e3f0f9;
+    padding: 20px 30px;
+    border-radius: 8px;
+    width: 85%; /* Title box restricted to 85% width */
+    text-align: left;
+    box-sizing: border-box;
+}
+
+.mainTitle {
+    margin: 0;
+    color: #1a6099;
+    font-size: 2.2rem;
+    font-family: 'Merriweather', serif;
+    font-weight: 700;
+}
+
+.subTitle {
+    margin: 5px 0 0 0;
+    color: #4a86b8;
+    font-size: 1.6rem;
+}
+
+.fromText {
+    font-family: 'Merriweather', serif;
+    font-style: italic;
+}
+
+.participantName {
+    font-family: 'Inter', sans-serif;
+    font-style: normal;
+    font-weight: 400;
+}
+
+/* Typography */
+.merriweatherTitle {
+    font-family: 'Merriweather', serif;
+    color: #1a6099;
+    font-size: 1.15rem;
+    margin-bottom: 6px;
+    font-weight: 600;
+    text-align: left;
+}
+
+.interText {
+    font-family: 'Inter', sans-serif;
+    color: #1a6099;
+    font-size: 1rem;
+}
+
+.section {
+    margin-bottom: 25px;
+    text-align: left;
+}
+
+.dimmed {
+    opacity: 0.4;
+}
+
+/* Body Layout - Constrained to 85% */
+.body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 60px;
+    width: 85%; /* Body content aligns with title, leaving whitespace on the right */
+}
+
+.infoRow {
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.infoName {
+    width: 140px;
+    flex-shrink: 0;
+    color: #1a6099;
+}
+
+.durationInputBox {
+    background-color: #e3f0f9;
+    padding: 0 15px;
+    width: 180px;
+    border-radius: 4px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+}
+
+.stars {
+    display: flex;
+    gap: 10px;
+}
+
+.star {
+    font-size: 1.6rem;
+    color: #d1e3f2;
+}
+
+.starFilled {
+    color: #1a6099;
+}
+
+.checkboxRow {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.square {
+    width: 18px;
+    height: 18px;
+    background-color: #d1e3f2;
+    border-radius: 2px;
+}
+
+.square.checked {
+    background-color: #1a6099;
+}
+
+.notesArea {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.noteBox {
+    background-color: #fff9e6;
+    padding: 18px;
+    border-radius: 10px;
+    text-align: left;
+}
+
+.noteName {
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.noteText {
+    line-height: 1.5;
+}
+
+.loadingState {
+    padding: 60px;
+    text-align: center;
+    font-family: 'Inter', sans-serif;
+    color: #1a6099;
+}

@@ -19,6 +19,7 @@ import RecapPage from "./pages/Recap/RecapPage";
 import Rematching from "./pages/Rematching/Rematching";
 import PreProgram from "./pages/PreProgram/PreProgram";
 import Waiting from "./pages/Waiting/Waiting";
+import MainLayout from "./components/MainLayout";
 
 function RouteLoader() {
   return <div className="route-loading">Loading...</div>;
@@ -121,11 +122,11 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<LoginSignup />} />
-        <Route path="/registration" element={<RegistrationGate />} />
-        <Route path="/waiting" element={<Waiting />} />
-
-
-          <Route path={"/"} element={<LoginSignup></LoginSignup>}></Route>
+        
+        {/* Routes with navbar */}
+        <Route element={<MainLayout />}>
+          <Route path="/registration" element={<RegistrationGate />} />
+          <Route path="/waiting" element={<Waiting />} />
           <Route path={"/registration"} element={<Registration></Registration>}></Route>
           <Route path={"/profile"} element={<Profile></Profile>}></Route>
 
@@ -144,6 +145,7 @@ function App() {
             <Route path="main" element={<PreProgram />} />
             <Route path="rematching" element={<Rematching />} />
           </Route>
+        </Route>
 
           {/* <Route path={"/user/dashboard"} element={<Dashboard></Dashboard>}></Route>
           <Route path={"/admin/dashboard"} element={<Dashboard></Dashboard>}></Route> */}

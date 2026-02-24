@@ -11,7 +11,6 @@ import {
 import { FirebaseError } from "firebase/app";
 import layoutStyles from "./Dashboard.module.css";
 import styles from "./AdminCreator.module.css";
-import Navbar from "../../components/Navbar";
 import { db } from "../../firebase";
 import {
   assignAdminRoleToExistingUser,
@@ -37,7 +36,7 @@ type ParticipantDoc = {
   email?: string | null;
   phoneNumber?: string | null;
   address?: RawAddress | null;
-  status?: string | null;
+  user_type?: string | null;
   university?: string | null;
 };
 
@@ -48,7 +47,7 @@ type AdminRecord = {
   email: string;
   phoneNumber?: string | null;
   address?: string | null;
-  status?: string | null;
+  user_type?: string | null;
   university?: string | null;
 };
 
@@ -85,6 +84,11 @@ function normaliseRole(role?: string | null): Role | "Participant" {
   return "Participant";
 }
 
+function normaliseUserType(user_type?: string | null): string | null {
+  if (!user_type) return null;
+  return user_type.charAt(0).toUpperCase() + user_type.slice(1).toLowerCase();
+}
+
 // Composes a display name for an admin from their ParticipantDoc
 function composeDisplayName(doc: ParticipantDoc): string {
   const { displayName, firstName, lastName, email } = doc;
@@ -102,7 +106,10 @@ export default function AdminDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState<"All" | Role | "Participant">(
-    "All"
+    "All",
+  );
+  const [groupFilter, setGroupFilter] = useState<"All" | "Student" | "Adult">(
+    "All",
   );
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [banner, setBanner] = useState<BannerState | null>(null);
@@ -140,14 +147,14 @@ export default function AdminDashboard() {
               email: (data.email ?? "").trim(),
               phoneNumber: data.phoneNumber ?? null,
               address: formatAddress(data.address ?? null),
-              status: data.status ?? null,
+              user_type: normaliseUserType(data.user_type ?? null),
               university: data.university ?? null,
             };
           });
 
           // sort alphabetically by name
           records.sort((a, b) =>
-            a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+            a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
           );
 
           /**
@@ -163,7 +170,7 @@ export default function AdminDashboard() {
           console.error("Failed to load admin accounts", err);
           setLoading(false);
           setError("We couldn’t load admin accounts right now.");
-        }
+        },
       );
     };
 
@@ -186,6 +193,17 @@ export default function AdminDashboard() {
       });
     }
 
+    if (
+      (roleFilter === "All" || roleFilter === "Participant") &&
+      groupFilter !== "All"
+    ) {
+      list = list.filter((user) => {
+        const user_type = normaliseUserType(user.user_type);
+        const r = normaliseRole(user.role);
+        return r === "Participant" && user_type === groupFilter;
+      });
+    }
+
     if (term) {
       list = list.filter((admin) => {
         return (
@@ -198,11 +216,17 @@ export default function AdminDashboard() {
       });
     }
     return list;
-  }, [admins, searchTerm, roleFilter]);
+  }, [admins, searchTerm, roleFilter, groupFilter]);
+
+  // Resets the selected age value if Admin or Subadmin is selected
+  useEffect(() => {
+    if (roleFilter === "Admin" || roleFilter === "Subadmin") {
+      setGroupFilter("All");
+    }
+  }, [roleFilter]);
 
   return (
     <div className={layoutStyles.page}>
-      <Navbar />
       <div className={layoutStyles.surface}>
         <section className={styles.controlsRow}>
           <label className={styles.searchLabel} htmlFor="admin-search">
@@ -233,6 +257,23 @@ export default function AdminDashboard() {
               <option value="Participant">Participant</option>
             </select>
           </div>
+          {roleFilter === "All" || roleFilter === "Participant" ? (
+            <div className={styles.searchGroup}>
+              <label className={styles.searchLabel} htmlFor="group-filter">
+                Group
+              </label>
+              <select
+                id="group-filter"
+                value={groupFilter}
+                onChange={(e) => setGroupFilter(e.target.value as any)}
+                className={styles.searchInput}
+              >
+                <option value="All">All</option>
+                <option value="Student">Student</option>
+                <option value="Adult">Adult</option>
+              </select>
+            </div>
+          ) : null}
 
           <button
             type="button"
@@ -274,7 +315,7 @@ export default function AdminDashboard() {
                   <th scope="col">Email</th>
                   <th scope="col">Phone Number</th>
                   <th scope="col">Address</th>
-                  <th scope="col">Status</th>
+                  <th scope="col">Group</th>
                 </tr>
               </thead>
               <tbody>
@@ -304,8 +345,8 @@ export default function AdminDashboard() {
                         {admin.role === "Admin"
                           ? "Admin"
                           : admin.role === "Subadmin"
-                          ? "Sub-admin"
-                          : "Participant"}
+                            ? "Sub-admin"
+                            : "Participant"}
                       </td>
                       <td data-label="Email">
                         {admin.email ? (
@@ -323,19 +364,11 @@ export default function AdminDashboard() {
                         {admin.phoneNumber || "—"}
                       </td>
                       <td data-label="Address">{admin.address || "—"}</td>
-                      <td data-label="Status">
-                        {admin.status ? (
-                          <span
-                            className={
-                              admin.status.toLowerCase() === "active"
-                                ? styles.statusActive
-                                : styles.statusDefault
-                            }
-                          >
-                            {admin.status}
-                          </span>
+                      <td data-label="Group">
+                        {admin.role === "Participant" && admin.user_type ? (
+                          <span>{admin.user_type}</span>
                         ) : (
-                          <span className={styles.statusDefault}>—</span>
+                          <span>—</span>
                         )}
                       </td>
                     </tr>
@@ -457,13 +490,13 @@ function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps) {
   const prepareExistingAccountPrompt = useCallback(async (email: string) => {
     try {
       const snapshot = await getDocs(
-        query(collection(db, "participants"), where("email", "==", email))
+        query(collection(db, "participants"), where("email", "==", email)),
       );
 
       if (snapshot.empty) {
         setExistingAccountPrompt(null);
         setError(
-          "That email already has an account, but no profile was found. Ask them to sign in before assigning roles."
+          "That email already has an account, but no profile was found. Ask them to sign in before assigning roles.",
         );
         return false;
       }
@@ -475,7 +508,7 @@ function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps) {
         currentRole: (docSnap.data().role as Role | undefined) ?? null,
       });
       setError(
-        "An account with this email already exists. Promote them to the selected role?"
+        "An account with this email already exists. Promote them to the selected role?",
       );
       return true;
     } catch (lookupError) {
@@ -494,7 +527,7 @@ function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps) {
       setError(
         emailValid
           ? "Please fill out all required fields."
-          : "Please enter a valid email address."
+          : "Please enter a valid email address.",
       );
       return;
     }
