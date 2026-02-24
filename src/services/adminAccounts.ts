@@ -2,7 +2,8 @@ import { initializeApp, deleteApp } from "firebase/app";
 import type { FirebaseApp } from "firebase/app";
 import { createUserWithEmailAndPassword, getAuth, sendPasswordResetEmail, signOut } from "firebase/auth";
 import { doc, serverTimestamp, setDoc } from "firebase/firestore";
-import { auth, db } from "../firebase";
+import { httpsCallable } from "firebase/functions";
+import { auth, db, functions } from "../firebase";
 import type { Role } from "../types";
 
 export type AdminRole = Role;
@@ -117,4 +118,14 @@ export async function assignAdminRoleToExistingUser(params: {
 
   const docRef = doc(db, "participants", params.participantId);
   await setDoc(docRef, payload, { merge: true });
+}
+
+const deleteUserCallable = httpsCallable<{ targetUserId: string }, { success: boolean }>(
+  functions,
+  "deleteUser"
+);
+
+/** Delete a user (Auth + Firestore participants doc). Caller must be Admin or Subadmin. */
+export async function deleteUser(targetUserId: string): Promise<void> {
+  await deleteUserCallable({ targetUserId });
 }

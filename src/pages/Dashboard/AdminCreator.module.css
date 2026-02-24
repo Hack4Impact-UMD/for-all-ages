@@ -173,6 +173,39 @@
     font-weight: 500;
 }
 
+.deleteColumnHeader {
+    width: 3rem;
+    text-align: center;
+}
+
+.deleteCell {
+    text-align: center;
+    vertical-align: middle;
+}
+
+.deleteButton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.4rem;
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    color: #b91c1c;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.deleteButton:hover:not(:disabled) {
+    background: rgba(185, 28, 28, 0.12);
+    color: #991b1b;
+}
+
+.deleteButton:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 .modalBackdrop {
     position: fixed;
     inset: 0;

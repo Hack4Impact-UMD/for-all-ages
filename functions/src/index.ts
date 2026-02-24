@@ -1,6 +1,6 @@
 import * as admin from "firebase-admin";
 // import * as functions from "firebase-functions";
-import { onRequest } from "firebase-functions/v2/https";
+import { onRequest, onCall, HttpsError } from "firebase-functions/v2/https";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 
 import { MatchingConfig } from "./types";
@@ -140,4 +140,66 @@ export const computeMatchScore = onRequest(async (req, res) => {
     console.error('Error computing match score:', err);
     res.status(500).json({ error: String(err) });
   }
+});
+
+const PARTICIPANTS_COLLECTION = "participants";
+
+/** Allowed roles for calling deleteUser (admin-only action). */
+function isAdminRole(role: string | undefined | null): boolean {
+  const r = (role ?? "").toString().trim().toLowerCase();
+  return r === "admin" || r === "subadmin" || r === "sub-admin";
+}
+
+type DeleteUserRequest = {
+  auth?: { uid: string };
+  data?: { targetUserId?: string };
+};
+
+/**
+ * Callable: delete a user (Auth + Firestore participants doc).
+ * Caller must be authenticated and have role Admin or Subadmin.
+ * Only production collection "participants" is used.
+ */
+export const deleteUser = onCall(async (request: DeleteUserRequest) => {
+  const callerUid = request.auth?.uid;
+  if (!callerUid) {
+    throw new HttpsError("unauthenticated", "You must be signed in to delete a user.");
+  }
+
+  const targetUserId = request.data?.targetUserId;
+  if (typeof targetUserId !== "string" || !targetUserId.trim()) {
+    throw new HttpsError("invalid-argument", "Missing or invalid targetUserId.");
+  }
+  const targetUid = targetUserId.trim();
+
+  if (callerUid === targetUid) {
+    throw new HttpsError("invalid-argument", "You cannot delete your own account.");
+  }
+
+  const firestore = admin.firestore();
+  const callerDoc = await firestore.doc(`${PARTICIPANTS_COLLECTION}/${callerUid}`).get();
+  if (!callerDoc.exists) {
+    throw new HttpsError("permission-denied", "Your profile was not found.");
+  }
+  const callerRole = (callerDoc.data() as { role?: string })?.role;
+  if (!isAdminRole(callerRole)) {
+    throw new HttpsError("permission-denied", "Only admins can delete users.");
+  }
+
+  try {
+    await admin.auth().deleteUser(targetUid);
+  } catch (authErr: unknown) {
+    const msg = authErr instanceof Error ? authErr.message : String(authErr);
+    console.error("deleteUser: Auth delete failed", { targetUid, msg });
+    throw new HttpsError("internal", "Failed to delete user account.");
+  }
+
+  try {
+    await firestore.doc(`${PARTICIPANTS_COLLECTION}/${targetUid}`).delete();
+  } catch (firestoreErr: unknown) {
+    console.error("deleteUser: Firestore delete failed", { targetUid, firestoreErr });
+    throw new HttpsError("internal", "User account was removed but profile cleanup failed.");
+  }
+
+  return { success: true };
 });
