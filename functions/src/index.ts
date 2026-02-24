@@ -1,6 +1,6 @@
 import * as admin from "firebase-admin";
 // import * as functions from "firebase-functions";
-import { onRequest } from "firebase-functions/v2/https";
+import { onRequest, onCall, HttpsError } from "firebase-functions/v2/https";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 
 import { MatchingConfig } from "./types";
@@ -8,9 +8,11 @@ import { MatchingService } from "./matching/src/services/matchingService";
 
 import { upsertFreeResponse } from './matching/src/services/upsertUser.js';
 import computeMatchScoreService from './matching/src/services/calculateMatchScore.js';
+import { deleteUserFromPinecone } from './matching/src/services/deleteUser.js';
 
 admin.initializeApp();
 
+const PARTICIPANTS = "participants";
 
 type ProgramState = {
   started: boolean;
@@ -140,4 +142,79 @@ export const computeMatchScore = onRequest(async (req, res) => {
     console.error('Error computing match score:', err);
     res.status(500).json({ error: String(err) });
   }
+});
+
+export const deleteUser = onCall(async (request) => {
+  const callerUserId = request.auth?.uid;
+  if (!callerUserId) {
+    throw new HttpsError("unauthenticated", "Sign in required.");
+  }
+
+  const targetUserId = request.data?.targetUserId;
+  if (typeof targetUserId !== "string" || targetUserId.trim() === "") {
+    throw new HttpsError(
+      "invalid-argument",
+      "Missing required field: targetUserId."
+    );
+  }
+
+  const trimmedTargetId = targetUserId.trim();
+  if (callerUserId === trimmedTargetId) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Cannot delete your own account."
+    );
+  }
+
+  const userRecord = await admin.auth().getUser(callerUserId);
+  const customClaims = userRecord.customClaims ?? {};
+  const callerRole =
+    typeof customClaims.role === "string"
+      ? customClaims.role.toLowerCase()
+      : "";
+
+  const isAdmin =
+    callerRole === "admin" ||
+    callerRole === "subadmin" ||
+    callerRole === "sub-admin";
+
+  if (!isAdmin) {
+    throw new HttpsError("permission-denied", "Admins only.");
+  }
+
+  const db = admin.firestore();
+  const errors: string[] = [];
+
+  try {
+    await admin.auth().deleteUser(trimmedTargetId);
+  } catch (err: unknown) {
+    const code = (err as { code?: string }).code;
+    if (code === "auth/user-not-found") {
+      console.warn(`Auth user ${trimmedTargetId} already deleted, continuing.`);
+    } else {
+      console.error("Error deleteUser (auth):", err);
+      errors.push(`Auth: ${err}`);
+    }
+  }
+
+  try {
+    const targetDocRef = db.collection(PARTICIPANTS).doc(trimmedTargetId);
+    await targetDocRef.delete();
+  } catch (err) {
+    console.error("Error deleteUser (firestore):", err);
+    errors.push(`Firestore: ${err}`);
+  }
+
+  try {
+    await deleteUserFromPinecone(trimmedTargetId);
+  } catch (err) {
+    console.error("Error deleteUser (pinecone):", err);
+    errors.push(`Pinecone: ${err}`);
+  }
+
+  if (errors.length > 0) {
+    throw new HttpsError("internal", `Partial deletion failure: ${errors.join("; ")}`);
+  }
+
+  return { success: true };
 });
