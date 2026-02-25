@@ -2,8 +2,6 @@ import React, { useEffect, useRef, useState } from "react";
 import styles from "./Event.module.css";
 import type { EditEventValues } from "../../../../types";
 
-export type { EditEventValues } from "../../../../types";
-
 interface EditEventProps {
   initial: EditEventValues;
   onSave: (vals: EditEventValues) => void;
