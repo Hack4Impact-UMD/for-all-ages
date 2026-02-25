@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { FaCoffee, FaSearch } from "react-icons/fa";
 import styles from "./Rematching.module.css";
 import layoutStyles from "../Dashboard/Dashboard.module.css";
-import Navbar from "../../components/Navbar";
 import ParticipantCard from "./components/ParticipantCard/ParticipantCard";
 import SelectedParticipantCard from "./components/SelectedParticipantCard/SelectedParticipantCard";
 import MatchConfidenceCircle from "./components/MatchConfidenceCircle/MatchConfidenceCircle";
@@ -75,8 +74,8 @@ export default function Rematching() {
 
   /**
    * Loads:
-   *  - all matches from `matches-test`
-   *  - all participants from `participants-test2`
+   *  - all matches from `matches`
+   *  - all participants from `participants`
    *
    * Participants shown on the page are:
    *  - those that appear in pending matches, OR
@@ -89,7 +88,7 @@ export default function Rematching() {
       setLoading(true);
       setLoadError(null);
 
-      const matchesRef = collection(db, "matches-test");
+      const matchesRef = collection(db, "matches");
       const allMatchesSnap = await getDocs(matchesRef);
 
       const pendingParticipantIds = new Set<string>();
@@ -118,7 +117,7 @@ export default function Rematching() {
       setApprovedCount(approvedMatchesCount);
 
       // Fetch all participants
-      const participantsRef = collection(db, "participants-test2");
+      const participantsRef = collection(db, "participants");
       const participantsSnap = await getDocs(participantsRef);
 
       const studentsList: RematchingParticipant[] = [];
@@ -256,10 +255,10 @@ export default function Rematching() {
    * Approve the currently selected pair.
    *
    * Schema:
-   *  - Create a NEW match doc in `matches-test` with status "approved"
+   *  - Create a NEW match doc in `matches` with status "approved"
    *  - DELETE all existing match docs (any status) that involve EITHER participant
    *  - This can leave other people from those deleted pairs "dangling"
-   *    (unmatched, no reference in matches-test), which is exactly what we want.
+   *    (unmatched, no reference in matches), which is exactly what we want.
    *  - Then reload all data so stats and columns update.
    */
   const handleConfirmMatch = async () => {
@@ -269,7 +268,7 @@ export default function Rematching() {
       setSaving(true);
       setLoadError(null);
 
-      const matchesRef = collection(db, "matches-test");
+      const matchesRef = collection(db, "matches");
 
       // 1) Load all current matches so we know which ones to delete
       const allMatchesSnap = await getDocs(matchesRef);
@@ -331,7 +330,6 @@ export default function Rematching() {
 
   return (
     <div className={`${layoutStyles.page} ${styles.rematchingPage}`}>
-      <Navbar />
       <div className={`${layoutStyles.surface} ${styles.rematchingSurface}`}>
         <button
           type="button"

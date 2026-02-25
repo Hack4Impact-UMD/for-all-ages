@@ -5,7 +5,6 @@ import styles from "./Registration.module.css";
 import { useAuth } from "../../auth/AuthProvider";
 import { db } from "../../firebase";
 import { phoneNumberRegex } from "../../regex";
-import Navbar from "../../components/Navbar";
 import { upsertUser } from "../../firebase";
 import { PREFERENCE_QUESTION_LABELS } from "./preferenceQuestions";
 import type { RegistrationFormState } from "../../types";
@@ -203,7 +202,7 @@ const Registration = () => {
     try {
       const docRef = doc(db, "participants", user.uid);
       // For testing purposes
-      const docTest = doc(db, "participants-test2", user.uid);
+      const docTest = doc(db, "participants", user.uid);
       const dataToWrite = participant
         ? payload
         : { ...payload, createdAt: timestamp };
@@ -246,10 +245,6 @@ const Registration = () => {
 
   return (
     <>
-      <div id={styles.navbar}>
-        <Navbar />
-      </div>
-
       <form id={styles.page} onSubmit={handleSubmit}>
         <div id={styles.addr_container}>
           <div id={styles.addr_street}>

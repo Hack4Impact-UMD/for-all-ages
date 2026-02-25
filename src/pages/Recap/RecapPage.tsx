@@ -1,7 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, ResponsiveContainer } from 'recharts';
 import Star from '@mui/icons-material/Star';
-import Navbar from '../../components/Navbar';
 import layoutStyles from '../Dashboard/Dashboard.module.css';
 import styles from './RecapPage.module.css';
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
@@ -154,7 +153,6 @@ export default function RecapPage() {
 
     return (
         <div className={layoutStyles.page}>
-            <Navbar/>
             <div className={layoutStyles.surface}>
                 <div className={styles.header}>
                     <div className={styles.weekSelector}>

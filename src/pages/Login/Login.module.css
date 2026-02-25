@@ -128,6 +128,7 @@
     width: 150px;
     max-width: 100%;
     margin: 0 auto;
+    height: auto;
     font-family: 'Merriweather', serif;
 }
 
