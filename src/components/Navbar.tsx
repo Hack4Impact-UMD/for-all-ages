@@ -3,6 +3,7 @@ import styles from "./Navbar.module.css";
 import Logo from "../assets/For all Ages high res logo 2022 (1).svg";
 import { useAuth } from "../auth/AuthProvider";
 import { useMemo } from "react";
+import { isAdminRole } from "../utils/role";
 
 interface NavItem {
   label: string;
@@ -11,16 +12,6 @@ interface NavItem {
 
 interface NavbarProps {
   navItems?: NavItem[];
-}
-
-function isAdminRole(role?: string | null): boolean {
-  if (!role) return false;
-  const normalised = role.toLowerCase();
-  return (
-    normalised === "admin" ||
-    normalised === "subadmin" ||
-    normalised === "sub-admin"
-  );
 }
 
 const ADMIN_NAV_ITEMS: NavItem[] = [

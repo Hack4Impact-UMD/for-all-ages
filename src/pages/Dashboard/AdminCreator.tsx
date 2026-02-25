@@ -134,10 +134,7 @@ export default function AdminDashboard() {
         await deleteUserService(admin.id);
         setBanner({ type: "success", message: "User deleted." });
       } catch (err) {
-        const message =
-          err && typeof err === "object" && "message" in err
-            ? String((err as { message: string }).message)
-            : "Could not delete user.";
+        const message = err instanceof FirebaseError ? err.message : "Could not delete user.";
         setBanner({ type: "error", message });
       } finally {
         setDeletingId(null);

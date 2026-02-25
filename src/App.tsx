@@ -20,6 +20,7 @@ import Rematching from "./pages/Rematching/Rematching";
 import PreProgram from "./pages/PreProgram/PreProgram";
 import Waiting from "./pages/Waiting/Waiting";
 import MainLayout from "./components/MainLayout";
+import { isAdminRole } from "./utils/role";
 
 function RouteLoader() {
   return <div className="route-loading">Loading...</div>;
@@ -79,12 +80,6 @@ function ParticipantGate() {
   }
 
   return <Outlet />;
-}
-
-function isAdminRole(role?: string | null) {
-  if (!role) return false;
-  const normalised = role.toLowerCase();
-  return normalised === "admin" || normalised === "subadmin" || normalised === "sub-admin";
 }
 
 function AdminGate() {

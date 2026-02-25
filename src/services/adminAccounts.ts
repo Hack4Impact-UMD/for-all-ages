@@ -120,12 +120,8 @@ export async function assignAdminRoleToExistingUser(params: {
   await setDoc(docRef, payload, { merge: true });
 }
 
-const deleteUserCallable = httpsCallable<{ targetUserId: string }, { success: boolean }>(
-  functions,
-  "deleteUser"
-);
+const deleteUserCallable = httpsCallable(functions, "deleteUser");
 
-/** Delete a user (Auth + Firestore participants doc). Caller must be Admin or Subadmin. */
 export async function deleteUser(targetUserId: string): Promise<void> {
   await deleteUserCallable({ targetUserId });
 }

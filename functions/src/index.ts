@@ -1,10 +1,11 @@
-import * as admin from "firebase-admin";
+
+import admin from "firebase-admin";
 // import * as functions from "firebase-functions";
 import { onRequest, onCall, HttpsError } from "firebase-functions/v2/https";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 
-import { MatchingConfig } from "./types";
-import { MatchingService } from "./matching/src/services/matchingService";
+import { MatchingConfig } from "./types.js";
+import { MatchingService } from "./matching/src/services/matchingService.js";
 
 import { upsertFreeResponse } from './matching/src/services/upsertUser.js';
 import computeMatchScoreService from './matching/src/services/calculateMatchScore.js';
@@ -19,7 +20,7 @@ type ProgramState = {
 };
 
 
-export const matchAll = onRequest(async (req, res) => {
+export const matchAll = onRequest(async (req: any, res: any) => {
   // CORS headers
   res.set("Access-Control-Allow-Origin", "http://localhost:5173");
   res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -43,7 +44,7 @@ export const matchAll = onRequest(async (req, res) => {
   });
 });
 
-export const upsertUser = onRequest(async (req, res) => {
+export const upsertUser = onRequest(async (req: any, res: any) => {
   // CORS headers
   res.set("Access-Control-Allow-Origin", "http://localhost:5173");
   res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -87,7 +88,7 @@ export const incrementProgramWeek = onSchedule(
     console.log("HERE*****");
     const ref = admin.firestore().doc("config/programState");
 
-    await admin.firestore().runTransaction(async (tx) => {
+    await admin.firestore().runTransaction(async (tx: any) => {
 
       const snap = await tx.get(ref);
       if (!snap.exists) return;
@@ -109,7 +110,7 @@ export const incrementProgramWeek = onSchedule(
   }
 );
 
-export const computeMatchScore = onRequest(async (req, res) => {
+export const computeMatchScore = onRequest(async (req: any, res: any) => {
   // CORS headers
   res.set('Access-Control-Allow-Origin', 'http://localhost:5173');
   res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -142,63 +143,76 @@ export const computeMatchScore = onRequest(async (req, res) => {
   }
 });
 
-const PARTICIPANTS_COLLECTION = "participants";
-
-/** Allowed roles for calling deleteUser (admin-only action). */
-function isAdminRole(role: string | undefined | null): boolean {
-  const r = (role ?? "").toString().trim().toLowerCase();
-  return r === "admin" || r === "subadmin" || r === "sub-admin";
-}
+const PARTICIPANTS = "participants";
 
 type DeleteUserRequest = {
   auth?: { uid: string };
   data?: { targetUserId?: string };
 };
 
-/**
- * Callable: delete a user (Auth + Firestore participants doc).
- * Caller must be authenticated and have role Admin or Subadmin.
- * Only production collection "participants" is used.
- */
 export const deleteUser = onCall(async (request: DeleteUserRequest) => {
-  const callerUid = request.auth?.uid;
-  if (!callerUid) {
-    throw new HttpsError("unauthenticated", "You must be signed in to delete a user.");
+  const callerUserId = request.auth ? request.auth.uid : null;
+  if (!callerUserId) {
+    throw new HttpsError("unauthenticated", "Sign in required.");
   }
 
-  const targetUserId = request.data?.targetUserId;
-  if (typeof targetUserId !== "string" || !targetUserId.trim()) {
-    throw new HttpsError("invalid-argument", "Missing or invalid targetUserId.");
+  const targetUserId = request.data && request.data.targetUserId;
+  if (typeof targetUserId !== "string" || targetUserId.trim() === "") {
+    throw new HttpsError("invalid-argument", "Missing required field");
   }
-  const targetUid = targetUserId.trim();
+  const trimmedTargetId = targetUserId.trim();
 
-  if (callerUid === targetUid) {
-    throw new HttpsError("invalid-argument", "You cannot delete your own account.");
+  if (callerUserId === trimmedTargetId) {
+    throw new HttpsError("invalid-argument", "Cannot delete your own account");
   }
 
-  const firestore = admin.firestore();
-  const callerDoc = await firestore.doc(`${PARTICIPANTS_COLLECTION}/${callerUid}`).get();
+  const db = admin.firestore();
+  const callerDocRef = db.collection(PARTICIPANTS).doc(callerUserId);
+  const callerDoc = await callerDocRef.get();
+
   if (!callerDoc.exists) {
-    throw new HttpsError("permission-denied", "Your profile was not found.");
+    throw new HttpsError("permission-denied", "Profile not found.");
   }
-  const callerRole = (callerDoc.data() as { role?: string })?.role;
-  if (!isAdminRole(callerRole)) {
-    throw new HttpsError("permission-denied", "Only admins can delete users.");
+
+  const callerData = callerDoc.data();
+  let callerRole = "";
+  if (callerData && typeof (callerData as any).role === "string") {
+    callerRole = ((callerData as any).role as string).toLowerCase();
+  }
+  const isAdmin = callerRole === "admin" || callerRole === "subadmin" || callerRole === "sub-admin";
+
+  if (!isAdmin) {
+    throw new HttpsError("permission-denied", "Admins only.");
   }
 
   try {
-    await admin.auth().deleteUser(targetUid);
-  } catch (authErr: unknown) {
-    const msg = authErr instanceof Error ? authErr.message : String(authErr);
-    console.error("deleteUser: Auth delete failed", { targetUid, msg });
-    throw new HttpsError("internal", "Failed to delete user account.");
+    await admin.auth().deleteUser(trimmedTargetId);
+  } catch (err) {
+    let errorCode = "";
+    if (err && typeof err === "object" && "code" in err) {
+      const maybeCode = (err as any).code;
+      if (typeof maybeCode === "string") {
+        errorCode = maybeCode;
+      }
+    }
+
+    if (errorCode === "auth/user-not-found") {
+      console.warn(
+        "deleteUser: auth user not found, continuing with Firestore delete only:",
+        trimmedTargetId
+      );
+    } else {
+      console.error("Error deleteUser (auth):", err);
+      throw new HttpsError("internal", String(err));
+    }
   }
 
   try {
-    await firestore.doc(`${PARTICIPANTS_COLLECTION}/${targetUid}`).delete();
-  } catch (firestoreErr: unknown) {
-    console.error("deleteUser: Firestore delete failed", { targetUid, firestoreErr });
-    throw new HttpsError("internal", "User account was removed but profile cleanup failed.");
+    const targetDocRef = db.collection(PARTICIPANTS).doc(trimmedTargetId);
+    await targetDocRef.delete();
+  } catch (err) {
+    console.error("Error deleteUser (firestore):", err);
+    throw new HttpsError("internal", String(err));
   }
 
   return { success: true };
