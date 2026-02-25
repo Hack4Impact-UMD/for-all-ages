@@ -13,31 +13,7 @@ import {
   subscribeToProgramState,
   type ProgramState,
 } from "../../services/programState";
-
-interface BackendMatch {
-  studentId: string;
-  seniorId: string;
-  scores: {
-    frqScore: number;
-    quantScore: number;
-    finalScore: number;
-  };
-  confidence: string;
-  rank: number;
-}
-
-type MatchStatus = "Pending" | "Approved" | "No Match";
-
-interface UI_Match {
-  name1: string;               // student column
-  name2: string;               // senior column
-  participant1_id: string | null; // student uid or null
-  participant2_id: string | null; // senior uid or null
-  confidence?: number;
-  status: MatchStatus;
-  score: number;               // 0–1
-  matchId?: string;            // Firestore doc id (pairs only)
-}
+import type { BackendMatch, UI_Match, MatchStatus } from "../../types";
 
 const APPROVAL_THRESHOLD = 0.8; // 80%
 
