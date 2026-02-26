@@ -11,13 +11,14 @@ import {
 import { FirebaseError } from "firebase/app";
 import layoutStyles from "./Dashboard.module.css";
 import styles from "./AdminCreator.module.css";
-import { db } from "../../firebase";
+import { db, deleteUser } from "../../firebase";
 import {
   assignAdminRoleToExistingUser,
   inviteAdminAccount,
 } from "../../services/adminAccounts";
 import { friendlyAuthError } from "../../services/auth";
 import type { Role } from "../../types";
+import { FaTrash } from "react-icons/fa";
 
 type RawAddress = {
   line1?: string | null;
@@ -113,6 +114,7 @@ export default function AdminDashboard() {
   );
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [banner, setBanner] = useState<BannerState | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const handleModalClose = useCallback(() => {
     setIsModalOpen(false);
@@ -225,6 +227,32 @@ export default function AdminDashboard() {
     }
   }, [roleFilter]);
 
+    const handleDeleteUser = useCallback(
+      async (admin: AdminRecord) => { 
+
+        const confirmed = window.confirm(
+          `Permanently delete ${admin.name}? They will no longer be able to log in.`
+        );
+
+        if (!confirmed) return;
+        setDeletingId(admin.id);
+        setBanner(null);
+
+        try {
+          await deleteUser(admin.id);
+          setBanner({ type: "success", message: "User deleted." });
+        } catch (err) {
+          const message =
+            err && typeof err === "object" && "message" in err
+              ? String((err as { message: string }).message)
+              : "Could not delete user.";
+          setBanner({ type: "error", message });
+        } finally {
+          setDeletingId(null);
+        }
+      },[]
+    );
+
   return (
     <div className={layoutStyles.page}>
       <div className={layoutStyles.surface}>
@@ -316,24 +344,28 @@ export default function AdminDashboard() {
                   <th scope="col">Phone Number</th>
                   <th scope="col">Address</th>
                   <th scope="col">Group</th>
+                  <th scope="col" className={styles.deleteColumnHeader} aria-label="Delete user" />
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr className={styles.stateRow}>
                     <td colSpan={6} className={styles.stateCell}>
+                    <td colSpan={7} className={styles.stateCell}></td>
                       Loading admin accounts…
                     </td>
                   </tr>
                 ) : error ? (
                   <tr className={styles.stateRow}>
                     <td colSpan={6} className={styles.stateCell}>
+                    <td colSpan={7} className={styles.stateCell}></td>
                       {error}
                     </td>
                   </tr>
                 ) : filteredAdmins.length === 0 ? (
                   <tr className={styles.stateRow}>
                     <td colSpan={6} className={styles.stateCell}>
+                    <td colSpan={7} className={styles.stateCell}></td>
                       No admins match your search.
                     </td>
                   </tr>
@@ -370,6 +402,18 @@ export default function AdminDashboard() {
                         ) : (
                           <span>—</span>
                         )}
+                      </td>
+                      <td data-label="Delete" className={styles.deleteCell}>
+                        <button
+                          type="button"
+                          className={styles.deleteButton}
+                          onClick={() => handleDeleteUser(admin)}
+                          disabled={deletingId === admin.id}
+                          aria-label={`Delete ${admin.name}`}
+                          title="Delete user"
+                        >
+                          <FaTrash aria-hidden />
+                        </button>
                       </td>
                     </tr>
                   ))
