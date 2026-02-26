@@ -1,14 +1,9 @@
 import { useMemo } from "react";
 import { useAuth } from "../../auth/AuthProvider";
+import type { ParticipantProfile } from "../../types";
 import styles from "./Waiting.module.css";
 
 const ADMIN_EMAIL = "info@forallages.org";
-
-type ParticipantProfile = {
-  displayName?: string | null;
-  firstName?: string | null;
-  lastName?: string | null;
-};
 
 function buildGreetingName(participant: ParticipantProfile | null, fallbackEmail?: string | null) {
   const candidate =

@@ -19,28 +19,10 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { db, computeMatchScore } from "../../firebase";
+import type { RematchingParticipant } from "../../types";
 
-// ============================================================================
-// TYPES
-// ============================================================================
-
-/**
- * Participant type used on the rematching page.
- * Backed by docs in `participants`.
- */
-export interface RematchingParticipant {
-  id: string; // Firestore document id
-  userUid: string;
-  type: "student" | "adult";
-  name: string; // displayName from Firestore
-  interestsText: string; // raw interests paragraph from Firestore
-  school?: string; // university for students
-  preferenceScores?: {
-    q1?: number;
-    q2?: number;
-    q3?: number;
-  };
-}
+// Re-export for consumers that import from Rematching
+export type { RematchingParticipant } from "../../types";
 
 // ============================================================================
 // HELPER FUNCTIONS

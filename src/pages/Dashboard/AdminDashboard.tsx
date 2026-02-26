@@ -7,18 +7,20 @@ import { getAllMatches } from '../../services/matches'
 import { getWeek } from '../../services/weeks'
 import { getDoc, doc } from 'firebase/firestore'
 import { db } from '../../firebase'
-import type { Match, Week } from '../../types'
+import type { Match, Week, DayKey, PersonAssignment } from '../../types'
 import { subscribeToProgramState, type ProgramState } from '../../services/programState'
 import CallLogModal from './components/PopUpWindow/CallLogModal';
 
-type DayKey = "Sun" | "Mon" | "Tue" | "Wed" | "Thurs" | "Fri" | "Sat";
-type PersonAssignment = {
- names: string[];
- variant?: "rose" | "green" | "gold";
- matchId: string;
-};
+const DAY_LABELS: DayKey[] = [
+  "Sun",
+  "Mon",
+  "Tue",
+  "Wed",
+  "Thurs",
+  "Fri",
+  "Sat",
+];
 
-const DAY_LABELS: DayKey[] = ["Sun", "Mon", "Tue", "Wed", "Thurs", "Fri", "Sat"];
 const WEEKS = 20;
 
 export default function AdminDashboard() {
