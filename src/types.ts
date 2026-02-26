@@ -111,6 +111,7 @@ export interface AdminRecord {
     user_type?: string | null
     status?: string | null
     university?: string | null
+    user_type?: any
 }
 
 /** Banner message for success/error feedback */
