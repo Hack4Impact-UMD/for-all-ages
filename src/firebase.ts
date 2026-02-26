@@ -2,7 +2,7 @@ import { initializeApp } from "firebase/app";
 import { getAnalytics, isSupported as isAnalyticsSupported } from "firebase/analytics";
 import { getAuth } from "firebase/auth";
 import { doc, getDoc, getFirestore } from "firebase/firestore";
-import { getFunctions } from "firebase/functions";
+import { getFunctions, httpsCallable } from "firebase/functions";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -87,6 +87,12 @@ export async function computeMatchScore(body: { uid1: string; uid2: string }) {
   }
 
   return res.json();
+}
+
+export async function deleteUser(targetUserId: string) {
+  const callable = httpsCallable(functions, "deleteUser");
+  const result = await callable({ targetUserId });
+  return result.data;
 }
 
 export async function getUser(uid: string) {
