@@ -1,12 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import styles from "./Event.module.css";
-
-export type EditEventValues = {
-  title: string;
-  timeText?: string;
-  locationText?: string;
-  colorHex?: string;
-};
+import type { EditEventValues } from "../../../../types";
 
 interface EditEventProps {
   initial: EditEventValues;

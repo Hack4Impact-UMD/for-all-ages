@@ -19,28 +19,10 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { db, computeMatchScore } from "../../firebase";
+import type { RematchingParticipant } from "../../types";
 
-// ============================================================================
-// TYPES
-// ============================================================================
-
-/**
- * Participant type used on the rematching page.
- * Backed by docs in `participants-test2`.
- */
-export interface RematchingParticipant {
-  id: string; // Firestore document id
-  userUid: string;
-  type: "student" | "adult";
-  name: string; // displayName from Firestore
-  interestsText: string; // raw interests paragraph from Firestore
-  school?: string; // university for students
-  preferenceScores?: {
-    q1?: number;
-    q2?: number;
-    q3?: number;
-  };
-}
+// Re-export for consumers that import from Rematching
+export type { RematchingParticipant } from "../../types";
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -92,8 +74,8 @@ export default function Rematching() {
 
   /**
    * Loads:
-   *  - all matches from `matches-test`
-   *  - all participants from `participants-test2`
+   *  - all matches from `matches`
+   *  - all participants from `participants`
    *
    * Participants shown on the page are:
    *  - those that appear in pending matches, OR
@@ -273,10 +255,10 @@ export default function Rematching() {
    * Approve the currently selected pair.
    *
    * Schema:
-   *  - Create a NEW match doc in `matches-test` with status "approved"
+   *  - Create a NEW match doc in `matches` with status "approved"
    *  - DELETE all existing match docs (any status) that involve EITHER participant
    *  - This can leave other people from those deleted pairs "dangling"
-   *    (unmatched, no reference in matches-test), which is exactly what we want.
+   *    (unmatched, no reference in matches), which is exactly what we want.
    *  - Then reload all data so stats and columns update.
    */
   const handleConfirmMatch = async () => {

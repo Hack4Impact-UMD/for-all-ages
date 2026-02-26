@@ -5,13 +5,9 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../firebase";
+import type { ProgramState } from "../types";
 
-
-export type ProgramState = {
-  started: boolean;
-  matches_final: boolean;
-  week: number;
-};
+export type { ProgramState } from "../types";
 
 const programStateRef = doc(db, "config", "programState");
 
