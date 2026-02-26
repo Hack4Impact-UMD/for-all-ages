@@ -118,6 +118,12 @@
   overflow: hidden;
 }
 
+.tableScroll {
+  max-height: 32rem;
+  overflow-y: auto;
+  overflow-x: auto;
+}
+
 .table {
   width: 100%;
   border-collapse: collapse;
@@ -131,6 +137,9 @@
   text-align: left;
   padding: 0.85rem 1.15rem;
   font-size: 0.95rem;
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 .table tbody td {
@@ -491,6 +500,11 @@
 @media (max-width: 880px) {
   .tableCard {
     border-width: 3px;
+  }
+
+  .tableScroll {
+    max-height: none;
+    overflow-y: visible;
   }
 
   .table {

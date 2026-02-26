@@ -9,6 +9,7 @@ import {
   type Unsubscribe,
 } from "firebase/firestore";
 import { FirebaseError } from "firebase/app";
+import { FaTrash } from "react-icons/fa";
 import layoutStyles from "./Dashboard.module.css";
 import styles from "./AdminCreator.module.css";
 import { db, deleteUser } from "../../firebase";
@@ -17,7 +18,13 @@ import {
   inviteAdminAccount,
 } from "../../services/adminAccounts";
 import { friendlyAuthError } from "../../services/auth";
-import type { Role, ParticipantDoc, RawAddress, AdminRecord, BannerState } from "../../types";
+import type {
+  Role,
+  ParticipantDoc,
+  RawAddress,
+  AdminRecord,
+  BannerState,
+} from "../../types";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -297,6 +304,7 @@ export default function AdminDashboard() {
 
         <section className={styles.tableSection}>
           <div className={styles.tableCard}>
+            <div className={styles.tableScroll}>
             <table className={styles.table}>
               <thead>
                 <tr>
@@ -312,22 +320,19 @@ export default function AdminDashboard() {
               <tbody>
                 {loading ? (
                   <tr className={styles.stateRow}>
-                    <td colSpan={6} className={styles.stateCell}>
-                    <td colSpan={7} className={styles.stateCell}></td>
+                    <td colSpan={7} className={styles.stateCell}>
                       Loading admin accounts…
                     </td>
                   </tr>
                 ) : error ? (
                   <tr className={styles.stateRow}>
-                    <td colSpan={6} className={styles.stateCell}>
-                    <td colSpan={7} className={styles.stateCell}></td>
+                    <td colSpan={7} className={styles.stateCell}>
                       {error}
                     </td>
                   </tr>
                 ) : filteredAdmins.length === 0 ? (
                   <tr className={styles.stateRow}>
-                    <td colSpan={6} className={styles.stateCell}>
-                    <td colSpan={7} className={styles.stateCell}></td>
+                    <td colSpan={7} className={styles.stateCell}>
                       No admins match your search.
                     </td>
                   </tr>
@@ -382,6 +387,7 @@ export default function AdminDashboard() {
                 )}
               </tbody>
             </table>
+            </div>
           </div>
         </section>
 

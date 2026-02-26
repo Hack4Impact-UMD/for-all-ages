@@ -108,6 +108,7 @@ export interface AdminRecord {
     email: string
     phoneNumber?: string | null
     address?: string | null
+    user_type?: string | null
     status?: string | null
     university?: string | null
 }
