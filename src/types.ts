@@ -110,6 +110,7 @@ export interface AdminRecord {
     address?: string | null
     status?: string | null
     university?: string | null
+    user_type?: any
 }
 
 /** Banner message for success/error feedback */
