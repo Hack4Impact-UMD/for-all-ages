@@ -106,7 +106,7 @@ export default function Rematching() {
       setLoading(true);
       setLoadError(null);
 
-      const matchesRef = collection(db, "matches-test");
+      const matchesRef = collection(db, "matches");
       const allMatchesSnap = await getDocs(matchesRef);
 
       const pendingParticipantIds = new Set<string>();
@@ -135,7 +135,7 @@ export default function Rematching() {
       setApprovedCount(approvedMatchesCount);
 
       // Fetch all participants
-      const participantsRef = collection(db, "participants-test2");
+      const participantsRef = collection(db, "participants");
       const participantsSnap = await getDocs(participantsRef);
 
       const studentsList: RematchingParticipant[] = [];
@@ -286,7 +286,7 @@ export default function Rematching() {
       setSaving(true);
       setLoadError(null);
 
-      const matchesRef = collection(db, "matches-test");
+      const matchesRef = collection(db, "matches");
 
       // 1) Load all current matches so we know which ones to delete
       const allMatchesSnap = await getDocs(matchesRef);

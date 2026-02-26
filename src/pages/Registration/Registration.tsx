@@ -227,7 +227,7 @@ const Registration = () => {
     try {
       const docRef = doc(db, "participants", user.uid);
       // For testing purposes
-      const docTest = doc(db, "participants-test2", user.uid);
+      const docTest = doc(db, "participants", user.uid);
       const dataToWrite = participant
         ? payload
         : { ...payload, createdAt: timestamp };
