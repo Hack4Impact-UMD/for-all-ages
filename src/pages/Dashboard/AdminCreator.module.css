@@ -119,16 +119,44 @@
 }
 
 .tableScroll {
-  max-height: 32rem;
-  overflow-y: auto;
   overflow-x: auto;
 }
 
 .table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 720px;
+  min-width: 850px;
+  table-layout: fixed;
 }
+
+.table thead {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+  scrollbar-gutter: stable;
+}
+
+.table tbody {
+  display: block;
+  max-height: 32rem;
+  overflow-y: auto;
+  width: 100%;
+  scrollbar-gutter: stable;
+}
+
+.table tbody tr {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+}
+
+.colName { width: 16%; }
+.colRole { width: 12%; }
+.colEmail { width: 22%; }
+.colPhone { width: 14%; }
+.colAddress { width: 19%; }
+.colGroup { width: 11%; }
+.colDelete { width: 6%; text-align: center; }
 
 .table thead th {
   background: #0f6bb1;
@@ -137,9 +165,6 @@
   text-align: left;
   padding: 0.85rem 1.15rem;
   font-size: 0.95rem;
-  position: sticky;
-  top: 0;
-  z-index: 1;
 }
 
 .table tbody td {
@@ -147,6 +172,7 @@
   border-bottom: 1px solid rgba(15, 107, 177, 0.12);
   font-size: 0.95rem;
   color: #0f172a;
+  word-wrap: break-word;
 }
 
 .table tbody tr:nth-child(even) {
@@ -158,6 +184,8 @@
   padding: 2.5rem 1rem;
   color: #0f172a;
   font-weight: 500;
+  width: 100%;
+  display: block;
 }
 
 .stateRow {
@@ -515,6 +543,12 @@
     display: none;
   }
 
+  .table tbody {
+    display: block;
+    max-height: none;
+    overflow-y: visible;
+  }
+
   .table tbody tr {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -528,6 +562,7 @@
     display: flex;
     flex-direction: column;
     font-size: 0.9rem;
+    width: auto !important;
   }
 
   .table tbody td[data-label]::before {

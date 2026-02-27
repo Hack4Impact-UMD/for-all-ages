@@ -303,13 +303,13 @@ export default function AdminDashboard() {
             <table className={styles.table}>
               <thead>
                 <tr>
-                  <th scope="col">Name</th>
-                  <th scope="col">Role</th>
-                  <th scope="col">Email</th>
-                  <th scope="col">Phone Number</th>
-                  <th scope="col">Address</th>
-                  <th scope="col">Group</th>
-                  <th scope="col" className={styles.deleteColumnHeader} aria-label="Delete user" />
+                  <th scope="col" className={styles.colName}>Name</th>
+                  <th scope="col" className={styles.colRole}>Role</th>
+                  <th scope="col" className={styles.colEmail}>Email</th>
+                  <th scope="col" className={styles.colPhone}>Phone Number</th>
+                  <th scope="col" className={styles.colAddress}>Address</th>
+                  <th scope="col" className={styles.colGroup}>Group</th>
+                  <th scope="col" className={styles.colDelete} aria-label="Delete user" />
                 </tr>
               </thead>
               <tbody>
@@ -334,15 +334,15 @@ export default function AdminDashboard() {
                 ) : (
                   filteredAdmins.map((admin) => (
                     <tr key={admin.id}>
-                      <td data-label="Name">{admin.name}</td>
-                      <td data-label="Role">
+                      <td data-label="Name" className={styles.colName}>{admin.name}</td>
+                      <td data-label="Role" className={styles.colRole}>
                         {admin.role === "Admin"
                           ? "Admin"
                           : admin.role === "Subadmin"
                             ? "Sub-admin"
                             : "Participant"}
                       </td>
-                      <td data-label="Email">
+                      <td data-label="Email" className={styles.colEmail}>
                         {admin.email ? (
                           <a
                             href={`mailto:${admin.email}`}
@@ -354,18 +354,18 @@ export default function AdminDashboard() {
                           "—"
                         )}
                       </td>
-                      <td data-label="Phone Number">
+                      <td data-label="Phone Number" className={styles.colPhone}>
                         {admin.phoneNumber || "—"}
                       </td>
-                      <td data-label="Address">{admin.address || "—"}</td>
-                      <td data-label="Group">
+                      <td data-label="Address" className={styles.colAddress}>{admin.address || "—"}</td>
+                      <td data-label="Group" className={styles.colGroup}>
                         {admin.role === "Participant" && admin.user_type ? (
                           <span>{admin.user_type}</span>
                         ) : (
                           <span>—</span>
                         )}
                       </td>
-                      <td data-label="Delete" className={styles.deleteCell}>
+                      <td data-label="Delete" className={`${styles.deleteCell} ${styles.colDelete}`}>
                         <button
                           type="button"
                           className={styles.deleteButton}
