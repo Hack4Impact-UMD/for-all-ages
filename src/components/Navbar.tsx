@@ -13,16 +13,6 @@ interface NavbarProps {
   navItems?: NavItem[];
 }
 
-function isAdminRole(role?: string | null): boolean {
-  if (!role) return false;
-  const normalised = role.toLowerCase();
-  return (
-    normalised === "admin" ||
-    normalised === "subadmin" ||
-    normalised === "sub-admin"
-  );
-}
-
 const ADMIN_NAV_ITEMS: NavItem[] = [
   { label: "Roadmap", path: "/admin/dashboard" },
   { label: "Matching", path: "/admin/main" },
@@ -42,7 +32,7 @@ const DEFAULT_NAV_ITEMS: NavItem[] = [
 
 export default function Navbar({ navItems }: NavbarProps) {
   const location = useLocation();
-  const { participant, participantLoading } = useAuth();
+  const { participant, participantLoading, isAdmin } = useAuth();
 
   // Automatically determine navItems based on user type if not provided
   const determinedNavItems = useMemo(() => {
@@ -52,9 +42,6 @@ export default function Navbar({ navItems }: NavbarProps) {
     if (participantLoading) {
       return DEFAULT_NAV_ITEMS;
     }
-
-    const role = (participant as { role?: string | null } | null)?.role ?? null;
-    const isAdmin = participant && isAdminRole(role);
 
     // Return appropriate navItems based on user type
     if (isAdmin) {
@@ -67,7 +54,7 @@ export default function Navbar({ navItems }: NavbarProps) {
   return (
     <div className={styles.bar}>
       <div className={styles.logoContainer}>
-        <Link to="/" className={styles.logoLink}>
+        <Link to={`/${isAdmin ? "admin":"user"}/dashboard`} className={styles.logoLink}>
           <img src={Logo} alt="For All Ages Logo" className={styles.logo} />
         </Link>
       </div>
