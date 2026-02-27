@@ -19,7 +19,6 @@ import {
 } from "../../services/adminAccounts";
 import { friendlyAuthError } from "../../services/auth";
 import type { Role, ParticipantDoc, RawAddress, AdminRecord, BannerState } from "../../types";
-import { FaTrash } from "react-icons/fa";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
