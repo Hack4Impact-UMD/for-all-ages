@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import styles from "./PreProgram.module.css";
 import { useNavigate } from "react-router-dom";
 import SearchIcon from "@mui/icons-material/Search";
+import SettingsIcon from '@mui/icons-material/Settings';
 import AutorenewIcon from "@mui/icons-material/Autorenew";
 import SendIcon from "@mui/icons-material/Send";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
@@ -14,6 +15,7 @@ import {
   type ProgramState,
 } from "../../services/programState";
 import type { BackendMatch, UI_Match, MatchStatus } from "../../types";
+import SettingsPopup from "./SettingsPopup";
 
 const APPROVAL_THRESHOLD = 0.8; // 80%
 
@@ -27,6 +29,7 @@ const PreProgram = () => {
   const [startingProgram, setStartingProgram] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
   const [confirmAction, setConfirmAction] = useState<"start" | "finalize" | null>(null);
+  const [settingsPopup, setSettingsPopup] = useState(false)
 
   const navigate = useNavigate();
 
@@ -406,6 +409,13 @@ const PreProgram = () => {
               ? "Locking..."
               : "Lock In All Matches"}
           </button>
+          <button
+            onClick={() => setSettingsPopup(true)}
+            className={styles.adminBtn}
+          >
+            <SettingsIcon className={styles.icon} />
+            Program Settings
+          </button>
           <button onClick={handleMatch} className={styles.rematchBtn} disabled={matching}>
             <AutorenewIcon className={styles.icon} />
             {matching ? 'Creating...' : 'Create Matches'}
@@ -518,6 +528,7 @@ const PreProgram = () => {
           </tbody>
         </table>
       </div>
+      <SettingsPopup isOpened={settingsPopup} close={()=>{setSettingsPopup(false)}} program={programState} setProgram = {setProgramState}></SettingsPopup>
     </div>
   );
 };
