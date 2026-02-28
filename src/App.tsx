@@ -13,7 +13,7 @@ import AdminDashboard from "./pages/Dashboard/AdminDashboard";
 import AdminCreator from "./pages/Dashboard/AdminCreator";
 import MatchedDashboard from "./pages/Dashboard/MatchedDashboard";
 import LoginSignup from "./pages/Login/Login-Signup";
-import Registration from "./pages/Registration/Registration";
+import Registration from "./pages/Registration/RegistrationNew";
 import Profile from "./pages/Profile/Profile";
 import RecapPage from "./pages/Recap/RecapPage";
 import Rematching from "./pages/Rematching/Rematching";
