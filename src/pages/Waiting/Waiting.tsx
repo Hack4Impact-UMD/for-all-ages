@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/AuthProvider";
 import styles from "./Waiting.module.css";
 
@@ -10,10 +11,21 @@ type ParticipantProfile = {
   lastName?: string | null;
 };
 
-function buildGreetingName(participant: ParticipantProfile | null, fallbackEmail?: string | null) {
+type ProgramState = {
+  matches_final: boolean;
+  started: boolean;
+};
+
+function buildGreetingName(
+  participant: ParticipantProfile | null,
+  fallbackEmail?: string | null,
+) {
   const candidate =
     participant?.displayName?.trim() ||
-    [participant?.firstName, participant?.lastName].filter(Boolean).join(" ").trim() ||
+    [participant?.firstName, participant?.lastName]
+      .filter(Boolean)
+      .join(" ")
+      .trim() ||
     fallbackEmail?.split("@")[0] ||
     "there";
 
@@ -24,12 +36,32 @@ function buildGreetingName(participant: ParticipantProfile | null, fallbackEmail
 }
 
 export default function Waiting() {
-  const { user, participant, loading, participantLoading } = useAuth();
+  const {
+    user,
+    participant,
+    loading,
+    participantLoading,
+    programState,
+    programStateLoading,
+  } = useAuth() as {
+    user: any;
+    participant: ParticipantProfile | null;
+    loading: boolean;
+    participantLoading: boolean;
+    programState: ProgramState | null;
+    programStateLoading: boolean;
+  };
+
+  const navigate = useNavigate();
 
   const participantProfile = (participant as ParticipantProfile | null) ?? null;
 
   const greetingName = useMemo(
-    () => buildGreetingName(participantProfile, user?.displayName ?? user?.email ?? null),
+    () =>
+      buildGreetingName(
+        participantProfile,
+        user?.displayName ?? user?.email ?? null,
+      ),
     [participantProfile, user?.displayName, user?.email],
   );
 
@@ -43,7 +75,46 @@ export default function Waiting() {
     window.location.href = mailto;
   };
 
-  const isLoading = loading || participantLoading;
+  const isLoading = loading || participantLoading || programStateLoading;
+
+  // 🔒 If program has fully started, waiting page should not be accessible.
+  useEffect(() => {
+    if (!programState || isLoading) return;
+
+    if (programState.matches_final && programState.started) {
+      // Change "/dashboard" to whatever your main app route is.
+      navigate("/dashboard", { replace: true });
+    }
+  }, [programState, isLoading, navigate]);
+
+  // Decide which message to show based on programState
+  let statusTitle = "";
+  let statusBody = "";
+
+  if (programState) {
+    const { matches_final, started } = programState;
+
+    if (!matches_final && !started) {
+      // State 1: waiting, match NOT revealed yet
+      statusTitle = "We’re still finalizing matches";
+      statusBody =
+        "Thank you for filling out the registration form! We’re still working on finalizing everyone’s matches. You’ll receive an update as soon as your match is ready.";
+    } else if (!matches_final && started) {
+      // State 1: waiting, match NOT revealed yet
+      statusTitle = "We’re still finalizing matches";
+      statusBody =
+        "Thank you for filling out the registration form! We’re still working on finalizing everyone’s matches. You’ll receive an update as soon as your match is ready.";
+    } else if (matches_final && !started) {
+      // State 2: match revealed, program not started
+      statusTitle = "Your match has been set!";
+      statusBody =
+        "Your match has been finalized. You’ll get full access to the program once it officially starts. Keep an eye on your email for the start date and next steps.";
+    } else if (matches_final && started) {
+      // State 3: should be handled by
+      statusTitle = "Redirecting you to your dashboard…";
+      statusBody = "";
+    }
+  }
 
   return (
     <div className={styles.page}>
@@ -57,16 +128,19 @@ export default function Waiting() {
             </div>
             <section className={styles.messageWrapper}>
               <div className={styles.messageCard}>
-                <p className={styles.messageText}>
-                  Thank you for filling out the registration form!
-                  <br />
-                  We will get back to you soon regarding further details on the program!
-                </p>
+                {statusTitle && (
+                  <h2 className={styles.statusTitle}>{statusTitle}</h2>
+                )}
+                <p className={styles.messageText}>{statusBody}</p>
               </div>
             </section>
           </>
         )}
-        <button type="button" className={styles.messageButton} onClick={handleMessageAdmins}>
+        <button
+          type="button"
+          className={styles.messageButton}
+          onClick={handleMessageAdmins}
+        >
           <span className={styles.messageIcon} aria-hidden="true">
             <svg viewBox="0 0 24 24" focusable="false" role="presentation">
               <path
