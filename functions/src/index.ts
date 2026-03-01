@@ -206,6 +206,14 @@ export const deleteUser = onCall(async (request) => {
   }
 
   try {
+    const targetDocRef = db.collection(PARTICIPANTS).doc(trimmedTargetId);
+    await targetDocRef.delete();
+  } catch (err) {
+    console.error("Error deleteUser (firestore):", err);
+    errors.push(`Firestore: ${err}`);
+  }
+
+  try {
     const matchesRef = db.collection("matches");
 
     let snapshot = await matchesRef
@@ -213,7 +221,7 @@ export const deleteUser = onCall(async (request) => {
       .limit(1)
       .get();
 
-    //if not found, check participant2
+    //check participant2 if not found yet
     if (snapshot.empty) {
       snapshot = await matchesRef
         .where("participant2_id", "==", trimmedTargetId)
@@ -221,38 +229,9 @@ export const deleteUser = onCall(async (request) => {
         .get();
     }
 
-    //delete doc
     if (!snapshot.empty) {
       await snapshot.docs[0].ref.delete();
     }
-
-  } catch (err) {
-    console.error("Error deleteUser (matches):", err);
-    errors.push(`Matches: ${err}`);
-  }
-
-  //delete match collection
-  try {
-    const matchesRef = db.collection("matches");
-
-    const q1 = await matchesRef
-      .where("participant1_id", "==", trimmedTargetId)
-      .get();
-    const q2 = await matchesRef
-      .where("participant2_id", "==", trimmedTargetId)
-      .get();
-
-    const batch = db.batch();
-
-    q1.forEach((doc) => {
-      batch.delete(doc.ref);
-    });
-
-    q2.forEach((doc) => {
-      batch.delete(doc.ref);
-    });
-
-    await batch.commit();
 
   } catch (err) {
     console.error("Error deleteUser (matches):", err);
