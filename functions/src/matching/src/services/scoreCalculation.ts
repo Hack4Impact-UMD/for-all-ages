@@ -162,6 +162,11 @@ function normalizePronoun(pronoun?: string): string | undefined {
   if (lower.includes('she') || lower.includes('her')) {
     return 'she/her';
   }
+
+  // Other
+  if (lower.includes('other')) {
+    return 'other';
+  }
   
   // He/Him variations
   if (lower.includes('he') || lower.includes('him')) {
