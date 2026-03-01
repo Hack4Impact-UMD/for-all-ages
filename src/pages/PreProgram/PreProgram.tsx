@@ -426,21 +426,21 @@ const PreProgram = () => {
       }
 
       // Delete all docs in each collection (Firestore has no "delete collection" API)
-      // for (const colName of COLLECTIONS_TO_CLEAR) {
-      //   const snap = await getDocs(collection(db, colName));
-      //   const batch = writeBatch(db);
-      //   snap.docs.forEach((d) => batch.delete(d.ref));
-      //   await batch.commit();
-      // }
+      for (const colName of COLLECTIONS_TO_CLEAR) {
+        const snap = await getDocs(collection(db, colName));
+        const batch = writeBatch(db);
+        snap.docs.forEach((d) => batch.delete(d.ref));
+        await batch.commit();
+      }
 
       // Reset config doc
-      // const configRef = doc(db, "config", "programState");
-      // await setDoc(configRef, {
-      //   matches_final: false,
-      //   started: false,
-      //   updatedAt: serverTimestamp(),
-      //   week: 0,
-      // });
+      const configRef = doc(db, "config", "programState");
+      await setDoc(configRef, {
+        matches_final: false,
+        started: false,
+        updatedAt: serverTimestamp(),
+        week: 0,
+      });
 
       // Clear local state
       setMatches([]);
