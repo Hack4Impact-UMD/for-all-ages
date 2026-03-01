@@ -39,7 +39,8 @@ export { analytics };
 
 // FUNCTIONS
 const MATCHING_URL =
-  "https://us-central1-for-all-ages-8a4e2.cloudfunctions.net/matchAll";
+  "https://us-central1-for-all-ages-8a4e2.cloudfunctions.net/matchAllWithGender";
+  // "https://us-central1-for-all-ages-8a4e2.cloudfunctions.net/matchAll";
 export async function matchAll(body: any = {}) {
   const res = await fetch(MATCHING_URL, {
     method: "POST",
@@ -57,7 +58,7 @@ export async function matchAll(body: any = {}) {
 
 const UPSERT_USER_URL =
   "https://us-central1-for-all-ages-8a4e2.cloudfunctions.net/upsertUser";
-export async function upsertUser(body: { uid: string; freeResponse: string; q1: number, q2: number, q3: number, user_type: string }) {
+export async function upsertUser(body: { uid: string; freeResponse: string; q1: number, q2: number, q3: number, user_type: string, pronouns: string }) {
   const res = await fetch(UPSERT_USER_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

@@ -7,7 +7,8 @@ export async function upsertFreeResponse(
   q1: number,
   q2: number,
   q3: number,
-  user_type: string
+  user_type: string,
+  pronouns?: string
 ): Promise<void> {
   logger.info(`Upserting free response for uid=${uid}`);
 
@@ -52,6 +53,7 @@ export async function upsertFreeResponse(
         q2: q2,
         q3: q3,
         user_type,
+        pronouns: pronouns || "",
       },
     };
 

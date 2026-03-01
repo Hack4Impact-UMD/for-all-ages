@@ -218,6 +218,7 @@ const Registration = () => {
           q2: form.preferenceScores.q2,
           q3: form.preferenceScores.q3,
           user_type: form.user_type,
+          pronouns: form.pronouns,
         });
       } catch (fnErr) {
         console.error("upsertUser cloud function failed:", fnErr);
