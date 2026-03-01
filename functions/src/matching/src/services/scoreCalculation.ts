@@ -153,19 +153,19 @@ function normalizePronoun(pronoun?: string): string | undefined {
   
   const lower = pronoun.toLowerCase().trim();
   
-  // He/Him variations
-  if (lower.includes('he') || lower.includes('him')) {
-    return 'he/him';
+  // They/Them variations (check FIRST - most specific, contains 'he')
+  if (lower.includes('they') || lower.includes('them')) {
+    return 'they/them';
   }
   
-  // She/Her variations
+  // She/Her variations (check BEFORE he/him since "she" contains "he")
   if (lower.includes('she') || lower.includes('her')) {
     return 'she/her';
   }
   
-  // They/Them variations
-  if (lower.includes('they') || lower.includes('them')) {
-    return 'they/them';
+  // He/Him variations
+  if (lower.includes('he') || lower.includes('him')) {
+    return 'he/him';
   }
   
   // Default to 'other' for anything else
