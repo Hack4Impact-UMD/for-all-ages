@@ -28,6 +28,10 @@ export function calculateAllPairwiseScores(
   for (const student of students) {
     for (const senior of seniors) {
       try {
+        if (!arePronounsCompatible(student.pronouns, senior.pronouns)) {
+          continue; // Skip this pair entirely
+        }
+
         // Calculate FRQ score (embedding similarity)
         const frqScore = cosineSimilarity(student.embedding, senior.embedding);
         
@@ -142,4 +146,47 @@ export function getTopMatchesForParticipant(
   return relevantScores
     .sort((a, b) => b.finalScore - a.finalScore)
     .slice(0, topN);
+}
+
+function normalizePronoun(pronoun?: string): string | undefined {
+  if (!pronoun) return undefined;
+  
+  const lower = pronoun.toLowerCase().trim();
+  
+  // He/Him variations
+  if (lower.includes('he') || lower.includes('him')) {
+    return 'he/him';
+  }
+  
+  // She/Her variations
+  if (lower.includes('she') || lower.includes('her')) {
+    return 'she/her';
+  }
+  
+  // They/Them variations
+  if (lower.includes('they') || lower.includes('them')) {
+    return 'they/them';
+  }
+  
+  // Default to 'other' for anything else
+  return 'other';
+}
+
+function arePronounsCompatible(pronoun1?: string, pronoun2?: string): boolean {
+  // Normalize pronouns
+  const norm1 = normalizePronoun(pronoun1);
+  const norm2 = normalizePronoun(pronoun2);
+  
+  // If either is missing or 'Other', they're compatible
+  if (!norm1 || !norm2 || norm1 === 'other' || norm2 === 'other') {
+    return true;
+  }
+
+  // They/Them is compatible with everything
+  if (norm1 === 'they/them' || norm2 === 'they/them') {
+    return true;
+  }
+
+  // Otherwise, they must be exactly the same
+  return norm1 === norm2;
 }
