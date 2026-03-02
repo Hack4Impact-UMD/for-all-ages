@@ -308,3 +308,14 @@ input:-webkit-autofill:active {
   margin-top: 0.5rem;
   font-weight: 500;
 }
+
+.section {
+  margin-bottom: 2rem;
+}
+
+.sectionTitle {
+  font-size: 38px;
+  color: white;
+  margin-bottom: 1rem;
+  margin-top: 0;
+}

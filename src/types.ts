@@ -232,6 +232,44 @@ export interface ErrorState {
     address?: string
 }
 
+/** Question type for dynamic form rendering */
+export type QuestionType =
+  | "short_input"
+  | "medium_input"
+  | "long_input"
+  | "Dropdown"
+  | "Slider"
+  | "Radio"
+  | "Date"
+  | "phoneNumber"
+  | "text"
+  | "multiple"
+  | "address"
+  | "profilePicture";
+
+/** Single question in a dynamic form */
+export interface Question {
+  type: QuestionType;
+  title: string;
+  description?: string;
+  options?: string[];
+  min?: number;
+  max?: number;
+  required: boolean;
+  matchable: boolean;
+}
+
+/** Section containing questions in a dynamic form */
+export interface Section {
+  title?: string;
+  questions: Question[];
+}
+
+/** Root form definition for dynamic form rendering */
+export interface Form {
+  sections: Section[];
+}
+
 /** Partner card display (MatchedDashboard) */
 export interface PartnerInfo {
     id: string
