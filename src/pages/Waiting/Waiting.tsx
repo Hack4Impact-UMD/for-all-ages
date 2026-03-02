@@ -77,13 +77,11 @@ export default function Waiting() {
 
   const isLoading = loading || participantLoading || programStateLoading;
 
-  // 🔒 If program has fully started, waiting page should not be accessible.
   useEffect(() => {
     if (!programState || isLoading) return;
 
     if (programState.matches_final && programState.started) {
-      // Change "/dashboard" to whatever your main app route is.
-      navigate("/dashboard", { replace: true });
+      navigate("/user/dashboard", { replace: true });
     }
   }, [programState, isLoading, navigate]);
 
