@@ -56,7 +56,7 @@ export default function MatchedDashboard() {
 
         const userMatch = matches[0];
         setMatch(userMatch);
-        setSelectedDay(userMatch.day_of_call);
+        setSelectedDay(userMatch.day_of_call >= 1 ? userMatch.day_of_call : 1);
 
         const partnerId = getPartnerId(userMatch, user.uid);
         

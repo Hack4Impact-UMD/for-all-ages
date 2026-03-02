@@ -59,6 +59,22 @@
     flex: 1;
 }
 
+.pendingCard {
+    background: #ffffff;
+    border-radius: 1rem;
+    box-shadow: 0 8px 24px rgba(15, 107, 177, 0.1);
+    overflow: hidden;
+}
+
+.pendingList {
+    max-height: 200px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    padding: 1rem;
+}
+
 @media (max-width: 860px) {
     .scheduleCard {
         padding: 1.25rem;

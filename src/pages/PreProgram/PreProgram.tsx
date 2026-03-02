@@ -265,7 +265,7 @@ const PreProgram = () => {
 
       const newDocRef = doc(colRef);
       writeBatchRef.set(newDocRef, {
-        day_of_call: 0,
+        day_of_call: -1,
         participant1_id: m.participant1_id,
         participant2_id: m.participant2_id,
         similarity: m.confidence,
