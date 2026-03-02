@@ -125,6 +125,8 @@ export interface ProgramState {
     started: boolean
     matches_final: boolean
     week: number
+    maxParticipants: number
+    numWeeks: number
 }
 
 /** PreProgram match row status */
