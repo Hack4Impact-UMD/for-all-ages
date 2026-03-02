@@ -7,8 +7,10 @@ import { db } from "../../firebase";
 
 // ---------------------------------------------------------------------------
 // Small input components (uncontrolled; no submission logic)
+// Each of these simply renders an appropriate HTML input element.
 // ---------------------------------------------------------------------------
 
+// renders a single-line text input limited to 160 characters
 function ShortInput({
   name,
   required,
@@ -28,7 +30,7 @@ function ShortInput({
     />
   );
 }
-
+// renders a single-line text input limited to 320 characters
 function MediumInput({
   name,
   required,
@@ -48,7 +50,7 @@ function MediumInput({
     />
   );
 }
-
+// renders a single-line text input limited to 1000 characters
 function LongInput({
   name,
   required,
@@ -96,7 +98,7 @@ function DropdownInput({
     </select>
   );
 }
-
+// slider for preferences (e.g., prefer quiet - prefer social)
 function SliderInput({
   name,
   min,
@@ -154,6 +156,7 @@ function RadioInput({
   );
 }
 
+// date picker that prevents selecting future dates
 function DateInput({
   name,
   required,
@@ -168,16 +171,18 @@ function DateInput({
     <input
       type="date"
       name={name}
-      max={today}
+      max={today} // disallow future birth dates, etc.
       required={required}
       className={`${styles.dob} ${className ?? ""}`}
     />
   );
 }
 
+// composite component for phone entry with confirmation and inline validation
 function PhoneNumberInput({name, required}: {name: string; required: boolean;}) {
   const [phone, setPhone] = useState("");
   const [confirmPhone, setConfirmPhone] = useState("");
+  // validation flags for user feedback
   const isPhoneInvalid = phone !== "" && !phoneNumberRegex.test(phone);
   
   const isConfirmInvalid =
@@ -229,6 +234,7 @@ function PhoneNumberInput({name, required}: {name: string; required: boolean;}) 
   );
 }
 
+// displays static text label and optional description
 function TextDisplay({
   title,
   description,
@@ -248,6 +254,7 @@ function TextDisplay({
   );
 }
 
+// renders a group of checkboxes allowing multiple selections
 function MultipleInput({
   name,
   options,
@@ -277,6 +284,7 @@ const ADDRESS_FIELDS = [
   { key: "country", label: "Country" },
 ] as const;
 
+// constructs a multi-field address input, splitting street vs other details
 function AddressInput({
   namePrefix,
   required,
@@ -330,7 +338,8 @@ function ProfilePictureInput({ name }: { name: string }) {
 }
 
 // ---------------------------------------------------------------------------
-// Question renderer: maps question.type to the right UI
+// Question renderer: selects appropriate input based on a question's type
+// and wraps it with the question's label/description markup
 // ---------------------------------------------------------------------------
 
 function QuestionRenderer({
@@ -340,8 +349,11 @@ function QuestionRenderer({
   question: Question;
   name: string;
 }) {
+  // destructure to simplify access below
   const { type, title, description, options, min, max, required } = question;
-  const requiredMark = "";
+  const requiredMark = ""; // placeholder for future asterisk logic
+
+  // common label section shown above every input
   const labelContent = (
     <>
       <span className={styles.label}>
@@ -358,6 +370,7 @@ function QuestionRenderer({
 
   switch (type) {
     case "short_input":
+      // simple text field
       return (
         <label className={styles.label}>
           {labelContent}
@@ -416,8 +429,10 @@ function QuestionRenderer({
         </label>
       );
     case "phoneNumber":
+      // phone input includes its own labels/descriptions internally
       return <PhoneNumberInput name={name} required={required} />;
     case "text":
+      // purely informational text block
       return (
         <TextDisplay title={title + requiredMark} description={description} />
       );
@@ -455,6 +470,7 @@ function QuestionRenderer({
         </label>
       );
     default:
+      // fallback to short input if type isn't recognized
       return (
         <label className={styles.label}>
           {labelContent}
@@ -465,7 +481,8 @@ function QuestionRenderer({
 }
 
 // ---------------------------------------------------------------------------
-// Form renderer: loops sections and questions
+// Form renderer: iterates over sections and delegates each question to
+// QuestionRenderer with a unique name identifier.
 // ---------------------------------------------------------------------------
 
 function FormRenderer({ form }: { form: Form }) {
@@ -481,7 +498,7 @@ function FormRenderer({ form }: { form: Form }) {
             <QuestionRenderer
               key={questionIndex}
               question={question}
-              name={`s${sectionIndex}_q${questionIndex}`}
+              name={`s${sectionIndex}_q${questionIndex}`} // unique field name
             />
           ))}
         </div>
@@ -491,13 +508,16 @@ function FormRenderer({ form }: { form: Form }) {
 }
 
 // ---------------------------------------------------------------------------
-// Main page component
+// Main page component handles loading the form data from Firestore and
+// conditionally rendering the form or status messages.
 // ---------------------------------------------------------------------------
 
 const RegistrationNew = () => {
+  // local state for the fetched configuration
   const [form, setForm] = useState<Form | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // on mount, pull the form schema from Firestore
   useEffect(() => {
     const fetchForm = async () => {
       try {
@@ -523,6 +543,8 @@ const RegistrationNew = () => {
   if (loading) return <p>Loading...</p>;
   if (!form) return <p>Form not found.</p>;
 
+  // once loaded, render the dynamic form; submission is disabled
+  // until real handling is added elsewhere
   return (
     <form id={styles.page} onSubmit={(e) => e.preventDefault()}>
       <FormRenderer form={form} />
