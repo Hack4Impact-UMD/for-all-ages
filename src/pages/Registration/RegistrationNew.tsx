@@ -1,100 +1,9 @@
 import styles from "./Registration.module.css";
 import { phoneNumberRegex } from "../../regex";
-import type { Form, Question } from "../../types";
-import { useState } from "react";
-
-// ---------------------------------------------------------------------------
-// Sample form data (drive the form from this object)
-// ---------------------------------------------------------------------------
-
-const SAMPLE_FORM: Form = {
-  sections: [
-    {
-      title: "Contact Information",
-      questions: [
-        {
-          type: "address",
-          title: "Current Mailing Address",
-          required: true,
-          matchable: false,
-        },
-        {
-          type: "phoneNumber",
-          title: "Phone Number",
-          description: "We'll use this to coordinate matches.",
-          required: true,
-          matchable: false,
-        },
-        {
-          type: "short_input",
-          title: "Email",
-          required: true,
-          matchable: false,
-        },
-      ],
-    },
-    {
-      title: "About You",
-      questions: [
-        {
-          type: "Date",
-          title: "Date of Birth",
-          required: true,
-          matchable: false,
-        },
-        {
-          type: "short_input",
-          title: "Preferred Pronouns",
-          required: true,
-          matchable: false,
-        },
-        {
-          type: "Dropdown",
-          title: "How did you hear about this program?",
-          options: [
-            "Social Media",
-            "Word-of-mouth",
-            "Referral",
-            "Returning member",
-            "Advertisement",
-            "Other",
-          ],
-          required: true,
-          matchable: false,
-        },
-        {
-          type: "Radio",
-          title: "Are you a college student or an adult?",
-          options: ["Student", "Adult"],
-          required: true,
-          matchable: false,
-        },
-        {
-          type: "long_input",
-          title: "What are your interests?",
-          description: "This will help us pair you with your Tea-mate!",
-          required: true,
-          matchable: true,
-        },
-        {
-          type: "Radio",
-          title: "What type of tea do you prefer?",
-          options: ["Black", "Green", "Herbal", "Variety"],
-          required: true,
-          matchable: true,
-        },
-        {
-          type: "Slider",
-          title: "How much do you enjoy quiet conversation?",
-          min: 1,
-          max: 5,
-          required: false,
-          matchable: true,
-        },
-      ],
-    },
-  ],
-};
+import type { Form, Question, Section } from "../../types";
+import { useState, useEffect } from "react";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "../../firebase";
 
 // ---------------------------------------------------------------------------
 // Small input components (uncontrolled; no submission logic)
@@ -266,18 +175,14 @@ function DateInput({
   );
 }
 
-function PhoneNumberInput({
-  name,
-  required,
-}: {
-  name: string;
-  required: boolean;
-}) {
+function PhoneNumberInput({name, required}: {name: string; required: boolean;}) {
   const [phone, setPhone] = useState("");
   const [confirmPhone, setConfirmPhone] = useState("");
   const isPhoneInvalid = phone !== "" && !phoneNumberRegex.test(phone);
+  
   const isConfirmInvalid =
     confirmPhone !== "" && !phoneNumberRegex.test(confirmPhone);
+  
   const isMismatch =
     phone !== "" && confirmPhone !== "" && phone !== confirmPhone;
 
@@ -390,9 +295,7 @@ function AddressInput({
       <div id={styles.addr_street}>
         {streetFields.map((f) => (
           <label key={f.key} className={styles.sublabel}>
-            {f.key === "line1" && (
-              <span className={styles.label}>Current Mailing Address</span>
-            )}
+            {f.key === "line1"}
             <input
               type="text"
               name={`${namePrefix}.${f.key}`}
@@ -438,7 +341,7 @@ function QuestionRenderer({
   name: string;
 }) {
   const { type, title, description, options, min, max, required } = question;
-  const requiredMark = required ? " *" : "";
+  const requiredMark = "";
   const labelContent = (
     <>
       <span className={styles.label}>
@@ -513,20 +416,7 @@ function QuestionRenderer({
         </label>
       );
     case "phoneNumber":
-      return (
-        <>
-          <span className={styles.label}>
-            {title}
-            {requiredMark}
-          </span>
-          {description && (
-            <span className={styles.helpText} style={{ marginTop: "0.25rem" }}>
-              {description}
-            </span>
-          )}
-          <PhoneNumberInput name={name} required={required} />
-        </>
-      );
+      return <PhoneNumberInput name={name} required={required} />;
     case "text":
       return (
         <TextDisplay title={title + requiredMark} description={description} />
@@ -545,10 +435,15 @@ function QuestionRenderer({
     case "address":
       return (
         <>
-          <span className={styles.label}>
-            {title}
-            {requiredMark}
-          </span>
+          <div style={{ display: "flex", alignItems: "baseline", gap: "0.5rem" }}>
+            <span className={styles.label}>{title}{requiredMark}</span>
+            {description && (
+              <span className={styles.helpText}>
+                ({description})
+              </span>
+            )}
+            
+          </div>
           <AddressInput namePrefix={name} required={required} />
         </>
       );
@@ -576,15 +471,12 @@ function QuestionRenderer({
 function FormRenderer({ form }: { form: Form }) {
   return (
     <>
-      {form.sections.map((section, sectionIndex) => (
+      {form.sections.map((section: Section, sectionIndex) => (
         <div
           key={sectionIndex}
           className={styles.section}
           style={{ marginTop: sectionIndex > 0 ? "2.5rem" : 0 }}
         >
-          {section.title && (
-            <h2 className={styles.sectionTitle}>{section.title}</h2>
-          )}
           {section.questions.map((question, questionIndex) => (
             <QuestionRenderer
               key={questionIndex}
@@ -603,9 +495,37 @@ function FormRenderer({ form }: { form: Form }) {
 // ---------------------------------------------------------------------------
 
 const RegistrationNew = () => {
+  const [form, setForm] = useState<Form | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchForm = async () => {
+      try {
+        const docRef = doc(db, "config", "registrationForm");
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          console.log(JSON.stringify(docSnap.data(), null, 2));
+          setForm(docSnap.data() as Form);
+        } else {
+          console.error("No registrationForm document found");
+        }
+      } catch (err) {
+        console.error("Error fetching form:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchForm();
+  }, []);
+
+  // Show loading or form loading error
+  if (loading) return <p>Loading...</p>;
+  if (!form) return <p>Form not found.</p>;
+
   return (
     <form id={styles.page} onSubmit={(e) => e.preventDefault()}>
-      <FormRenderer form={SAMPLE_FORM} />
+      <FormRenderer form={form} />
       <button id={styles.submit} type="submit" disabled>
         Submit
       </button>
