@@ -15,6 +15,7 @@ type AuthCtx = {
   participant: Record<string, unknown> | null;
   participantLoading: boolean;
   refreshUser: () => Promise<void>;
+  isAdmin: boolean;
 };
 const AuthContext = createContext<AuthCtx>({
   user: null,
@@ -24,6 +25,7 @@ const AuthContext = createContext<AuthCtx>({
   participant: null,
   participantLoading: true,
   refreshUser: async () => {},
+  isAdmin: false
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -90,9 +92,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(auth.currentUser);
   }, []);
 
+  function isAdminRole(role?: string | null) {
+    if (!role) return false;
+    const normalised = role.toLowerCase();
+    return (
+      normalised === "admin" ||
+      normalised === "subadmin" ||
+      normalised === "sub-admin"
+    );
+  }
+
   // Memoize the context value & prevent unnecessary re-renders
-  const contextValue = useMemo<AuthCtx>(
-    () => ({
+  const contextValue = useMemo<AuthCtx>(() => {
+    const role = (participant as { role?: string | null } | null)?.role ?? null;
+
+    return {
       user,
       loading,
       emailVerified: !!user?.emailVerified,
@@ -100,9 +114,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       participant,
       participantLoading,
       refreshUser,
-    }),
-    [claims, loading, participant, participantLoading, refreshUser, user],
-  );
+      isAdmin: isAdminRole(role), 
+    };
+  }, [
+    claims,
+    loading,
+    participant,
+    participantLoading,
+    refreshUser,
+    user,
+  ]);
 
   return (
     <AuthContext.Provider value={contextValue}>
