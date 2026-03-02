@@ -214,6 +214,31 @@ export const deleteUser = onCall(async (request) => {
   }
 
   try {
+    const matchesRef = db.collection("matches");
+
+    let snapshot = await matchesRef
+      .where("participant1_id", "==", trimmedTargetId)
+      .limit(1)
+      .get();
+
+    //check participant2 if not found yet
+    if (snapshot.empty) {
+      snapshot = await matchesRef
+        .where("participant2_id", "==", trimmedTargetId)
+        .limit(1)
+        .get();
+    }
+
+    if (!snapshot.empty) {
+      await snapshot.docs[0].ref.delete();
+    }
+
+  } catch (err) {
+    console.error("Error deleteUser (matches):", err);
+    errors.push(`Matches: ${err}`);
+  }
+
+  try {
     await deleteUserFromPinecone(trimmedTargetId);
   } catch (err) {
     console.error("Error deleteUser (pinecone):", err);
