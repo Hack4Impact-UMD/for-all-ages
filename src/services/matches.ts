@@ -20,7 +20,7 @@ function documentToMatch(doc: QueryDocumentSnapshot<DocumentData>): Match & { id
     id: doc.id,
     participant1_id: data.participant1_id,
     participant2_id: data.participant2_id,
-    day_of_call: typeof data.day_of_call === 'number' ? data.day_of_call : 1, // Default to Monday (1) if missing/invalid
+    day_of_call: typeof data.day_of_call === 'number' ? data.day_of_call : -1, // Default to -1 (not yet set) if missing/invalid
     similarity: data.similarity,
   };
 }

@@ -299,7 +299,7 @@ export default function Rematching() {
         participant1_id: selectedStudent.id,
         participant2_id: selectedAdult.id,
         status: "approved",
-        day_of_call: 0,
+        day_of_call: -1,
         similarity: matchPercentage != null ? Math.round(matchPercentage) : null,
       });
 
