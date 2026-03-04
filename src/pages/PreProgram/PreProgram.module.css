@@ -50,9 +50,9 @@
 
 .adminBtn,
 .rematchBtn {
-    background-color: #ffffff;
-    color: #127bbe;
-    border: none;
+  background-color: #ffffff;
+  color: #127bbe;
+  border: none;
   border-radius: 9999px;
   padding: 8px 20px;
   font-family: "Merriweather", serif;
@@ -68,16 +68,129 @@
 
 .adminBtn:hover,
 .rematchBtn:hover {
-    background-color: #e6eef8;
-    transform: translateY(-1px);
+  background-color: #e6eef8;
+  transform: translateY(-1px);
 }
 
 .adminBtn:disabled,
 .rematchBtn:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Export Data button – white with blue text, same family as adminBtn */
+.exportBtn {
+  background-color: #ffffff;
+  color: #127bbe;
+  border: 2px solid #127bbe;
+  border-radius: 9999px;
+  padding: 8px 20px;
+  font-family: "Merriweather", serif;
+  font-weight: 600;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.exportBtn:hover:not(:disabled) {
+  background-color: #e6eef8;
+  transform: translateY(-1px);
+}
+
+.exportBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* End Program button – red destructive style */
+.endProgramBtn {
+  background-color: #e53935;
+  color: #ffffff;
+  border: none;
+  border-radius: 9999px;
+  padding: 8px 20px;
+  font-family: "Merriweather", serif;
+  font-weight: 700;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+}
+
+.endProgramBtn:hover:not(:disabled) {
+  background-color: #c62828;
+  transform: translateY(-1px);
+}
+
+.endProgramBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Confirm button inside the End Program popup */
+.endProgramConfirmBtn {
+  background-color: #e53935;
+  color: #ffffff;
+  border: none;
+  border-radius: 999px;
+  padding: 8px 18px;
+  font-family: "Merriweather", serif;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.2s ease;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+}
+
+.endProgramConfirmBtn:hover:not(:disabled) {
+  background-color: #c62828;
+  transform: translateY(-1px);
+}
+
+.endProgramConfirmBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Text input inside End Program popup */
+.endConfirmInput {
+  width: 100%;
+  max-width: 260px;
+  padding: 8px 14px;
+  border-radius: 9999px;
+  border: 2px solid rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  font-family: "Merriweather", serif;
+  font-size: 15px;
+  outline: none;
+  text-align: center;
+  transition: border-color 0.2s ease;
+  box-sizing: border-box;
+}
+
+.endConfirmInput::placeholder {
+  color: rgba(255, 255, 255, 0.55);
+  font-style: italic;
+}
+
+.endConfirmInput:focus {
+  border-color: #ffffff;
+  background: rgba(255, 255, 255, 0.22);
 }
 
 .icon {
@@ -85,109 +198,109 @@
 }
 
 .rematchActive {
-    opacity: 0.9;
+  opacity: 0.9;
 }
 
 .stateError {
-    color: #ffdede;
-    font-size: 0.9rem;
-    margin-top: 6px;
-    text-align: right;
+  color: #ffdede;
+  font-size: 0.9rem;
+  margin-top: 6px;
+  text-align: right;
 }
 
 .confirmOverlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.35);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-    padding: 16px;
-    animation: fadeIn 180ms ease;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+  animation: fadeIn 180ms ease;
 }
 
 .confirmCard {
-    background: #127bbe;
-    color: #ffffff;
-    border-radius: 16px;
-    padding: 24px 28px;
-    width: min(520px, 100%);
-    text-align: center;
-    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
-    font-family: "Merriweather", serif;
-    transform: translateY(6px) scale(0.98);
-    opacity: 0;
-    animation: popIn 200ms ease forwards;
+  background: #127bbe;
+  color: #ffffff;
+  border-radius: 16px;
+  padding: 24px 28px;
+  width: min(520px, 100%);
+  text-align: center;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+  font-family: "Merriweather", serif;
+  transform: translateY(6px) scale(0.98);
+  opacity: 0;
+  animation: popIn 200ms ease forwards;
 }
 
 .confirmTitle {
-    margin: 0 0 6px;
-    font-size: 26px;
-    font-weight: 700;
+  margin: 0 0 6px;
+  font-size: 26px;
+  font-weight: 700;
 }
 
 .confirmText {
-    margin: 0 0 18px;
-    font-size: 16px;
-    font-weight: 500;
-    color: white;
+  margin: 0 0 18px;
+  font-size: 16px;
+  font-weight: 500;
+  color: white;
 }
 
 .confirmActions {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
 }
 
 .cancelButton {
-    background: #d1d1d1;
-    color: #333;
-    border: none;
-    border-radius: 999px;
-    padding: 8px 18px;
-    font-family: "Merriweather", serif;
-    font-weight: 600;
-    cursor: pointer;
-    transition: transform 0.1s ease, box-shadow 0.2s ease;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  background: #d1d1d1;
+  color: #333;
+  border: none;
+  border-radius: 999px;
+  padding: 8px 18px;
+  font-family: "Merriweather", serif;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.2s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
 .confirmButton {
-    background: #ffffff;
-    color: #127bbe;
-    border: none;
-    border-radius: 999px;
-    padding: 8px 18px;
-    font-family: "Merriweather", serif;
-    font-weight: 700;
-    cursor: pointer;
-    transition: transform 0.1s ease, box-shadow 0.2s ease;
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+  background: #ffffff;
+  color: #127bbe;
+  border: none;
+  border-radius: 999px;
+  padding: 8px 18px;
+  font-family: "Merriweather", serif;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.2s ease;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
 }
 
 .cancelButton:hover:not(:disabled),
 .confirmButton:hover:not(:disabled) {
-    transform: translateY(-1px);
+  transform: translateY(-1px);
 }
 
 .cancelButton:disabled,
 .confirmButton:disabled {
-    opacity: 0.7;
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @keyframes popIn {
-    from { opacity: 0; transform: translateY(10px) scale(0.96); }
-    to { opacity: 1; transform: translateY(0) scale(1); }
+  from { opacity: 0; transform: translateY(10px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .container {
