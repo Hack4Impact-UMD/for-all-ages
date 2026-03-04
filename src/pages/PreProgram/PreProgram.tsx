@@ -29,10 +29,10 @@ const DEV_MODE = true; // ← flip to false before deploying to production
 
 // Collections to wipe on End Program
 const COLLECTIONS_TO_CLEAR = [
-  "participants-test2",
+  "participants",
+  "matches",
   "logs",
   "weeks",
-  "matches-test",
 ];
 
 const PreProgram = () => {
@@ -351,8 +351,8 @@ const PreProgram = () => {
   const handleExportData = async () => {
     try {
       const exportCollections = [
-        "participants-test2",
-        "matches-test",
+        "participants",
+        "matches",
         "logs",
         "weeks",
       ];
