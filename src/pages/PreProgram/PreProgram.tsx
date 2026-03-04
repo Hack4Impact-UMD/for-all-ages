@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import styles from "./PreProgram.module.css";
 import { useNavigate } from "react-router-dom";
 import SearchIcon from "@mui/icons-material/Search";
+import SettingsIcon from '@mui/icons-material/Settings';
 import AutorenewIcon from "@mui/icons-material/Autorenew";
 import SendIcon from "@mui/icons-material/Send";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
@@ -23,6 +24,7 @@ import {
   type ProgramState,
 } from "../../services/programState";
 import type { BackendMatch, UI_Match, MatchStatus } from "../../types";
+import SettingsPopup from "./SettingsPopup";
 
 const APPROVAL_THRESHOLD = 0.8; // 80%
 const DEV_MODE = true; // ← flip to false before deploying to production
@@ -41,7 +43,9 @@ const PreProgram = () => {
   const [matching, setMatching] = useState(false);
   const [programState, setProgramState] = useState<ProgramState | null>(null);
   const [programStateLoading, setProgramStateLoading] = useState(true);
-  const [programStateError, setProgramStateError] = useState<string | null>(null);
+  const [programStateError, setProgramStateError] = useState<string | null>(
+    null,
+  );
   const [startingProgram, setStartingProgram] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
   const [confirmAction, setConfirmAction] = useState<"start" | "finalize" | "endProgram" | null>(null);
@@ -50,6 +54,8 @@ const PreProgram = () => {
   const [endConfirmText, setEndConfirmText] = useState("");
   const [endingProgram, setEndingProgram] = useState(false);
   const [endProgramError, setEndProgramError] = useState<string | null>(null);
+
+  const [settingsPopup, setSettingsPopup] = useState(false)
 
   const navigate = useNavigate();
 
@@ -65,7 +71,7 @@ const PreProgram = () => {
     };
     return [...list].sort((a, b) => order[a.status] - order[b.status]);
   };
-  
+
   useEffect(() => {
     const unsubscribe = subscribeToProgramState(
       (state) => {
@@ -76,12 +82,11 @@ const PreProgram = () => {
         console.error("Failed to subscribe to program state", err);
         setProgramStateError("Unable to load program state.");
         setProgramStateLoading(false);
-      }
+      },
     );
 
     return unsubscribe;
   }, []);
-
 
   /**
    * Convert backend match results + unmatched arrays into UI_Match rows.
@@ -89,7 +94,7 @@ const PreProgram = () => {
   const convertMatches = async (
     rawMatches: BackendMatch[],
     unmatchedStudents: string[],
-    unmatchedSeniors: string[]
+    unmatchedSeniors: string[],
   ): Promise<UI_Match[]> => {
     const pairRows: UI_Match[] = await Promise.all(
       rawMatches.map(async (m) => {
@@ -110,7 +115,7 @@ const PreProgram = () => {
           status,
           score: m.scores.finalScore,
         };
-      })
+      }),
     );
 
     const unmatchedStudentRows: UI_Match[] = await Promise.all(
@@ -125,7 +130,7 @@ const PreProgram = () => {
           status: "No Match",
           score: 0,
         };
-      })
+      }),
     );
 
     const unmatchedSeniorRows: UI_Match[] = await Promise.all(
@@ -140,7 +145,7 @@ const PreProgram = () => {
           status: "No Match",
           score: 0,
         };
-      })
+      }),
     );
 
     return [...pairRows, ...unmatchedStudentRows, ...unmatchedSeniorRows];
@@ -178,8 +183,8 @@ const PreProgram = () => {
               similarity >= 80
                 ? "Approved"
                 : similarity > 0
-                ? "Pending"
-                : "No Match";
+                  ? "Pending"
+                  : "No Match";
           }
 
           return {
@@ -192,7 +197,7 @@ const PreProgram = () => {
             score: similarity / 100,
             matchId: d.id,
           };
-        })
+        }),
       );
 
       loadedPairs.push(...pairRows);
@@ -264,14 +269,15 @@ const PreProgram = () => {
     const withIds: UI_Match[] = [];
 
     list.forEach((m) => {
-      if (!m.participant1_id || !m.participant2_id) {
-        withIds.push(m);
+      // Skip unmatched rows (no Firestore doc)
+      if (m.status === "No Match" || !m.participant1_id || !m.participant2_id) {
+        withIds.push({ ...m, matchId: undefined });
         return;
       }
 
       const newDocRef = doc(colRef);
       writeBatchRef.set(newDocRef, {
-        day_of_call: 0,
+        day_of_call: -1,
         participant1_id: m.participant1_id,
         participant2_id: m.participant2_id,
         similarity: m.confidence,
@@ -299,19 +305,19 @@ const PreProgram = () => {
       const converted = await convertMatches(
         rawMatches,
         unmatchedStudents,
-        unmatchedSeniors
+        unmatchedSeniors,
       );
 
       const storedWithIds = await storeMatches(converted);
       const sorted = sortMatches(storedWithIds);
       setMatches(sorted);
     } catch (err) {
-      console.error('Error creating matches:', err);
+      console.error("Error creating matches:", err);
     } finally {
       setMatching(false);
     }
   };
-  
+
   // handlers for program state buttons
   const handleStartProgram = async () => {
     try {
@@ -456,12 +462,46 @@ const PreProgram = () => {
 
   const handleStatusChange = async (
     index: number,
-    newStatus: MatchStatus
+    newStatus: MatchStatus | "Separate",
   ) => {
     const updated = [...matches];
     const match = updated[index];
 
     if (match.status === "No Match") return;
+
+    // Handles the deletion of the match and update Firebase statuses
+    if (newStatus === "Separate") {
+      if (match.matchId) {
+        const newUnmatchedStudent: UI_Match = {
+          name1: match.name1,
+          name2: "No match yet",
+          participant1_id: match.participant1_id,
+          participant2_id: null,
+          confidence: undefined,
+          status: "No Match",
+          score: 0,
+        };
+
+        const newUnmatchedSenior: UI_Match = {
+          name1: "No match yet",
+          name2: match.name2,
+          participant1_id: null,
+          participant2_id: match.participant2_id,
+          confidence: undefined,
+          status: "No Match",
+          score: 0,
+        };
+
+        const newUpdated = updated.filter((m) => m.matchId !== match.matchId);
+        newUpdated.push(newUnmatchedStudent, newUnmatchedSenior);
+        setMatches(sortMatches(newUpdated));
+
+        const deleteMatchRef = doc(db, "matches", match.matchId);
+        await deleteDoc(deleteMatchRef);
+      }
+
+      return;
+    }
 
     match.status = newStatus;
     setMatches(sortMatches(updated));
@@ -476,7 +516,7 @@ const PreProgram = () => {
   const filteredMatches = matches.filter(
     (m) =>
       m.name1.toLowerCase().includes(search.toLowerCase()) ||
-      m.name2.toLowerCase().includes(search.toLowerCase())
+      m.name2.toLowerCase().includes(search.toLowerCase()),
   );
 
   // global bools for program state
@@ -507,8 +547,8 @@ const PreProgram = () => {
             {programStarted
               ? "Program Started"
               : startingProgram
-              ? "Starting..."
-              : "Start Program"}
+                ? "Starting..."
+                : "Start Program"}
           </button>
           <button
             onClick={() => setConfirmAction("finalize")}
@@ -519,13 +559,26 @@ const PreProgram = () => {
             {matchesFinalized
               ? "Matches Locked"
               : finalizing
-              ? "Locking..."
-              : "Lock In All Matches"}
+                ? "Locking..."
+                : "Lock In All Matches"}
           </button>
-          <button onClick={handleMatch} className={styles.rematchBtn} disabled={matching}>
+          <button
+            onClick={() => setSettingsPopup(true)}
+            className={styles.adminBtn}
+          >
+            <SettingsIcon className={styles.icon} />
+            Program Settings
+          </button>
+
+          <button
+            onClick={handleMatch}
+            className={styles.rematchBtn}
+            disabled={matching}
+          >
             <AutorenewIcon className={styles.icon} />
-            {matching ? 'Creating...' : 'Create Matches'}
+            {matching ? "Creating..." : "Create Matches"}
           </button>
+
           <button
             className={styles.adminBtn}
             onClick={() => navigate("/admin/rematching")}
@@ -683,9 +736,7 @@ const PreProgram = () => {
                 <tr key={i}>
                   <td>{m.name1}</td>
                   <td>{m.name2}</td>
-                  <td>
-                    {m.confidence != null ? `${m.confidence}%` : "—"}
-                  </td>
+                  <td>{m.confidence != null ? `${m.confidence}%` : "—"}</td>
                   <td>
                     {m.status === "No Match" ? (
                       <span className={`${styles.noMatch}`}>No Match</span>
@@ -693,7 +744,7 @@ const PreProgram = () => {
                       <select
                         value={m.status}
                         onChange={(e) =>
-                          handleStatusChange(i, e.target.value as MatchStatus)
+                          handleStatusChange(i, e.target.value as MatchStatus | "Separate")
                         }
                         className={`${styles.status} ${
                           m.status === "Approved"
@@ -703,6 +754,7 @@ const PreProgram = () => {
                       >
                         <option value="Pending">Pending</option>
                         <option value="Approved">Approved</option>
+                        <option value="Separate">Separate</option>
                       </select>
                     )}
                   </td>
@@ -712,6 +764,7 @@ const PreProgram = () => {
           </tbody>
         </table>
       </div>
+      <SettingsPopup isOpened={settingsPopup} close={()=>{setSettingsPopup(false)}} program={programState} setProgram = {setProgramState}></SettingsPopup>
     </div>
   );
 };
