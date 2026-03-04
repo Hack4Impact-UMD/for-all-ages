@@ -123,7 +123,8 @@ export default function AdminDashboard() {
      const todayDayOfWeek = today.getDay(); // 0-6
 
      allMatches.forEach((match) => {
-       const programDayRaw = match.day_of_call; 
+       if (match.day_of_call < 1) return; // Don't show on roadmap until user has set a day
+       const programDayRaw = match.day_of_call;
        const programDay = programDayRaw === 7 ? 0 : programDayRaw; // 0-6 (Sun-Sat)
        const dayKey = DAY_LABELS[programDay];
 
@@ -211,6 +212,28 @@ export default function AdminDashboard() {
               </div>
             </div>
           )}
+
+          <h2 className={layoutStyles.sectionHeading}>Pending</h2>
+          <div className={adminStyles.pendingCard}>
+            <div className={adminStyles.pendingList}>
+              {allMatches.filter((m) => m.day_of_call < 1).length === 0 ? (
+                <div className={adminStyles.emptyDay}>No pending matches</div>
+              ) : (
+                allMatches
+                  .filter((m) => m.day_of_call < 1)
+                  .map((match) => (
+                    <PersonTag
+                      key={match.id}
+                      names={[
+                        participantNames[match.participant1_id] || "Loading...",
+                        participantNames[match.participant2_id] || "Loading...",
+                      ]}
+                      variant="gold"
+                    />
+                  ))
+              )}
+            </div>
+          </div>
         </section>
       </div>
 
