@@ -2,6 +2,7 @@ export interface ParticipantWithEmbedding {
   id: string;
   name: string;
   type: 'young' | 'older' | string;
+  pronouns?: string;
   embedding: number[];
   q1?: number;
   q2?: number;
