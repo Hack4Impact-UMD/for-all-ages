@@ -96,6 +96,10 @@ export default function Waiting() {
       statusTitle = "Redirecting you to your dashboard…";
       statusBody = "";
     }
+  } else {
+    statusTitle = "Program information unavailable";
+    statusBody =
+      "We’re unable to load program details right now. Please try again or contact support.";
   }
 
   return (
