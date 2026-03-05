@@ -158,10 +158,6 @@ function App() {
         <Route element={<MainLayout />}>
           <Route path="/registration" element={<RegistrationGate />} />
           <Route path="/waiting" element={<Waiting />} />
-          <Route
-            path={"/registration"}
-            element={<Registration></Registration>}
-          ></Route>
           <Route path={"/profile"} element={<Profile></Profile>}></Route>
 
           <Route path="/user/*" element={<ParticipantGate />}>
