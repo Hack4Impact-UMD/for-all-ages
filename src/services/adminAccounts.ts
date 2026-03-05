@@ -3,18 +3,9 @@ import type { FirebaseApp } from "firebase/app";
 import { createUserWithEmailAndPassword, getAuth, sendPasswordResetEmail, signOut } from "firebase/auth";
 import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { auth, db } from "../firebase";
-import type { Role } from "../types";
+import type { Role, InviteAdminParams } from "../types";
 
 export type AdminRole = Role;
-
-// Parameters required to invite a new admin account
-export type InviteAdminParams = {
-  firstName: string;
-  lastName: string;
-  email: string;
-  role: AdminRole;
-  university?: string | null;
-};
 
 type SecondaryAuthBundle = {
   app: FirebaseApp;

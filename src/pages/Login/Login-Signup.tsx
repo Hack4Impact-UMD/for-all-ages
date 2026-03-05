@@ -48,6 +48,7 @@ function LoginSignup() {
   const [loginLoading, setLoginLoading] = useState(false);
   const [signupLoading, setSignupLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
+  const {isAdmin} = useAuth()
 
   //verification panel if a user is signed in but not yet verified
   const needsVerification = useMemo(
@@ -66,6 +67,8 @@ function LoginSignup() {
     if (!emailVerified) return;
     if (!participant) {
       navigate("/registration", { replace: true });
+    } else if (isAdmin) {
+      navigate("/admin/dashboard", { replace: true });
     } else {
       navigate("/user/dashboard", { replace: true });
     }

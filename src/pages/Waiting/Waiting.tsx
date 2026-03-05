@@ -1,20 +1,10 @@
 import { useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/AuthProvider";
+import type { ParticipantProfile, ProgramState, User } from "../../types";
 import styles from "./Waiting.module.css";
 
 const ADMIN_EMAIL = "info@forallages.org";
-
-type ParticipantProfile = {
-  displayName?: string | null;
-  firstName?: string | null;
-  lastName?: string | null;
-};
-
-type ProgramState = {
-  matches_final: boolean;
-  started: boolean;
-};
 
 function buildGreetingName(
   participant: ParticipantProfile | null,
@@ -35,6 +25,15 @@ function buildGreetingName(
   return firstWord.charAt(0).toUpperCase() + firstWord.slice(1);
 }
 
+type AuthState = {
+  user: User | null;
+  participant: ParticipantProfile | null;
+  loading: boolean;
+  participantLoading: boolean;
+  programState: ProgramState | null;
+  programStateLoading: boolean;
+};
+
 export default function Waiting() {
   const {
     user,
@@ -43,26 +42,14 @@ export default function Waiting() {
     participantLoading,
     programState,
     programStateLoading,
-  } = useAuth() as {
-    user: any;
-    participant: ParticipantProfile | null;
-    loading: boolean;
-    participantLoading: boolean;
-    programState: ProgramState | null;
-    programStateLoading: boolean;
-  };
+  } = useAuth() as AuthState;
 
   const navigate = useNavigate();
 
-  const participantProfile = (participant as ParticipantProfile | null) ?? null;
-
   const greetingName = useMemo(
     () =>
-      buildGreetingName(
-        participantProfile,
-        user?.displayName ?? user?.email ?? null,
-      ),
-    [participantProfile, user?.displayName, user?.email],
+      buildGreetingName(participant, user?.displayName ?? user?.email ?? null),
+    [participant, user?.displayName, user?.email],
   );
 
   const handleMessageAdmins = () => {
@@ -71,7 +58,9 @@ export default function Waiting() {
     const body = user?.email
       ? encodeURIComponent(`Hi Admin Team,\n\nThis is ${user.email}.`)
       : "";
-    const mailto = `mailto:${ADMIN_EMAIL}?subject=${subject}${body ? `&body=${body}` : ""}`;
+    const mailto = `mailto:${ADMIN_EMAIL}?subject=${subject}${
+      body ? `&body=${body}` : ""
+    }`;
     window.location.href = mailto;
   };
 
@@ -85,7 +74,6 @@ export default function Waiting() {
     }
   }, [programState, isLoading, navigate]);
 
-  // Decide which message to show based on programState
   let statusTitle = "";
   let statusBody = "";
 
@@ -93,22 +81,18 @@ export default function Waiting() {
     const { matches_final, started } = programState;
 
     if (!matches_final && !started) {
-      // State 1: waiting, match NOT revealed yet
       statusTitle = "We’re still finalizing matches";
       statusBody =
         "Thank you for filling out the registration form! We’re still working on finalizing everyone’s matches. You’ll receive an update as soon as your match is ready.";
     } else if (!matches_final && started) {
-      // State 1: waiting, match NOT revealed yet
       statusTitle = "We’re still finalizing matches";
       statusBody =
         "Thank you for filling out the registration form! We’re still working on finalizing everyone’s matches. You’ll receive an update as soon as your match is ready.";
     } else if (matches_final && !started) {
-      // State 2: match revealed, program not started
       statusTitle = "Your match has been set!";
       statusBody =
         "Your match has been finalized. You’ll get full access to the program once it officially starts. Keep an eye on your email for the start date and next steps.";
     } else if (matches_final && started) {
-      // State 3: should be handled by
       statusTitle = "Redirecting you to your dashboard…";
       statusBody = "";
     }

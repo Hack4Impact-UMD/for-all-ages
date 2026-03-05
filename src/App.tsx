@@ -50,8 +50,14 @@ function ProgramGate({ children }: { children: React.ReactNode }) {
 }
 
 function RegistrationGate() {
-  const { user, loading, emailVerified, participant, participantLoading } =
-    useAuth();
+  const {
+    user,
+    loading,
+    emailVerified,
+    participant,
+    participantLoading,
+    isAdmin,
+  } = useAuth();
   const location = useLocation();
   const role = (participant as { role?: string | null } | null)?.role ?? null;
 
@@ -67,7 +73,7 @@ function RegistrationGate() {
     return <Navigate to="/" replace />;
   }
 
-  if (role && isAdminRole(role)) {
+  if (role && isAdmin) {
     return <Navigate to="/admin/" replace />;
   }
 
@@ -108,19 +114,15 @@ function ParticipantGate() {
   return <Outlet />;
 }
 
-function isAdminRole(role?: string | null) {
-  if (!role) return false;
-  const normalised = role.toLowerCase();
-  return (
-    normalised === "admin" ||
-    normalised === "subadmin" ||
-    normalised === "sub-admin"
-  );
-}
-
 function AdminGate() {
-  const { user, loading, emailVerified, participant, participantLoading } =
-    useAuth();
+  const {
+    user,
+    loading,
+    emailVerified,
+    participant,
+    participantLoading,
+    isAdmin,
+  } = useAuth();
   const location = useLocation();
 
   if (loading || participantLoading) {
@@ -135,9 +137,7 @@ function AdminGate() {
     return <Navigate to="/" replace />;
   }
 
-  const role = (participant as { role?: string | null } | null)?.role ?? null;
-
-  if (!participant || !isAdminRole(role)) {
+  if (!participant || !isAdmin) {
     const destination =
       (participant as { type?: string } | null)?.type === "Participant"
         ? "/user/dashboard"

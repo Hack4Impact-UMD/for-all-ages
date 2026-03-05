@@ -4,16 +4,7 @@ import { useAuth } from '../../auth/AuthProvider';
 import { getMatchesByParticipant, getPartnerId, updateMatchDayOfWeek } from '../../services/matches';
 import { db } from '../../firebase';
 import styles from './MatchedDashboard.module.css';
-import type { Match } from '../../types';
-
-interface PartnerInfo {
-  id: string;
-  name: string;
-  displayName: string;
-  email: string;
-  phone_number: string;
-  user_type: string;
-}
+import type { Match, PartnerInfo } from '../../types';
 
 const DAYS_OF_WEEK = [
   { value: 1, label: 'Monday' },
@@ -65,7 +56,7 @@ export default function MatchedDashboard() {
 
         const userMatch = matches[0];
         setMatch(userMatch);
-        setSelectedDay(userMatch.day_of_call);
+        setSelectedDay(userMatch.day_of_call >= 1 ? userMatch.day_of_call : 1);
 
         const partnerId = getPartnerId(userMatch, user.uid);
         

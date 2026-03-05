@@ -10,85 +10,102 @@ import {
 import type { ReactNode } from "react";
 import { onAuthStateChanged, getIdTokenResult } from "firebase/auth";
 import type { User } from "firebase/auth";
-import { auth, db } from "../firebase";
 import { doc, onSnapshot, type Unsubscribe } from "firebase/firestore";
 
-type ProgramState = {
-  matches_final: boolean;
-  started: boolean;
-};
+import { auth, db } from "../firebase";
+import type { ParticipantDoc, ProgramState } from "../types";
 
-// Define the shape of the authentication context
+type AuthClaims = Record<string, unknown>;
+
+function isAdminRole(role?: string | null) {
+  if (!role) return false;
+  const normalized = role.toLowerCase();
+  return (
+    normalized === "admin" ||
+    normalized === "subadmin" ||
+    normalized === "sub-admin"
+  );
+}
+
 type AuthCtx = {
   user: User | null;
   loading: boolean;
   emailVerified: boolean;
-  claims?: Record<string, any>;
-  participant: Record<string, unknown> | null;
+  claims: AuthClaims | undefined;
+  participant: ParticipantDoc | null;
   participantLoading: boolean;
-  refreshUser: () => Promise<void>;
   programState: ProgramState | null;
   programStateLoading: boolean;
+  refreshUser: () => Promise<void>;
+  isAdmin: boolean;
 };
+
 const AuthContext = createContext<AuthCtx>({
   user: null,
   loading: true,
   emailVerified: false,
   claims: undefined,
+
   participant: null,
   participantLoading: true,
-  refreshUser: async () => {},
+
   programState: null,
   programStateLoading: true,
+
+  refreshUser: async () => {},
+  isAdmin: false,
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [claims, setClaims] = useState<Record<string, any> | undefined>(
-    undefined,
-  );
+  const [claims, setClaims] = useState<AuthClaims | undefined>(undefined);
   const [loading, setLoading] = useState(true);
-  const [participant, setParticipant] = useState<Record<
-    string,
-    unknown
-  > | null>(null);
+
+  const [participant, setParticipant] = useState<ParticipantDoc | null>(null);
   const [participantLoading, setParticipantLoading] = useState(true);
+
   const [programState, setProgramState] = useState<ProgramState | null>(null);
   const [programStateLoading, setProgramStateLoading] = useState(true);
 
+  // Firebase Auth subscription
   useEffect(() => {
-    // Subscribes to Firebase Auth
     const unsub = onAuthStateChanged(auth, async (u) => {
       setUser(u);
+
       if (u) {
         const token = await getIdTokenResult(u, true);
-        setClaims(token.claims as any);
+        setClaims(token.claims as AuthClaims);
       } else {
         setClaims(undefined);
       }
+
       setLoading(false);
     });
+
     return unsub;
   }, []);
 
+  // Participant profile subscription
   useEffect(() => {
     let unsubscribe: Unsubscribe | undefined;
-    // no user or the user’s email isn’t verified, don’t load a profile
+
     if (!user || !user.emailVerified) {
       setParticipant(null);
       setParticipantLoading(false);
-      return () => {
-        if (unsubscribe) unsubscribe();
-      };
+      return () => unsubscribe?.();
     }
 
     setParticipantLoading(true);
+
     const docRef = doc(db, "participants", user.uid);
     unsubscribe = onSnapshot(
       docRef,
       (snapshot) => {
         if (snapshot.exists()) {
-          setParticipant({ id: snapshot.id, ...snapshot.data() });
+          setParticipant({
+            id: snapshot.id,
+            ...(snapshot.data() as ParticipantDoc),
+          });
         } else {
           setParticipant(null);
         }
@@ -101,35 +118,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
     );
 
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
+    return () => unsubscribe?.();
   }, [user]);
 
+  // Program state subscription
   useEffect(() => {
     let unsubscribe: Unsubscribe | undefined;
 
-    // if you only want participants w/ verified email to respect the config:
     if (!user || !user.emailVerified) {
       setProgramState(null);
       setProgramStateLoading(false);
-      return () => {
-        if (unsubscribe) unsubscribe();
-      };
+      return () => unsubscribe?.();
     }
 
     setProgramStateLoading(true);
 
-    const docRef = doc(db, "config", "programState"); // <-- adjust path if needed
+    const docRef = doc(db, "config", "programState");
     unsubscribe = onSnapshot(
       docRef,
       (snapshot) => {
-        if (snapshot.exists()) {
-          // snapshot.data() should contain { matches_final: boolean, started: boolean }
-          setProgramState(snapshot.data() as ProgramState);
-        } else {
-          setProgramState(null);
-        }
+        setProgramState(
+          snapshot.exists() ? (snapshot.data() as ProgramState) : null,
+        );
         setProgramStateLoading(false);
       },
       (error) => {
@@ -139,42 +149,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
     );
 
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
+    return () => unsubscribe?.();
   }, [user]);
 
-  // Forces a fresh fetch of the current user
   const refreshUser = useCallback(async () => {
     if (!auth.currentUser) return;
     await auth.currentUser.reload();
     setUser(auth.currentUser);
   }, []);
 
-  // Memoize the context value & prevent unnecessary re-renders
-  const contextValue = useMemo<AuthCtx>(
-    () => ({
+  const contextValue = useMemo<AuthCtx>(() => {
+    const role = participant?.role ?? null;
+
+    return {
       user,
       loading,
       emailVerified: !!user?.emailVerified,
       claims,
+
       participant,
       participantLoading,
-      refreshUser,
+
       programState,
       programStateLoading,
-    }),
-    [
-      claims,
-      loading,
-      participant,
-      participantLoading,
+
       refreshUser,
-      user,
-      programState,
-      programStateLoading,
-    ],
-  );
+      isAdmin: isAdminRole(role),
+    };
+  }, [
+    user,
+    loading,
+    claims,
+    participant,
+    participantLoading,
+    programState,
+    programStateLoading,
+    refreshUser,
+  ]);
 
   return (
     <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>
