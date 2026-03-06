@@ -1,6 +1,5 @@
 import styles from './PersonTag.module.css'
-
-type PersonTagVariant = 'rose' | 'green' | 'gold'
+import type { PersonTagVariant } from '../../../../types'
 
 interface PersonTagProps {
     names: string[] | string
