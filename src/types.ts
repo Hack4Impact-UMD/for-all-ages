@@ -46,6 +46,39 @@ export interface Logs {
     concerns: string
 }
 
+export interface UserProfile {
+    uid: string;
+    name: string;
+    email: string;
+    pronouns: string;
+    phone: string;
+    birthday: string;
+
+    addressLine1: string;
+    addressCity: string;
+    addressState: string;
+    addressPostalCode: string;
+    addressCountry: string;
+
+    interests: string;
+    startDate: string;
+    endDate: string;
+    status: string;
+    matchName?: string;
+    matchInterests?: string;
+}
+
+export interface ErrorState {
+    email?: string;
+    phone?: string;
+    birthday?: string;
+    addressLine1?: string;
+    addressCity?: string;
+    addressState?: string;
+    addressPostalCode?: string;
+    addressCountry?: string;
+}
+
 
 
 

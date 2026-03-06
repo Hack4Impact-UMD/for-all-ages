@@ -14,41 +14,9 @@ import { auth, db } from "../../firebase";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 import { getMatchesByParticipant, getPartnerId } from "../../services/matches";
+import type { ErrorState, UserProfile } from "../../types";
 import EmailReauthModal from "./components/EmailReauthModal/EmailReauthModal";
 import MatchInterestsModal from "./components/MatchInterestsModal/MatchInterestsModal";
-
-interface UserProfile {
-  uid: string;
-  name: string;
-  email: string;
-  pronouns: string;
-  phone: string;
-  birthday: string;
-
-  addressLine1: string;
-  addressCity: string;
-  addressState: string;
-  addressPostalCode: string;
-  addressCountry: string;
-
-  interests: string;
-  startDate: string;
-  endDate: string;
-  status: string;
-  matchName?: string;
-  matchInterests?: string;
-}
-
-type ErrorState = {
-  email?: string;
-  phone?: string;
-  birthday?: string;
-  addressLine1?: string;
-  addressCity?: string;
-  addressState?: string;
-  addressPostalCode?: string;
-  addressCountry?: string;
-};
 
 // normalize birthday to MM/DD/YYYY for profile display/edit
 const toDisplayBirthday = (raw: string | undefined | null): string => {
