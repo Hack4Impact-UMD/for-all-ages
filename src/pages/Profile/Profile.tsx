@@ -10,7 +10,6 @@ import {
   EmailAuthProvider,
   verifyBeforeUpdateEmail,
 } from "firebase/auth";
-import type { User as FirebaseUser } from "firebase/auth";
 import { auth, db } from "../../firebase";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
@@ -51,27 +50,53 @@ type ErrorState = {
   addressCountry?: string;
 };
 
-// convert birthday to same format as firebase
-const normalizeBirthday = (raw: string | undefined | null): string => {
+// normalize birthday to MM/DD/YYYY for profile display/edit
+const toDisplayBirthday = (raw: string | undefined | null): string => {
   if (!raw) return "";
-  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
-  const m = raw.match(
-    /^(0[1-9]|1[0-2])[/\-](0[1-9]|[12]\d|3[01])[/\-](\d{4})$/,
-  );
+  if (/^(0[1-9]|1[0-2])\/(0[1-9]|[12]\d|3[01])\/\d{4}$/.test(raw)) {
+    return raw;
+  }
+
+  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (iso) {
+    const [, yyyy, mm, dd] = iso;
+    return `${mm}/${dd}/${yyyy}`;
+  }
+
+  const dashed = raw.match(/^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])-(\d{4})$/);
+  if (dashed) {
+    const [, mm, dd, yyyy] = dashed;
+    return `${mm}/${dd}/${yyyy}`;
+  }
+
+  return raw;
+};
+
+// normalize birthday to YYYY-MM-DD for Firebase storage
+const toStorageBirthday = (raw: string | undefined | null): string => {
+  if (!raw) return "";
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    return raw;
+  }
+
+  const display = toDisplayBirthday(raw);
+  const m = display.match(/^(0[1-9]|1[0-2])\/(0[1-9]|[12]\d|3[01])\/(\d{4})$/);
   if (m) {
     const [, mm, dd, yyyy] = m;
     return `${yyyy}-${mm}-${dd}`;
   }
+
   return raw;
 };
 
 const Profile = () => {
   const navigate = useNavigate();
 
-  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [user, setUser] = useState<UserProfile | null>(null);
 
   const [errors, setErrors] = useState<ErrorState>({});
+  const [profileSaveError, setProfileSaveError] = useState<string | null>(null);
   const [editingField, setEditingField] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
@@ -96,13 +121,10 @@ const Profile = () => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       if (!fbUser) {
-        setFirebaseUser(null);
         setUser(null);
         setLoading(false);
         return;
       }
-
-      setFirebaseUser(fbUser);
 
       try {
         const participantRef = doc(db, "participants", fbUser.uid);
@@ -168,8 +190,8 @@ const Profile = () => {
           email: data.email ?? fbUser.email ?? "",
           pronouns: data.pronouns ?? "",
           phone: data.phoneNumber ?? "",
-          // normalize when loading from Firestore
-          birthday: normalizeBirthday(data.dateOfBirth),
+          // normalize when loading from Firestore for profile display
+          birthday: toDisplayBirthday(data.dateOfBirth),
           addressLine1: addr.line1 ?? "",
           addressCity: addr.city ?? "",
           addressState: addr.state ?? "",
@@ -230,6 +252,9 @@ const Profile = () => {
   ) => {
     if (!user) return;
     const { name, value } = e.target;
+    if (profileSaveError) {
+      setProfileSaveError(null);
+    }
     setUser({ ...user, [name]: value });
   };
 
@@ -261,38 +286,40 @@ const Profile = () => {
 
   const performProfileUpdate = async (
     passwordForEmail?: string,
-  ): Promise<void> => {
-    if (!user) return;
+  ): Promise<boolean> => {
+    if (!user) return false;
 
     const authUser = auth.currentUser;
     if (!authUser) {
       window.alert("You are not signed in. Please log in again.");
-      return;
+      return false;
     }
 
     const emailChanged = authUser.email !== user.email;
 
-    const normalizedBirthday = normalizeBirthday(user.birthday);
+    const displayBirthday = toDisplayBirthday(user.birthday);
+    const normalizedBirthday = toStorageBirthday(displayBirthday);
 
-    if (normalizedBirthday !== user.birthday) {
-      setUser({ ...user, birthday: normalizedBirthday });
+    if (displayBirthday !== user.birthday) {
+      setUser({ ...user, birthday: displayBirthday });
     }
 
     if (emailChanged && !passwordForEmail) {
       setEmailReauthError(null);
       setEmailReauthPassword("");
       setShowEmailReauthModal(true);
-      return;
+      return false;
     }
 
     try {
+      let emailNotice = "";
       if (emailChanged && passwordForEmail) {
         if (!authUser.email) {
           setEmailReauthError(
             "Your account is missing an email address. Please sign out and sign back in.",
           );
           setShowEmailReauthModal(true);
-          return;
+          return false;
         }
 
         setIsEmailReauthing(true);
@@ -310,9 +337,8 @@ const Profile = () => {
         setEmailReauthPassword("");
         setEmailReauthError(null);
 
-        window.alert(
-          `Profile saved. We’ve emailed a verification link to ${user.email}. Please confirm it to finish updating your login email.`,
-        );
+        emailNotice = `We’ve emailed a verification link to ${user.email}. Please confirm it to finish updating your login email.`;
+
       }
 
       const userRef = doc(db, "participants", user.uid);
@@ -332,49 +358,65 @@ const Profile = () => {
         },
       });
 
-      if (!emailChanged) {
-        window.alert("Profile updated successfully.");
-      }
+      window.alert(
+        emailChanged
+          ? `Profile saved. ${emailNotice}`
+          : "Profile updated successfully.",
+      );
+      return true;
     } catch (err: any) {
       console.error("Error updating profile (email/profile):", err);
 
       const code = err?.code as string | undefined;
       const msg = err?.message as string | undefined;
 
-      if (code === "auth/wrong-password") {
-        setEmailReauthError("Current password is incorrect.");
-        setShowEmailReauthModal(true);
-      } else if (code === "auth/requires-recent-login") {
-        setEmailReauthError(
-          "For security reasons, please sign out and sign back in, then try again.",
-        );
-        setShowEmailReauthModal(true);
-      } else if (code === "auth/email-already-in-use") {
-        setEmailReauthError(
-          "That email is already associated with another account.",
-        );
-        setShowEmailReauthModal(true);
-      } else if (code === "auth/invalid-email") {
-        setEmailReauthError("Please enter a valid email address.");
-        setShowEmailReauthModal(true);
-      } else if (code === "auth/operation-not-allowed") {
-        setEmailReauthError(
-          "Email changes are currently disabled for this project. Please contact an administrator.",
-        );
-        setShowEmailReauthModal(true);
-      } else if (code === "permission-denied") {
-        setEmailReauthError(
-          "You do not have permission to update this profile. Please contact an admin.",
-        );
-        setShowEmailReauthModal(true);
-      } else {
-        setEmailReauthError(
-          msg || "Unexpected error updating profile. Please try again.",
-        );
-        if (emailChanged && passwordForEmail) {
+      if (emailChanged) {
+        if (code === "auth/wrong-password") {
+          setEmailReauthError("Current password is incorrect.");
           setShowEmailReauthModal(true);
+        } else if (code === "auth/requires-recent-login") {
+          setEmailReauthError(
+            "For security reasons, please sign out and sign back in, then try again.",
+          );
+          setShowEmailReauthModal(true);
+        } else if (code === "auth/email-already-in-use") {
+          setEmailReauthError(
+            "That email is already associated with another account.",
+          );
+          setShowEmailReauthModal(true);
+        } else if (code === "auth/invalid-email") {
+          setEmailReauthError("Please enter a valid email address.");
+          setShowEmailReauthModal(true);
+        } else if (code === "auth/operation-not-allowed") {
+          setEmailReauthError(
+            "Email changes are currently disabled for this project. Please contact an administrator.",
+          );
+          setShowEmailReauthModal(true);
+        } else if (code === "permission-denied") {
+          setEmailReauthError(
+            "You do not have permission to update this profile. Please contact an admin.",
+          );
+          setShowEmailReauthModal(true);
+        } else {
+          setEmailReauthError(
+            msg || "Unexpected error updating profile. Please try again.",
+          );
+          if (passwordForEmail) {
+            setShowEmailReauthModal(true);
+          }
+        }
+      } else {
+        if (code === "permission-denied") {
+          setProfileSaveError(
+            "You do not have permission to update this profile. Please contact an admin.",
+          );
+        } else {
+          setProfileSaveError(
+            msg || "Unexpected error updating profile. Please try again.",
+          );
         }
       }
+      return false;
     } finally {
       if (passwordForEmail) {
         setIsEmailReauthing(false);
@@ -385,6 +427,7 @@ const Profile = () => {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
+    setProfileSaveError(null);
 
     const { hasErrors, newErrors } = validateProfile();
     if (hasErrors) {
@@ -393,10 +436,12 @@ const Profile = () => {
     }
 
     setErrors({});
-    setEditingField(null);
-    setIsEditing(false);
 
-    await performProfileUpdate();
+    const saved = await performProfileUpdate();
+    if (saved) {
+      setEditingField(null);
+      setIsEditing(false);
+    }
   };
 
   const handleLogout = async () => {
@@ -415,7 +460,16 @@ const Profile = () => {
 
   const handlePasswordSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (passwordError || !newPassword) return;
+
+    if (!newPassword) {
+      setPasswordError("Please enter a new password.");
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      setPasswordError("New password and confirmation do not match.");
+      return;
+    }
 
     const authUser = auth.currentUser;
     if (!authUser) {
@@ -467,12 +521,12 @@ const Profile = () => {
       setIsUpdatingPassword(false);
     }
   };
-
+  const passwordsMatch = newPassword === confirmNewPassword;
   const canSubmitPassword =
     !!passwordCurrent &&
     !!newPassword &&
     !!confirmNewPassword &&
-    !passwordError &&
+    passwordsMatch &&
     !isUpdatingPassword;
 
   if (loading) {
@@ -579,10 +633,11 @@ const Profile = () => {
                 <div key={field.name} className={styles.fieldBox}>
                   {editingField === field.name ? (
                     <input
-                      type={field.name === "birthday" ? "date" : "text"}
+                      type="text"
                       name={field.name}
                       value={user[field.name as keyof UserProfile] as string}
                       onChange={handleChange}
+                      placeholder={field.name === "birthday" ? "MM/DD/YYYY" : undefined}
                       autoFocus
                       className={styles.input}
                     />
@@ -593,6 +648,7 @@ const Profile = () => {
                         <EditIcon
                           className={styles.editIcon}
                           onClick={() => {
+                            setProfileSaveError(null);
                             setEditingField(field.name);
                             setIsEditing(true);
                           }}
@@ -617,45 +673,22 @@ const Profile = () => {
                 </button>
               </div>
             )}
+            {profileSaveError && (
+              <span className={styles.error}>{profileSaveError}</span>
+            )}
           </div>
 
           {/* About Me */}
           <div className={styles.infoSection}>
             <h3 className={styles.sectionTitle}>About Me</h3>
             <div className={styles.fieldBox}>
-              {editingField === "interests" ? (
-                <textarea
-                  name="interests"
-                  value={user.interests}
-                  onChange={handleChange}
-                  rows={3}
-                  autoFocus
-                  className={styles.textarea}
-                />
-              ) : (
-                <div className={styles.boxContent}>
-                  <div className={styles.boxHeader}>
-                    <span className={styles.boxLabel}>Interests</span>
-                    <EditIcon
-                      className={styles.editIcon}
-                      onClick={() => {
-                        setEditingField("interests");
-                        setIsEditing(true);
-                      }}
-                    />
-                  </div>
-                  <span className={styles.boxValue}>{user.interests}</span>
+              <div className={styles.boxContent}>
+                <div className={styles.boxHeader}>
+                  <span className={styles.boxLabel}>Interests</span>
                 </div>
-              )}
-            </div>
-
-            {isEditing && editingField === "interests" && (
-              <div className={styles.buttons}>
-                <button type="submit" className={styles.save}>
-                  Save
-                </button>
+                <span className={styles.boxValue}>{user.interests}</span>
               </div>
-            )}
+            </div>
           </div>
 
           {/* Change Password */}
@@ -671,7 +704,11 @@ const Profile = () => {
                   type="password"
                   className={styles.input}
                   value={passwordCurrent}
-                  onChange={(e) => setPasswordCurrent(e.target.value)}
+                  onChange={(e) => {
+                    setPasswordCurrent(e.target.value);
+                    if (passwordError) setPasswordError(null);
+                    if (passwordSuccess) setPasswordSuccess(null);
+                  }}
                 />
               </div>
             </div>
@@ -685,7 +722,10 @@ const Profile = () => {
                   type="password"
                   className={styles.input}
                   value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
+                  onChange={(e) => {
+                    setNewPassword(e.target.value);
+                    if (passwordSuccess) setPasswordSuccess(null);
+                  }}
                 />
               </div>
             </div>
@@ -699,7 +739,10 @@ const Profile = () => {
                   type="password"
                   className={styles.input}
                   value={confirmNewPassword}
-                  onChange={(e) => setConfirmNewPassword(e.target.value)}
+                  onChange={(e) => {
+                    setConfirmNewPassword(e.target.value);
+                    if (passwordSuccess) setPasswordSuccess(null);
+                  }}
                 />
               </div>
             </div>
@@ -745,13 +788,18 @@ const Profile = () => {
             setEmailReauthError(null);
           }
         }}
-        onConfirm={() => {
+        onConfirm={async () => {
           if (!emailReauthPassword) {
             setEmailReauthError("Please enter your password.");
             return;
           }
           setEmailReauthError(null);
-          void performProfileUpdate(emailReauthPassword);
+          const saved = await performProfileUpdate(emailReauthPassword);
+          if (saved) {
+            setProfileSaveError(null);
+            setEditingField(null);
+            setIsEditing(false);
+          }
         }}
       />
     </div>
