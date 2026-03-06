@@ -212,25 +212,37 @@ export interface RegistrationFormState {
 
 /** Profile page display / form state */
 export interface UserProfile {
-    name: string
-    email: string
-    password: string
-    pronouns: string
-    phone: string
-    birthday: string
-    address: string
-    interests: string
-    startDate: string
-    endDate: string
-    status: string
+    uid: string;
+    name: string;
+    email: string;
+    pronouns: string;
+    phone: string;
+    birthday: string;
+
+    addressLine1: string;
+    addressCity: string;
+    addressState: string;
+    addressPostalCode: string;
+    addressCountry: string;
+
+    interests: string;
+    startDate: string;
+    endDate: string;
+    status: string;
+    matchName?: string;
+    matchInterests?: string;
 }
 
 /** Validation error fields (Profile and similar forms) */
 export interface ErrorState {
-    email?: string
-    phone?: string
-    birthday?: string
-    address?: string
+    email?: string;
+    phone?: string;
+    birthday?: string;
+    addressLine1?: string;
+    addressCity?: string;
+    addressState?: string;
+    addressPostalCode?: string;
+    addressCountry?: string;
 }
 
 /** Question type for dynamic form rendering */

@@ -5,6 +5,7 @@
   font-family: "Merriweather", serif;
 }
 
+/* Layout container */
 .container {
   display: flex;
   justify-content: center;
@@ -12,6 +13,9 @@
   gap: 50px;
   flex-wrap: wrap;
   margin-top: 20px;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 /* LEFT COLUMN */
@@ -20,6 +24,7 @@
   flex-direction: column;
   gap: 20px;
   width: 260px;
+  max-width: 100%;
   align-self: flex-start;
 }
 
@@ -98,7 +103,9 @@
   font-weight: 700;
   font-size: 15px;
   cursor: pointer;
-  transition: opacity 0.2s ease, transform 0.1s ease;
+  transition:
+    opacity 0.2s ease,
+    transform 0.1s ease;
 }
 
 .logoutButton:hover {
@@ -112,12 +119,34 @@
   margin-top: 10px;
 }
 
+/* Button for "View their interests" */
+.viewInterestsButton {
+  margin-top: 10px;
+  padding: 8px 14px;
+  background-color: #1d4e89;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    opacity 0.2s ease,
+    transform 0.1s ease;
+}
+
+.viewInterestsButton:hover {
+  opacity: 0.92;
+  transform: translateY(-1px);
+}
+
 /* RIGHT COLUMN */
 .rightColumn {
   display: flex;
   flex-direction: column;
   gap: 20px;
   width: 600px;
+  max-width: 100%;
   align-self: flex-start;
   margin-top: 0;
 }
@@ -134,6 +163,7 @@
   font-size: 20px;
   margin-bottom: 15px;
   margin-top: 0;
+  text-align: left;
 }
 
 /* Grid for uniform layout */
@@ -169,12 +199,14 @@
   background-color: #e5edf7;
   border-radius: 10px;
   padding: 10px 12px;
-  height: 70px;
+  height: auto; /* let it grow to fit content */
+  min-height: 60px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   justify-content: flex-start;
   box-sizing: border-box;
+  margin-bottom: 8px; /* spacing between stacked boxes (e.g. Change Password) */
 }
 
 .boxContent {
@@ -201,20 +233,26 @@
   word-break: break-word;
 }
 
+/* Inputs / textareas inside boxes */
 .input,
 .textarea {
   background-color: #e5edf7;
-  border: none;
   border-radius: 10px;
   width: 100%;
-  height: 70px;
-  padding: 10px 12px;
+  padding: 8px 10px;
   font-size: 15px;
   color: #1d4e89;
   box-sizing: border-box;
+  font-family: inherit;
+}
+
+.input {
+  border: 1px solid #c3d0ea;
+  height: 40px;
 }
 
 .textarea {
+  border: 1px solid #c3d0ea;
   height: 100px;
   resize: none;
 }
@@ -225,6 +263,13 @@
   margin-top: 4px;
 }
 
+.success {
+  color: #2e8b57;
+  font-size: 0.85rem;
+  margin-top: 4px;
+}
+
+/* Save / Edit buttons row */
 .buttons {
   display: flex;
   justify-content: flex-end;
@@ -244,18 +289,149 @@
   transition: 0.2s;
 }
 
+.save:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .edit:hover,
-.save:hover {
+.save:hover:enabled {
   opacity: 0.9;
 }
 
-/* Responsive */
-@media (max-width: 768px) {
-  .grid {
-    grid-template-columns: 1fr;
+/* Modal for match interests */
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+
+.modal {
+  background-color: #ffffff;
+  border-radius: 12px;
+  padding: 20px 24px;
+  max-width: 420px;
+  width: 90%;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.modalHeader h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #1d4e89;
+}
+
+.modalCloseButton {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: #666;
+}
+
+.modalCloseButton:hover {
+  color: #1d4e89;
+}
+
+.modalBody {
+  font-size: 14px;
+  color: #1d1d1d;
+  line-height: 1.4;
+}
+
+/* ------------------ Responsive styles ------------------ */
+
+/* Slightly smaller screens */
+@media (max-width: 1024px) {
+  .page {
+    padding: 140px 30px 30px;
+  }
+
+  .container {
+    gap: 30px;
   }
 
   .rightColumn {
     width: 100%;
+  }
+}
+
+/* Tablets & small laptops */
+@media (max-width: 900px) {
+  .container {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .leftColumn {
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .infoCard {
+    flex: 1 1 240px;
+    max-width: 320px;
+  }
+
+  .rightColumn {
+    width: 100%;
+  }
+
+  .sectionTitle {
+    text-align: center;
+  }
+}
+
+/* Phones */
+@media (max-width: 768px) {
+  .page {
+    padding: 120px 16px 24px;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .infoSection {
+    padding: 18px;
+  }
+
+  .fieldBox {
+    margin-bottom: 10px;
+  }
+
+  .buttons {
+    justify-content: center;
+  }
+}
+
+/* Very small phones */
+@media (max-width: 480px) {
+  .profileImage {
+    width: 90px;
+    height: 90px;
+  }
+
+  .sectionTitle {
+    font-size: 18px;
+  }
+
+  .save,
+  .edit {
+    width: 100%;
+    text-align: center;
   }
 }
