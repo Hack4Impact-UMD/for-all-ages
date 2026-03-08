@@ -34,27 +34,11 @@
   color: var(--gray-900);
 }
 
-.loadingScreen {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
+.loadingState {
+  padding: 2rem;
+  text-align: center;
   color: var(--gray-500);
-}
-.loadingSpinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid var(--gray-200);
-  border-top-color: var(--blue);
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-}
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+  font-size: 1rem;
 }
 
 .topBar {

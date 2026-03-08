@@ -36,7 +36,6 @@ const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
   profilePicture: "Profile Picture",
 };
 
-
 // previews the questions
 
 function QuestionPreview({ question }: { question: Question }) {
@@ -133,7 +132,6 @@ function QuestionPreview({ question }: { question: Question }) {
     </div>
   );
 }
-
 
 // question editors
 
@@ -420,8 +418,6 @@ function SectionTab({
   );
 }
 
-
-
 const FormBuilder: React.FC = () => {
   const savedFormRef = useRef<Form | null>(null);
 
@@ -554,15 +550,6 @@ const FormBuilder: React.FC = () => {
     updateQuestion(sectionId, questionId, { ...base, ...partial });
   };
 
-  if (loading) {
-    return (
-      <div className={styles.loadingScreen}>
-        <div className={styles.loadingSpinner} />
-        <p>Loading…</p>
-      </div>
-    );
-  }
-
   const resolvedEditingId = resolveEditingId(activeSection);
 
   return (
@@ -670,7 +657,9 @@ const FormBuilder: React.FC = () => {
 
         {/* Section content card */}
         <div className={styles.contentCard}>
-          {!activeSection ? (
+          {loading ? (
+            <div className={styles.loadingState}>Loading registration form…</div>
+          ) : !activeSection ? (
             <div className={styles.emptyState}>
               <p>No sections yet.</p>
               <button
