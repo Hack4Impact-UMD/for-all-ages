@@ -317,6 +317,7 @@
   background: none;
   border: none;
   border-left: 1px solid var(--gray-200);
+  color: var(--gray-500);
   border-radius: 0;
   padding: 4px 8px;
   font-size: 14px;

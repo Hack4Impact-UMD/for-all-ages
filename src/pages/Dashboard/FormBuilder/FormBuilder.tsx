@@ -256,7 +256,7 @@ function InlineEditor({
             onClick={onDelete}
             title="Delete question"
           >
-            🗑
+            X
           </button>
         </div>
       </div>
@@ -367,8 +367,6 @@ function InlineEditor({
     </div>
   );
 }
-
-//Showing the sections
 
 function SectionTab({
   section,
@@ -658,7 +656,9 @@ const FormBuilder: React.FC = () => {
         {/* Section content card */}
         <div className={styles.contentCard}>
           {loading ? (
-            <div className={styles.loadingState}>Loading registration form…</div>
+            <div className={styles.loadingState}>
+              Loading registration form…
+            </div>
           ) : !activeSection ? (
             <div className={styles.emptyState}>
               <p>No sections yet.</p>
@@ -846,7 +846,7 @@ function SectionTitleEditor({
           }}
           title="Rename"
         >
-          ✏️
+          Edit
         </button>
         <button
           type="button"
@@ -854,7 +854,7 @@ function SectionTitleEditor({
           onClick={onDelete}
           title="Delete section"
         >
-          🗑
+          X
         </button>
       </div>
     </div>
