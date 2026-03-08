@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import styles from "./PreProgram.module.css";
 import { useNavigate } from "react-router-dom";
 import SearchIcon from "@mui/icons-material/Search";
+import FilterListIcon from "@mui/icons-material/FilterList";
 import SettingsIcon from '@mui/icons-material/Settings';
 import AutorenewIcon from "@mui/icons-material/Autorenew";
 import SendIcon from "@mui/icons-material/Send";
@@ -56,6 +57,9 @@ const PreProgram = () => {
   const [endProgramError, setEndProgramError] = useState<string | null>(null);
 
   const [settingsPopup, setSettingsPopup] = useState(false)
+
+  const [statusFilterOpen, setStatusFilterOpen] = useState(false);
+  const [selectedStatuses, setSelectedStatuses] = useState<MatchStatus[]>([]);
 
   const navigate = useNavigate();
 
@@ -513,11 +517,17 @@ const PreProgram = () => {
     await updateDoc(matchRef, { status: firestoreStatus });
   };
 
-  const filteredMatches = matches.filter(
-    (m) =>
-      m.name1.toLowerCase().includes(search.toLowerCase()) ||
-      m.name2.toLowerCase().includes(search.toLowerCase()),
-  );
+  const filteredMatches = matches.filter((m) => {
+    const searchValue = search.toLowerCase();
+    const matchesSearch =
+      m.name1.toLowerCase().includes(searchValue) ||
+      m.name2.toLowerCase().includes(searchValue);
+
+    const matchesStatus =
+      selectedStatuses.length === 0 || selectedStatuses.includes(m.status);
+
+    return matchesSearch && matchesStatus;
+  });
 
   // global bools for program state
   const programStarted = programState?.started ?? false;
@@ -715,6 +725,46 @@ const PreProgram = () => {
 
       {/* ── Match Table ── */}
       <div className={styles.container}>
+        <div className={styles.filterBar}>
+          <button
+            type="button"
+            className={styles.filterButton}
+            onClick={() => setStatusFilterOpen((open) => !open)}
+          >
+            <FilterListIcon className={styles.filterIcon} />
+            <span>Filter by pair status</span>
+          </button>
+
+          {statusFilterOpen && (
+            <div className={styles.filterPopover}>
+              {(["No Match", "Pending", "Approved"] as MatchStatus[]).map(
+                (status) => (
+                  <label key={status} className={styles.filterOption}>
+                    <input
+                      type="checkbox"
+                      checked={selectedStatuses.includes(status)}
+                      onChange={() =>
+                        setSelectedStatuses((prev) =>
+                          prev.includes(status)
+                            ? prev.filter((s) => s !== status)
+                            : [...prev, status]
+                        )
+                      }
+                    />
+                    <span>{status}</span>
+                  </label>
+                ),
+              )}
+              <button
+                type="button"
+                className={styles.clearFilterButton}
+                onClick={() => setSelectedStatuses([])}
+              >
+                Clear filters
+              </button>
+            </div>
+          )}
+        </div>
         <table className={styles.table}>
           <thead>
             <tr>

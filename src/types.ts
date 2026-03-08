@@ -129,7 +129,7 @@ export interface ProgramState {
 }
 
 /** PreProgram match row status */
-export type MatchStatus = "Pending" | "Approved" | "No Match"
+export type MatchStatus = "Pending" | "Approved" | "No Match" | "Implementation"
 
 /** Day labels for schedule (AdminDashboard) */
 export type DayKey = "Sun" | "Mon" | "Tue" | "Wed" | "Thurs" | "Fri" | "Sat"
@@ -141,6 +141,7 @@ export type PersonTagVariant = "rose" | "green" | "gold"
 export interface PersonAssignment {
     names: string[]
     variant?: PersonTagVariant
+    matchId?: string
 }
 
 /** Params for inviting a new admin account */
