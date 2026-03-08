@@ -138,8 +138,12 @@ function App() {
             <Route path="creator" element={<AdminCreator />} />
             <Route path="main" element={<PreProgram />} />
             <Route path="rematching" element={<Rematching />} />
-            <Route path="form-builder" element={<FormBuilder />} />
           </Route>
+        </Route>
+
+        {/* FormBuilder outside MainLayout — has its own header per Figma */}
+        <Route path="/admin/*" element={<AdminGate />}>
+          <Route path="form-builder" element={<FormBuilder />} />
         </Route>
 
           {/* <Route path={"/user/dashboard"} element={<Dashboard></Dashboard>}></Route>

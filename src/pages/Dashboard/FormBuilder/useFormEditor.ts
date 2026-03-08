@@ -41,10 +41,35 @@ const formToState = (form?: Form | null): FormEditorState => {
   };
 };
 
+const cleanQuestion = (q: EditorQuestion): BaseQuestion => {
+  const { id: _id, ...rest } = q;
+  const cleaned: BaseQuestion = {
+    type: rest.type,
+    title: rest.title,
+    required: rest.required,
+    matchable: rest.matchable,
+  };
+
+  if (rest.description && rest.description.trim().length > 0) {
+    cleaned.description = rest.description.trim();
+  }
+
+  if (["Dropdown", "Radio", "multiple"].includes(rest.type)) {
+    cleaned.options = (rest.options ?? []).filter((o) => o.trim().length > 0);
+  }
+
+  if (rest.type === "Slider") {
+    cleaned.min = typeof rest.min === "number" ? rest.min : 1;
+    cleaned.max = typeof rest.max === "number" ? rest.max : 5;
+  }
+
+  return cleaned;
+};
+
 const stateToForm = (state: FormEditorState): Form => ({
   sections: state.sections.map((section) => ({
     title: section.title || undefined,
-    questions: section.questions.map(({ id, ...question }) => question),
+    questions: section.questions.map(cleanQuestion),
   })),
 });
 

@@ -18,6 +18,7 @@ import {
 import type { EditorQuestion, EditorSection } from "./useFormEditor";
 import { useFormEditor } from "./useFormEditor";
 import styles from "./FormBuilder.module.css";
+import Logo from "../../../assets/For all Ages high res logo 2022 (1).svg";
 
 // labels for the selection
 
@@ -26,12 +27,12 @@ const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
   medium_input: "Medium text",
   long_input: "Long text",
   Dropdown: "Dropdown",
-  Slider: "Slider",
+  Slider: "Rating (1-5)",
   Radio: "Radio",
   Date: "Date",
   phoneNumber: "Phone Number",
   text: "Text (display)",
-  multiple: "Multi-select",
+  multiple: "Multi-select pills",
   address: "Address",
   profilePicture: "Profile Picture",
 };
@@ -176,52 +177,18 @@ function InlineEditor({
     return () => document.removeEventListener("mousedown", handler);
   }, [typeOpen]);
 
-  const currentTypeLabel = QUESTION_TYPE_LABELS[question.type];
-
   return (
     <div className={styles.inlineEditorWrapper}>
-      {/* Toolbar row above the card */}
+      {/* Floating toolbar — compact icons aligned right */}
       <div className={styles.inlineToolbar}>
-        {/* Type selector button */}
-        <div ref={typeSelectorRef} className={styles.typeSelectorWrap}>
-          <button
-            type="button"
-            className={`${styles.tbBtn} ${styles.typeSelectorBtn}`}
-            onClick={() => setTypeOpen((o) => !o)}
-            title="Question type"
-          >
-            {currentTypeLabel}
-            <span className={styles.typeSelectorArrow}>▾</span>
-          </button>
-          {typeOpen && (
-            <div className={styles.typeDropdown}>
-              {(
-                Object.entries(QUESTION_TYPE_LABELS) as [QuestionType, string][]
-              ).map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  className={`${styles.typeDropdownItem} ${value === question.type ? styles.typeDropdownItemActive : ""}`}
-                  onClick={() => {
-                    onUpdate({ type: value });
-                    setTypeOpen(false);
-                  }}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
         <div className={styles.inlineToolbarActions}>
           <button
             type="button"
             className={styles.tbBtn}
-            onClick={onDone}
-            title="Done editing"
+            onClick={() => setTypeOpen((o) => !o)}
+            title="Change input type"
           >
-            ✓
+            ≡
           </button>
           <button
             type="button"
@@ -256,9 +223,34 @@ function InlineEditor({
             onClick={onDelete}
             title="Delete question"
           >
-            X
+            🗑
           </button>
         </div>
+
+        {/* Input type floating dropdown */}
+        {typeOpen && (
+          <div ref={typeSelectorRef} className={styles.typeDropdown}>
+            <div className={styles.typeDropdownHeader}>Input type</div>
+            {(
+              Object.entries(QUESTION_TYPE_LABELS) as [QuestionType, string][]
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                className={`${styles.typeDropdownItem} ${value === question.type ? styles.typeDropdownItemActive : ""}`}
+                onClick={() => {
+                  onUpdate({ type: value });
+                  setTypeOpen(false);
+                }}
+              >
+                {label}
+                {value === question.type && (
+                  <span className={styles.typeDropdownCheck}>✓</span>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Blue-bordered editing card */}
@@ -407,6 +399,7 @@ function SectionTab({
       >
         {index + 1}
       </button>
+      {isActive && <div className={styles.tabUnderline} />}
       <span
         className={`${styles.tabLabel} ${isActive ? styles.tabLabelActive : ""}`}
       >
@@ -552,16 +545,24 @@ const FormBuilder: React.FC = () => {
 
   return (
     <div className={styles.page}>
-      {/* IMPORTANT!! TODO: TO BE REPLACED */}
       <header className={styles.topBar}>
         <div className={styles.topBarLogo}>
-          <span className={styles.topBarLogoIcon}>🌿</span>
+          <img src={Logo} alt="For All Ages" className={styles.topBarLogoImg} />
           <span className={styles.topBarLogoText}>For All Ages</span>
         </div>
         <div className={styles.topBarCenter}>
           <span className={styles.topBarPill}>Edit Form</span>
         </div>
         <div className={styles.topBarActions}>
+          <button
+            type="button"
+            className={styles.undoBtn}
+            onClick={undo}
+            disabled={!canUndo}
+            title="Undo last action"
+          >
+            ↩ Undo
+          </button>
           <button
             type="button"
             className={styles.cancelBtn}
@@ -605,6 +606,14 @@ const FormBuilder: React.FC = () => {
 
       {/* Top wrapper for sections  */}
       <div className={styles.blueWrap}>
+        {/* Program title */}
+        <div className={styles.programHeader}>
+          <h1 className={styles.programTitle}>Tea @ 3</h1>
+          <p className={styles.programSubtitle}>
+            Let's find your perfect tea-mate. This takes about 8-10 minutes.
+          </p>
+        </div>
+
         {/* Section tabs card */}
         <div className={styles.tabsCard}>
           <DndContext
