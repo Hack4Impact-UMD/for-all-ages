@@ -18,7 +18,7 @@ import Profile from "./pages/Profile/Profile";
 import RecapPage from "./pages/Recap/RecapPage";
 import Rematching from "./pages/Rematching/Rematching";
 import PreProgram from "./pages/PreProgram/PreProgram";
-import FormBuilder from "./pages/Dashboard/FormBuilder/FormBuilder";
+import FormBuilder from "./pages/FormBuilder/FormBuilder";
 import Waiting from "./pages/Waiting/Waiting";
 import MainLayout from "./components/MainLayout";
 
@@ -27,8 +27,14 @@ function RouteLoader() {
 }
 
 function RegistrationGate() {
-  const { user, loading, emailVerified, participant, participantLoading, isAdmin } =
-    useAuth();
+  const {
+    user,
+    loading,
+    emailVerified,
+    participant,
+    participantLoading,
+    isAdmin,
+  } = useAuth();
   const location = useLocation();
   const role = (participant as { role?: string | null } | null)?.role ?? null;
 
@@ -48,7 +54,10 @@ function RegistrationGate() {
     return <Navigate to="/admin/" replace />;
   }
 
-  if (participant && (participant as { type?: string }).type === "Participant") {
+  if (
+    participant &&
+    (participant as { type?: string }).type === "Participant"
+  ) {
     return <Navigate to="/user/dashboard" replace />;
   }
 
@@ -82,9 +91,15 @@ function ParticipantGate() {
   return <Outlet />;
 }
 
-
 function AdminGate() {
-  const { user, loading, emailVerified, participant, participantLoading, isAdmin } = useAuth();
+  const {
+    user,
+    loading,
+    emailVerified,
+    participant,
+    participantLoading,
+    isAdmin,
+  } = useAuth();
   const location = useLocation();
 
   if (loading || participantLoading) {
@@ -110,43 +125,47 @@ function AdminGate() {
   return <Outlet />;
 }
 
-
 function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<LoginSignup />} />
-        
+
         {/* Routes with navbar */}
         <Route element={<MainLayout />}>
           <Route path="/registration" element={<RegistrationGate />} />
           <Route path="/waiting" element={<Waiting />} />
-          <Route path={"/registration"} element={<Registration></Registration>}></Route>
+          <Route
+            path={"/registration"}
+            element={<Registration></Registration>}
+          ></Route>
           <Route path={"/profile"} element={<Profile></Profile>}></Route>
 
           <Route path="/user/*" element={<ParticipantGate />}>
-            <Route path="" element={<Navigate to="/user/dashboard" replace />} />
+            <Route
+              path=""
+              element={<Navigate to="/user/dashboard" replace />}
+            />
             <Route path="dashboard" element={<UserDashboard />} />
             <Route path="matched" element={<MatchedDashboard />} />
             <Route path="waiting" element={<Waiting />} />
           </Route>
 
           <Route path="/admin/*" element={<AdminGate />}>
-            <Route path="" element={<Navigate to="/admin/dashboard" replace />} />
+            <Route
+              path=""
+              element={<Navigate to="/admin/dashboard" replace />}
+            />
             <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="recap" element={<RecapPage />} />
             <Route path="creator" element={<AdminCreator />} />
             <Route path="main" element={<PreProgram />} />
             <Route path="rematching" element={<Rematching />} />
+            <Route path="form-builder" element={<FormBuilder />} />
           </Route>
         </Route>
 
-        {/* FormBuilder outside MainLayout — has its own header per Figma */}
-        <Route path="/admin/*" element={<AdminGate />}>
-          <Route path="form-builder" element={<FormBuilder />} />
-        </Route>
-
-          {/* <Route path={"/user/dashboard"} element={<Dashboard></Dashboard>}></Route>
+        {/* <Route path={"/user/dashboard"} element={<Dashboard></Dashboard>}></Route>
           <Route path={"/admin/dashboard"} element={<Dashboard></Dashboard>}></Route> */}
       </Routes>
     </BrowserRouter>

@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import type { Form, Question as BaseQuestion } from "../../../types";
+import type { Form, Question as BaseQuestion } from "../../types";
 
 export type EditorQuestion = BaseQuestion & { id: string };
 

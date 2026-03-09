@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import type { Form, Question, QuestionType } from "../../../types";
-import { db } from "../../../firebase";
+import type { Form, Question, QuestionType } from "../../types";
+import { db } from "../../firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import {
   DndContext,
@@ -18,7 +18,7 @@ import {
 import type { EditorQuestion, EditorSection } from "./useFormEditor";
 import { useFormEditor } from "./useFormEditor";
 import styles from "./FormBuilder.module.css";
-import Logo from "../../../assets/For all Ages high res logo 2022 (1).svg";
+import Logo from "../../assets/for-all-ages-logo.svg";
 
 // labels for the selection
 
@@ -118,7 +118,11 @@ function QuestionPreview({ question }: { question: Question }) {
         />
       )}
       {question.type === "phoneNumber" && (
-        <input className={styles.qMockInput} disabled placeholder="+1" />
+        <input
+          className={styles.qMockInput}
+          disabled
+          placeholder="(XXX) XXX-XXXX"
+        />
       )}
       {question.type === "address" && (
         <input
@@ -260,6 +264,9 @@ function InlineEditor({
           value={question.title ?? ""}
           placeholder="#Question"
           onChange={(e) => onUpdate({ title: e.target.value })}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") onDone();
+          }}
           autoFocus
         />
         <input
@@ -267,6 +274,9 @@ function InlineEditor({
           value={question.description ?? ""}
           placeholder="Type"
           onChange={(e) => onUpdate({ description: e.target.value })}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") onDone();
+          }}
         />
 
         {/* Options editor for Dropdown / Radio / Multiple */}
@@ -399,7 +409,9 @@ function SectionTab({
       >
         {index + 1}
       </button>
-      {isActive && <div className={styles.tabUnderline} />}
+      <div
+        className={`${styles.tabUnderline} ${isActive ? styles.tabUnderlineActive : ""}`}
+      />
       <span
         className={`${styles.tabLabel} ${isActive ? styles.tabLabelActive : ""}`}
       >
@@ -548,21 +560,11 @@ const FormBuilder: React.FC = () => {
       <header className={styles.topBar}>
         <div className={styles.topBarLogo}>
           <img src={Logo} alt="For All Ages" className={styles.topBarLogoImg} />
-          <span className={styles.topBarLogoText}>For All Ages</span>
         </div>
         <div className={styles.topBarCenter}>
           <span className={styles.topBarPill}>Edit Form</span>
         </div>
         <div className={styles.topBarActions}>
-          <button
-            type="button"
-            className={styles.undoBtn}
-            onClick={undo}
-            disabled={!canUndo}
-            title="Undo last action"
-          >
-            ↩ Undo
-          </button>
           <button
             type="button"
             className={styles.cancelBtn}
