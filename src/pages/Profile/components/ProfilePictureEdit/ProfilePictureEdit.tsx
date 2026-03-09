@@ -1,107 +1,144 @@
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState } from "react";
 import styles from "./ProfilePictureEdit.module.css";
 import EditIcon from "@mui/icons-material/Edit";
+import ProfilePicture from "../ProfilePicture/ProfilePicture";
 
 interface ProfilePictureEditProps {
   uid: string;
 }
 
 export default function ProfilePictureEdit({ uid }: ProfilePictureEditProps) {
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [uploaded, setUploaded] = useState(false);
-	const [file, setFile] = useState<File | null>(null);
-
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-	useEffect(() => {
-		if (!uid) return;
-		const cdnUrl = `https://storage.googleapis.com/for-all-ages-cdn/profile-pictures/${uid}?t=${Date.now()}`;
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [removed, setRemoved] = useState(false);
 
-		const img = new Image();
-		img.onload = () => setPreviewUrl(cdnUrl);
-		img.onerror = () => {}; // no image yet, stay at default empty state
-		img.src = cdnUrl;
-	}, [uid]);
+  const handleEditClick = () => {
+    setMenuOpen((prev) => !prev);
+  };
 
-	const handleEditClick = () => {
-		fileInputRef.current?.click()
-	}
+  const handleSelectUpload = () => {
+    setMenuOpen(false);
+    setRemoved(false);
+    fileInputRef.current?.click();
+  };
 
-	const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-		const f = e.target.files?.[0];
-		console.log("file change", f);
-		if (!f) return;
-		setFile(f);
-		setPreviewUrl(URL.createObjectURL(f));
-		setUploaded(false);
-	};
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (!selectedFile || !uid) return;
 
-	const handleUpload = async () => {
-		console.log("handleUpload called", { file, uid });
-		if (!file) {
-			console.warn("no file – not uploading");
-			return;
-		}
-		if (!uid) {
-			console.warn("no uid – not uploading");
-			return;
-		}
-		console.log("uploading file", file.name, file.type, file.size);
-		setUploading(true);
+    const formData = new FormData();
+    formData.append("file", selectedFile);
+    formData.append("uid", uid);
 
-		const formData = new FormData();
-		formData.append("file", file);
-		formData.append("uid", uid);
+    try {
+      setLoading(true);
 
-		try {
-			const res = await fetch(
-				"https://us-central1-for-all-ages-8a4e2.cloudfunctions.net/uploadProfilePicture",
-				{ method: "POST", body: formData }
-			);
-			if (!res.ok) throw new Error(await res.text());
-			setUploaded(true);
-		} catch (err) {
-			console.error("Upload failed:", err);
-		} finally {
-			setUploading(false);
-		}
-	};
+      const res = await fetch(
+        "https://us-central1-for-all-ages-8a4e2.cloudfunctions.net/uploadProfilePicture",
+        {
+          method: "POST",
+          body: formData,
+        },
+      );
 
-  const handleRemove = () => {
-    setPreviewUrl(null);
-    setUploaded(false);
-    if (fileInputRef.current) fileInputRef.current.value = "";
+      if (!res.ok) {
+        throw new Error(await res.text());
+      }
+
+      setRemoved(false);
+      setMenuOpen(false);
+      window.location.reload();
+    } catch (err) {
+      console.error("Upload failed:", err);
+    } finally {
+      setLoading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
+  const handleRemove = async () => {
+    if (!uid) return;
+
+    try {
+      setLoading(true);
+      setMenuOpen(false);
+
+      const res = await fetch(
+        "https://us-central1-for-all-ages-8a4e2.cloudfunctions.net/removeProfilePicture",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ uid }),
+        },
+      );
+
+      const text = await res.text();
+      console.log("remove status:", res.status);
+      console.log("remove response:", text);
+
+      if (!res.ok) {
+        throw new Error(text);
+      }
+
+      setRemoved(true);
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+
+      window.location.reload();
+    } catch (err) {
+      console.error("Remove failed:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className={styles.wrapper}>
-      <div className={styles.pfpCircle}>
-				{previewUrl && (
-					<img src={previewUrl} alt="Profile preview" className={styles.previewImage} />
-				)}
-			</div>
-          
-			<button className={styles.editIconBox} onClick={handleEditClick}>
-				<EditIcon className={styles.editIcon} />
-			</button>
+    <div className={styles.container}>
+      <div className={styles.pictureWrapper}>
+        <ProfilePicture uid={removed ? undefined : uid} size={190} />
 
-			<input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        style={{ display: "none" }}
-        onChange={handleFileChange}
-      />
+        <button
+          type="button"
+          className={styles.editButton}
+          onClick={handleEditClick}
+          disabled={loading}
+        >
+          <EditIcon />
+        </button>
 
-      {previewUrl && (
-        <div className={styles.actions}>
-          <button onClick={handleUpload} disabled={uploading || uploaded}>
-            {uploading ? "Uploading..." : uploaded ? "Uploaded!" : "Upload"}
-          </button>
-          <button onClick={handleRemove}>Remove</button>
-        </div>
-      )}
+        {menuOpen && (
+          <div className={styles.popupMenu}>
+            <button
+              type="button"
+              onClick={handleSelectUpload}
+              disabled={loading}
+            >
+              Upload
+            </button>
+            <button type="button" onClick={handleRemove} disabled={loading}>
+              Remove
+            </button>
+          </div>
+        )}
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={handleFileChange}
+        />
+      </div>
+
+      {loading && <p className={styles.uploadingText}>Working...</p>}
     </div>
   );
 }
