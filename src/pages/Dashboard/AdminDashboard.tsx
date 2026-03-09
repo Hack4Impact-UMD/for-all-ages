@@ -41,6 +41,7 @@ export default function AdminDashboard() {
    
    // Ref to ensure we only sync the week from Firebase ONCE on initial load
    const hasInitializedWeek = useRef(false);
+   const callFilterRef = useRef<HTMLDivElement | null>(null);
 
    useEffect(() => {
        const unsubscribe = subscribeToProgramState(
@@ -117,6 +118,25 @@ export default function AdminDashboard() {
      loadWeekData();
    }, [selectedWeek]);
 
+   useEffect(() => {
+     if (!callFilterOpen) return;
+
+     const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+       if (!callFilterRef.current) return;
+       if (!callFilterRef.current.contains(event.target as Node)) {
+         setCallFilterOpen(false);
+       }
+     };
+
+     document.addEventListener('mousedown', handleClickOutside);
+     document.addEventListener('touchstart', handleClickOutside);
+
+     return () => {
+       document.removeEventListener('mousedown', handleClickOutside);
+       document.removeEventListener('touchstart', handleClickOutside);
+     };
+   }, [callFilterOpen]);
+
    // Transform matches into calendar format grouped by day
    const activeWeekData = useMemo(() => {
      const schedule: Record<DayKey, PersonAssignment[]> = {
@@ -191,7 +211,7 @@ export default function AdminDashboard() {
           ) : (
             <div className={adminStyles.scheduleCard}>
               <div className={adminStyles.scheduleInner}>
-                <div className={adminStyles.filterBar}>
+              <div className={adminStyles.filterBar} ref={callFilterRef}>
                   <button
                     type="button"
                     className={adminStyles.filterButton}

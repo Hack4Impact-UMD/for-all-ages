@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import styles from "./PreProgram.module.css";
 import { useNavigate } from "react-router-dom";
 import SearchIcon from "@mui/icons-material/Search";
@@ -60,6 +60,8 @@ const PreProgram = () => {
 
   const [statusFilterOpen, setStatusFilterOpen] = useState(false);
   const [selectedStatuses, setSelectedStatuses] = useState<MatchStatus[]>([]);
+
+  const statusFilterRef = useRef<HTMLDivElement | null>(null);
 
   const navigate = useNavigate();
 
@@ -465,9 +467,12 @@ const PreProgram = () => {
   };
 
   const handleStatusChange = async (
-    index: number,
+    matchId: string | undefined,
     newStatus: MatchStatus | "Separate",
   ) => {
+    const index = matches.findIndex((m) => m.matchId === matchId);
+    if (index === -1) return;
+
     const updated = [...matches];
     const match = updated[index];
 
@@ -528,6 +533,25 @@ const PreProgram = () => {
 
     return matchesSearch && matchesStatus;
   });
+
+  useEffect(() => {
+    if (!statusFilterOpen) return;
+
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      if (!statusFilterRef.current) return;
+      if (!statusFilterRef.current.contains(event.target as Node)) {
+        setStatusFilterOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
+  }, [statusFilterOpen]);
 
   // global bools for program state
   const programStarted = programState?.started ?? false;
@@ -725,7 +749,7 @@ const PreProgram = () => {
 
       {/* ── Match Table ── */}
       <div className={styles.container}>
-        <div className={styles.filterBar}>
+        <div className={styles.filterBar} ref={statusFilterRef}>
           <button
             type="button"
             className={styles.filterButton}
@@ -794,7 +818,10 @@ const PreProgram = () => {
                       <select
                         value={m.status}
                         onChange={(e) =>
-                          handleStatusChange(i, e.target.value as MatchStatus | "Separate")
+                          handleStatusChange(
+                            m.matchId,
+                            e.target.value as MatchStatus | "Separate",
+                          )
                         }
                         className={`${styles.status} ${
                           m.status === "Approved"
