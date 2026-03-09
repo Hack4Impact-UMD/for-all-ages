@@ -129,7 +129,7 @@ export interface ProgramState {
 }
 
 /** PreProgram match row status */
-export type MatchStatus = "Pending" | "Approved" | "No Match" | "Implementation"
+export type MatchStatus = "Pending" | "Approved" | "No Match"
 
 /** Day labels for schedule (AdminDashboard) */
 export type DayKey = "Sun" | "Mon" | "Tue" | "Wed" | "Thurs" | "Fri" | "Sat"
