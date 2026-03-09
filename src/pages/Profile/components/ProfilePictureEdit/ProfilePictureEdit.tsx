@@ -79,8 +79,6 @@ export default function ProfilePictureEdit({ uid }: ProfilePictureEditProps) {
       );
 
       const text = await res.text();
-      console.log("remove status:", res.status);
-      console.log("remove response:", text);
 
       if (!res.ok) {
         throw new Error(text);
