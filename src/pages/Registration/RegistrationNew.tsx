@@ -535,6 +535,7 @@ const RegistrationNew = () => {
   const [form, setForm] = useState<Form | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // on mount, pull the form schema from Firestore
   useEffect(() => {
@@ -666,9 +667,7 @@ const RegistrationNew = () => {
 
         let answer: string | number;
 
-        if (questionType === "phoneNumber") {
-          answer = formData.get(fieldName) as string;
-        } else if (questionType === "multiple") {
+        if (questionType === "multiple") {
           const values = formData.getAll(fieldName) as string[];
           answer = values.join(", ");
         } else if (questionType === "address") {
@@ -710,7 +709,17 @@ const RegistrationNew = () => {
         if (questionType === "Slider") {
           const value = parseInt(formData.get(fieldName) as string) || 0;
           numericResponses.push(value);
-        } else if (["short_input", "medium_input", "long_input"].includes(questionType)) {
+        } else if (
+          [
+            "short_input",
+            "medium_input",
+            "long_input",
+            "Dropdown",
+            "Radio",
+            "multiple",
+            "Date",
+          ].includes(questionType)
+        ) {
           const value = (formData.get(fieldName) as string) || "";
           // Preserve stable text1..textN key mapping even when response is empty.
           textResponses.push(value);
@@ -735,8 +744,26 @@ const RegistrationNew = () => {
     }
 
     setSubmitting(true);
+    setSubmitError(null);
     try {
       const formData = new FormData(event.currentTarget);
+
+      // Validate phone number before proceeding
+      const phoneEntry = getQuestionEntries(form).find(
+        ({ question }) => question.type === "phoneNumber",
+      );
+      if (phoneEntry) {
+        const phone = (formData.get(phoneEntry.fieldName) as string) || "";
+        const confirmPhone = (formData.get(`${phoneEntry.fieldName}_confirm`) as string) || "";
+        if (phone && !phoneNumberRegex.test(phone)) {
+          setSubmitError("Please enter a valid phone number.");
+          return;
+        }
+        if (phone !== confirmPhone) {
+          setSubmitError("Phone numbers must match.");
+          return;
+        }
+      }
 
       // Extract basic info for Participant
       const basicInfo = extractBasicInfo(formData, form);
@@ -792,6 +819,7 @@ const RegistrationNew = () => {
       navigate("/user/dashboard", { replace: true });
     } catch (err) {
       console.error("Form submission error:", err);
+      setSubmitError("Something went wrong. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -805,7 +833,10 @@ const RegistrationNew = () => {
   return (
     <form id={styles.page} onSubmit={handleSubmit}>
       <FormRenderer form={form} />
-            <button id={styles.submit} type="submit" disabled={submitting}>
+      {submitError && (
+        <p className={styles.errorText} role="alert">{submitError}</p>
+      )}
+      <button id={styles.submit} type="submit" disabled={submitting}>
         {submitting ? "Submitting..." : "Submit"}
       </button>
     </form>
