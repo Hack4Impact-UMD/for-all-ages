@@ -26,6 +26,30 @@ function RouteLoader() {
   return <div className="route-loading">Loading...</div>;
 }
 
+function ProgramGate({ children }: { children: React.ReactNode }) {
+  const { programState, programStateLoading } = useAuth() as {
+    programState: { matches_final: boolean; started: boolean } | null;
+    programStateLoading: boolean;
+  };
+  const location = useLocation();
+
+  if (programStateLoading) {
+    return <RouteLoader />;
+  }
+
+  if (!programState) {
+    return <Navigate to="/waiting" replace state={{ from: location }} />;
+  }
+
+  const { matches_final, started } = programState;
+
+  if (!matches_final || !started) {
+    return <Navigate to="/waiting" replace state={{ from: location }} />;
+  }
+
+  return <>{children}</>;
+}
+
 function RegistrationGate() {
   const {
     user,
@@ -135,10 +159,6 @@ function App() {
         <Route element={<MainLayout />}>
           <Route path="/registration" element={<RegistrationGate />} />
           <Route path="/waiting" element={<Waiting />} />
-          <Route
-            path={"/registration"}
-            element={<Registration></Registration>}
-          ></Route>
           <Route path={"/profile"} element={<Profile></Profile>}></Route>
 
           <Route path="/user/*" element={<ParticipantGate />}>
@@ -146,8 +166,22 @@ function App() {
               path=""
               element={<Navigate to="/user/dashboard" replace />}
             />
-            <Route path="dashboard" element={<UserDashboard />} />
-            <Route path="matched" element={<MatchedDashboard />} />
+            <Route
+              path="dashboard"
+              element={
+                <ProgramGate>
+                  <UserDashboard />
+                </ProgramGate>
+              }
+            />
+            <Route
+              path="matched"
+              element={
+                <ProgramGate>
+                  <MatchedDashboard />
+                </ProgramGate>
+              }
+            />
             <Route path="waiting" element={<Waiting />} />
           </Route>
 

@@ -182,7 +182,12 @@ function InlineEditor({
   }, [typeOpen]);
 
   return (
-    <div className={styles.inlineEditorWrapper}>
+    <div
+      className={styles.inlineEditorWrapper}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") onDone();
+      }}
+    >
       {/* Floating toolbar — compact icons aligned right */}
       <div className={styles.inlineToolbar}>
         <div className={styles.inlineToolbarActions}>
@@ -264,9 +269,6 @@ function InlineEditor({
           value={question.title ?? ""}
           placeholder="#Question"
           onChange={(e) => onUpdate({ title: e.target.value })}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") onDone();
-          }}
           autoFocus
         />
         <input
@@ -274,9 +276,6 @@ function InlineEditor({
           value={question.description ?? ""}
           placeholder="Type"
           onChange={(e) => onUpdate({ description: e.target.value })}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") onDone();
-          }}
         />
 
         {/* Options editor for Dropdown / Radio / Multiple */}
@@ -720,12 +719,16 @@ const FormBuilder: React.FC = () => {
                           setEditingQuestionId(null);
                         }}
                         onMoveUp={() => {
-                          if (i > 0)
+                          if (i > 0) {
                             reorderQuestions(activeSection.id, i, i - 1);
+                            setEditingQuestionId(q.id);
+                          }
                         }}
                         onMoveDown={() => {
-                          if (i < activeSection.questions.length - 1)
+                          if (i < activeSection.questions.length - 1) {
                             reorderQuestions(activeSection.id, i, i + 1);
+                            setEditingQuestionId(q.id);
+                          }
                         }}
                         onDone={() => setEditingQuestionId(null)}
                         onUndo={undo}
