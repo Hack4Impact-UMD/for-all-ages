@@ -146,10 +146,18 @@ export const useFormEditor = (initialForm?: Form | null) => {
     },
     [setPresent],
   );
-
   const reorderSections = useCallback(
     (fromIndex: number, toIndex: number) => {
       setPresent((state) => {
+        //checks if the indexes are valid
+        if (
+          fromIndex < 0 ||
+          fromIndex >= state.sections.length ||
+          toIndex < 0 ||
+          toIndex >= state.sections.length
+        ) {
+          return state;
+        }
         const sections = [...state.sections];
         const [moved] = sections.splice(fromIndex, 1);
         sections.splice(toIndex, 0, moved);
@@ -240,6 +248,16 @@ export const useFormEditor = (initialForm?: Form | null) => {
         ...state,
         sections: state.sections.map((section) => {
           if (section.id !== sectionId) return section;
+          //checks if the indexes are valid
+          if (
+            fromIndex < 0 ||
+            fromIndex >= section.questions.length ||
+            toIndex < 0 ||
+            toIndex >= section.questions.length
+          ) {
+            return section;
+          }
+          // actual logic reordering the questions
           const nextQuestions = [...section.questions];
           const [moved] = nextQuestions.splice(fromIndex, 1);
           nextQuestions.splice(toIndex, 0, moved);

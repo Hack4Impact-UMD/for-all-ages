@@ -185,7 +185,9 @@ function InlineEditor({
     <div
       className={styles.inlineEditorWrapper}
       onKeyDown={(e) => {
-        if (e.key === "Enter") onDone();
+        if (e.key === "Enter" && e.target === e.currentTarget) {
+          onDone();
+        }
       }}
     >
       {/* Floating toolbar — compact icons aligned right */}
@@ -487,6 +489,7 @@ const FormBuilder: React.FC = () => {
     fetchForm();
   }, [loadForm]);
 
+  // drag and drop functionality to reorder sections
   const handleSectionDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
