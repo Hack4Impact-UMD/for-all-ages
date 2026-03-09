@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import busboy from "busboy";
 // import * as functions from "firebase-functions";
 import { onRequest, onCall, HttpsError } from "firebase-functions/v2/https";
 import { onSchedule } from "firebase-functions/v2/scheduler";
@@ -9,6 +10,8 @@ import { MatchingService } from "./matching/src/services/matchingService";
 import { upsertFreeResponse } from './matching/src/services/upsertUser.js';
 import computeMatchScoreService from './matching/src/services/calculateMatchScore.js';
 import { deleteUserFromPinecone } from './matching/src/services/deleteUser.js';
+
+import { Readable } from "stream";
 
 admin.initializeApp();
 
@@ -250,4 +253,81 @@ export const deleteUser = onCall(async (request) => {
   }
 
   return { success: true };
+});
+
+export const uploadProfilePicture = onRequest(async (req, res) => {
+  res.set("Access-Control-Allow-Origin", CORS_ORIGIN);
+  res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+
+  if (req.method !== "POST") {
+    res.status(405).send("Method Not Allowed");
+    return;
+  }
+
+  const bb = busboy({ headers: req.headers });
+  let uid: string | null = null;
+  let fileBuffer: Buffer | null = null;
+  let fileMimeType = "image/jpeg";
+
+  bb.on("field", (name, value) => {
+    if (name === "uid") uid = value;
+  });
+
+  bb.on("file", (_, file, info) => {
+    fileMimeType = info.mimeType;
+    const chunks: Buffer[] = [];
+    file.on("data", (chunk) => chunks.push(chunk));
+    file.on("end", () => { fileBuffer = Buffer.concat(chunks); });
+  });
+
+  bb.on("finish", async () => {
+    console.log("busboy finished, uid=", uid, "buffer length=", fileBuffer?.length);
+    if (!uid || !fileBuffer) {
+      console.warn("missing uid or fileBuffer", { uid, fileBuffer });
+      res.status(400).send("Missing uid or file.");
+      return;
+    }
+
+    try {
+      const bucket = admin.storage().bucket("for-all-ages-cdn");
+      const file = bucket.file(`profile-pictures/${uid}`);
+
+      // uniform bucket-level access is enabled for this bucket, which
+      // prohibits setting per-object ACLs (the `public: true` flag you
+      // were previously using).
+      //
+      // Instead, ensure that the bucket's IAM policy grants
+      // `roles/storage.objectViewer` to `allUsers` (or whatever principal
+      // you need) so that objects are publicly readable. If you want to
+      // make a single object public programmatically you can still call
+      // `await file.makePublic();` after saving, but it may be unnecessary
+      // if the bucket is already globally readable.
+      await file.save(fileBuffer, {
+        metadata: { contentType: fileMimeType },
+        // no `public: true` option when uniform access is on
+      });
+      // if you do need to ensure the specific object is publicly readable,
+      // uncomment the next line. it will succeed under uniform access.
+      // await file.makePublic();
+
+      res.status(200).json({
+        url: `https://storage.googleapis.com/for-all-ages-cdn/profile-pictures/${uid}`
+      });
+    } catch (err) {
+      console.error("Upload error:", err);
+      // send the full error message back so the client can inspect it
+      res.status(500).send(`Upload failed: ${err}`);
+    }
+  });
+
+  const readable = new Readable();
+  readable.push(req.rawBody);
+  readable.push(null);
+  readable.pipe(bb);
 });

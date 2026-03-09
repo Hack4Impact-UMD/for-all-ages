@@ -17,7 +17,7 @@ import { getMatchesByParticipant, getPartnerId } from "../../services/matches";
 import type { ErrorState, UserProfile } from "../../types";
 import EmailReauthModal from "./components/EmailReauthModal/EmailReauthModal";
 import MatchInterestsModal from "./components/MatchInterestsModal/MatchInterestsModal";
-import ProfilePicture from "./components/ProfilePicture/ProfilePicture";
+import ProfilePictureEdit from "./components/ProfilePictureEdit/ProfilePictureEdit";
 
 // normalize birthday to MM/DD/YYYY for profile display/edit
 const toDisplayBirthday = (raw: string | undefined | null): string => {
@@ -535,7 +535,9 @@ const Profile = () => {
         {/* LEFT COLUMN */}
         <div className={styles.leftColumn}>
           <div className={styles.infoCard}>
-            <ProfilePicture uid={user.uid} size={140} />
+
+            <ProfilePictureEdit uid={user.uid}></ProfilePictureEdit>
+
             <h2 className={styles.profileName}>{user.name}</h2>
             <span className={styles.statusTag}>{user.status}</span>
           </div>
