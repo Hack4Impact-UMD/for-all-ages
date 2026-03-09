@@ -64,17 +64,30 @@ export const upsertUser = onRequest(async (req, res) => {
   }
 
   try {
-    const { uid, freeResponse, q1, q2, q3, user_type } = req.body;
+    const { uid, textResponses, numericResponses, user_type } = req.body;
 
-    if (!uid || !freeResponse || !user_type) {
-      res.status(400).json({ error: "Missing required fields: uid, freeResponse, user_type" });
+    if (!uid || !user_type) {
+      res.status(400).json({ error: "Missing required fields: uid, user_type" });
       return;
     }
 
-    await upsertFreeResponse(uid, freeResponse, q1, q2, q3, user_type);
+    // If there are no matchable responses, just return success
+    if ((!textResponses || textResponses.length === 0) && 
+        (!numericResponses || numericResponses.length === 0)) {
+      res.status(200).json({ message: "No responses to upsert." });
+      return;
+    }
 
-    res.status(200).json({ message: "Free response upserted successfully." });
-  } catch (err) {res.status(500).json({ error: String(err) });
+    await upsertFreeResponse(
+      uid,
+      textResponses || [],
+      numericResponses || [],
+      user_type
+    );
+
+    res.status(200).json({ message: "Responses upserted successfully." });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
   }
 });
 
