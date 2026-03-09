@@ -2,7 +2,7 @@ import styles from "./Registration.module.css";
 import { phoneNumberRegex } from "../../regex";
 import type { Form, Question, Section, FormResponse, Participant, Questions, RawAddress } from "../../types";
 import { useState, useEffect } from "react";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { db, upsertUser } from "../../firebase";
 import { useAuth } from "../../auth/AuthProvider";
 import { useNavigate } from "react-router-dom";
@@ -748,19 +748,33 @@ const RegistrationNew = () => {
       // Extract matchable responses for Pinecone
       const { textResponses, numericResponses } = extractMatchableResponses(formData, form);
 
-      // Create Participant document
+      // Check if documents exist to determine if we need to set createdAt
       const participantDocRef = doc(db, "participants", user.uid);
+      const formResponseDocRef = doc(db, "FormResponse", user.uid);
+      
+      const [participantSnap, formResponseSnap] = await Promise.all([
+        getDoc(participantDocRef),
+        getDoc(formResponseDocRef)
+      ]);
+
+      // Create Participant document
       const participantData: Participant = {
         type: "Participant",
-        ...basicInfo
+        ...basicInfo,
+        updatedAt: serverTimestamp() as any,
+        ...(!participantSnap.exists() && { createdAt: serverTimestamp() as any })
       };
 
       await setDoc(participantDocRef, participantData, { merge: true });
       console.log("Participant created/updated successfully");
 
       // Create FormResponse document
-      const formResponseDocRef = doc(db, "FormResponse", user.uid);
-      await setDoc(formResponseDocRef, formResponses, { merge: true });
+      const formResponseData: FormResponse = {
+        ...formResponses,
+        updatedAt: serverTimestamp() as any,
+        ...(!formResponseSnap.exists() && { createdAt: serverTimestamp() as any })
+      };
+      await setDoc(formResponseDocRef, formResponseData, { merge: true });
       console.log("FormResponse created/updated successfully");
 
       // Call upsertUser to update Pinecone with matchable questions

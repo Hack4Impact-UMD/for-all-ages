@@ -1,3 +1,5 @@
+import type { Timestamp } from "firebase/firestore";
+
 export type Role = "Admin" | "Subadmin";
 
 export type UserType = "student" | "adult";
@@ -47,6 +49,8 @@ export interface Participant {
     preferenceScores?: PreferenceScores | null
     status?: string | null
     role?: Role | null
+    createdAt?: Timestamp | null
+    updatedAt?: Timestamp | null
 }
 
 export type ParticipantDoc = Partial<Participant>;
@@ -67,6 +71,8 @@ export interface Questions {
 export interface FormResponse {
     uid: string  // user uid
     questions: Questions[]
+    createdAt?: Timestamp | null
+    updatedAt?: Timestamp | null
 }
 
 /** Participant view for rematching page (participants-test2 collection) */
