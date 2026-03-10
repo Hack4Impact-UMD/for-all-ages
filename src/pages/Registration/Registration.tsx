@@ -9,8 +9,19 @@ import { upsertUser } from "../../firebase";
 import { PREFERENCE_QUESTION_LABELS } from "./preferenceQuestions";
 import type { RegistrationFormState } from "../../types";
 
-// Builds the initial state for the registration form
+const TOTAL_STEPS = 5;
+
+const STEP_LABELS = [
+  "Personal Profile",
+  "About You",
+  "Tea & Interests",
+  "Health",
+  "Registration Agreement",
+];
+
 const buildInitialState = (email?: string): RegistrationFormState => ({
+  firstName: "",
+  lastName: "",
   addressLine1: "",
   addressLine2: "",
   city: "",
@@ -20,25 +31,26 @@ const buildInitialState = (email?: string): RegistrationFormState => ({
   phone: "",
   confirmPhone: "",
   email: email ?? "",
+  confirmEmail: "",
   dateOfBirth: "",
   pronouns: "",
   heardAbout: "",
   university: "",
   user_type: "",
+  language: "",
   interests: "",
   teaPreference: "",
   preferredContactMethods: [],
-  // Provide default values so the preferences are saved even if user doesn't move sliders
-  preferenceScores: {
-    q1: 3,
-    q2: 3,
-    q3: 3,
-  },
+  preferenceScores: { q1: 3, q2: 3, q3: 3 },
+  isReturningParticipant: false,
+  healthChallenge: "",
+  healthChallengeAreas: [],
+  healthOther: "",
+  agreementName: "",
 });
 
 const Registration = () => {
   const navigate = useNavigate();
-  // Access authentication context
   const {
     user,
     loading: authLoading,
@@ -50,6 +62,7 @@ const Registration = () => {
   const [form, setForm] = useState<RegistrationFormState>(() =>
     buildInitialState(user?.email ?? "")
   );
+  const [currentStep, setCurrentStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
@@ -63,7 +76,6 @@ const Registration = () => {
     }
   }, [user?.email]);
 
-  // unverified users out, and if the profile already exists, skips registration
   useEffect(() => {
     if (authLoading || participantLoading) return;
     if (!user || !emailVerified) {
@@ -85,75 +97,83 @@ const Registration = () => {
     navigate,
   ]);
 
-  // Handles changes to form inputs
+  // When the user types into any input/select/textarea, update that field in form state
   const handleInputChange = (
     event: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
     >
   ) => {
     const { name, value } = event.target;
-    setForm((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Handles multi-select checkbox changes for preferred contact methods
-  const handleContactMethodChange = (method: string, checked: boolean) => {
-    setForm((prev) => ({
-      ...prev,
-      preferredContactMethods: checked
-        ? [...prev.preferredContactMethods, method]
-        : prev.preferredContactMethods.filter((m) => m !== method),
-    }));
+  // When a health area checkbox is toggled, add or remove it from the list
+  const handleHealthAreaChange = (area: string, checked: boolean) => {
+    setForm((prev) => {
+      if (checked) {
+        return {
+          ...prev,
+          healthChallengeAreas: [...prev.healthChallengeAreas, area],
+        };
+      } else {
+        return {
+          ...prev,
+          healthChallengeAreas: prev.healthChallengeAreas.filter(
+            (a) => a !== area
+          ),
+        };
+      }
+    });
   };
 
-  // Handles slider changes for preference scores
-  const handlePreferenceScoreChange = (
-    questionId: "q1" | "q2" | "q3",
-    value: number
-  ) => {
-    setForm((prev) => ({
-      ...prev,
-      preferenceScores: {
-        ...prev.preferenceScores,
-        [questionId]: value,
-      },
-    }));
+  const goNext = () => {
+    if (currentStep < TOTAL_STEPS) {
+      setCurrentStep(currentStep + 1);
+    }
   };
 
+  const goBack = () => {
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
+
+  // Phone validation
   const isPhoneInvalid =
     form.phone !== "" && !phoneNumberRegex.test(form.phone);
   const isConfirmPhoneInvalid =
     form.confirmPhone !== "" && !phoneNumberRegex.test(form.confirmPhone);
-
   const isPhoneMismatch =
     form.phone !== "" &&
     form.confirmPhone !== "" &&
     form.phone !== form.confirmPhone;
 
+  // Check that all required fields have a value before allowing submit
   const allRequiredFilled =
-    Boolean(form.addressLine1) &&
-    Boolean(form.city) &&
-    Boolean(form.state) &&
-    Boolean(form.postalCode) &&
-    Boolean(form.country) &&
-    Boolean(form.phone) &&
-    Boolean(form.confirmPhone) &&
-    Boolean(form.email) &&
-    Boolean(form.dateOfBirth) &&
-    Boolean(form.pronouns) &&
-    Boolean(form.heardAbout) &&
-    Boolean(form.user_type) &&
-    // university is required only if the user_type is 'student'
-    (form.user_type !== "student" || Boolean(form.university)) &&
-    Boolean(form.interests) &&
-    Boolean(form.teaPreference) &&
+    form.firstName !== "" &&
+    form.lastName !== "" &&
+    form.addressLine1 !== "" &&
+    form.city !== "" &&
+    form.state !== "" &&
+    form.postalCode !== "" &&
+    form.phone !== "" &&
+    form.confirmPhone !== "" &&
+    form.email !== "" &&
+    form.confirmEmail !== "" &&
+    form.email === form.confirmEmail &&
+    form.dateOfBirth !== "" &&
+    form.pronouns !== "" &&
+    form.heardAbout !== "" &&
+    form.language !== "" &&
+    form.interests !== "" &&
+    form.teaPreference !== "" &&
     form.preferredContactMethods.length > 0 &&
+    form.agreementName !== "" &&
     !isPhoneMismatch &&
     !isPhoneInvalid &&
     !isConfirmPhoneInvalid;
 
+  // Submit the form to Firestore
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!user) return;
@@ -166,12 +186,12 @@ const Registration = () => {
     setError(null);
     setStatus(null);
 
-    // stores the time stamp
     const timestamp = serverTimestamp();
-    // builds the payload to store in firestore
     const payload = {
       type: "Participant" as const,
       userUid: user.uid,
+      firstName: form.firstName,
+      lastName: form.lastName,
       email: form.email.trim().toLowerCase(),
       user_type: form.user_type,
       phoneNumber: form.phone,
@@ -181,33 +201,33 @@ const Registration = () => {
         city: form.city,
         state: form.state,
         postalCode: form.postalCode,
-        country: form.country,
+        country: form.country || null,
       },
       dateOfBirth: form.dateOfBirth,
       pronouns: form.pronouns,
       heardAbout: form.heardAbout,
       university: form.university,
+      language: form.language,
       interests: form.interests,
       teaPreference: form.teaPreference,
       preferredContactMethods: form.preferredContactMethods,
       preferenceScores: form.preferenceScores,
+      isReturningParticipant: form.isReturningParticipant,
+      healthChallenge: form.healthChallenge,
+      healthChallengeAreas: form.healthChallengeAreas,
+      healthOther: form.healthOther,
+      agreementName: form.agreementName,
       displayName: user.displayName ?? null,
       updatedAt: timestamp,
     };
 
-    // attempts to write the participant profile to firestore
-    // if participant already exists, merges with existing data
-    // otherwise, creates a new document with createdAt timestamp
-    // always sets updatedAt to current timestamp
     try {
       const docRef = doc(db, "participants", user.uid);
-      // For testing purposes
       const docTest = doc(db, "participants", user.uid);
       const dataToWrite = participant
         ? payload
         : { ...payload, createdAt: timestamp };
       await setDoc(docRef, dataToWrite, { merge: true });
-      // For testing purposes
       await setDoc(docTest, dataToWrite, { merge: true });
 
       try {
@@ -235,6 +255,7 @@ const Registration = () => {
     }
   };
 
+  // Show loading while auth is still loading
   if (authLoading || participantLoading) {
     return (
       <div id={styles.page}>
@@ -243,421 +264,683 @@ const Registration = () => {
     );
   }
 
+  function getStepCircleClass(stepNumber: number) {
+    if (stepNumber < currentStep) return styles.stepCircle + " " + styles.stepCircleCompleted;
+    if (stepNumber === currentStep) return styles.stepCircle + " " + styles.stepCircleActive;
+    return styles.stepCircle;
+  }
+
+  function getStepLabelClass(stepNumber: number) {
+    if (stepNumber < currentStep) return styles.stepLabel + " " + styles.stepLabelCompleted;
+    if (stepNumber === currentStep) return styles.stepLabel + " " + styles.stepLabelActive;
+    return styles.stepLabel;
+  }
+
   return (
-    <>
-      <form id={styles.page} onSubmit={handleSubmit}>
-        <div id={styles.addr_container}>
-          <div id={styles.addr_street}>
-            <label className={styles.sublabel}>
-              <span className={styles.label}>Current Mailing Address</span>
-              <input
-                type="text"
-                name="addressLine1"
-                value={form.addressLine1}
-                onChange={handleInputChange}
-                required
-              />
-              Street Address
-            </label>
+    <form id={styles.page} onSubmit={handleSubmit}>
 
-            <label className={styles.sublabel}>
-              <input
-                type="text"
-                name="addressLine2"
-                value={form.addressLine2}
-                onChange={handleInputChange}
-              />
-              Street Address 2
-            </label>
-          </div>
+      {/* ===== HEADER ===== */}
+      <div className={styles.header}>
+        <div className={styles.headerTitle}>Registration Form</div>
+        <h1 className={styles.headerSubtitle}>Tea @ 3</h1>
+        <p className={styles.headerDescription}>
+          Let's find your perfect tea-mate. This takes about 8-10 minutes.
+        </p>
+      </div>
 
-          <div id={styles.addr_details}>
-            <div>
-              <label className={styles.sublabel}>
-                <input
-                  type="text"
-                  name="city"
-                  value={form.city}
-                  onChange={handleInputChange}
-                  required
-                />
-                City
-              </label>
-            </div>
-
-            <div>
-              <label className={styles.sublabel}>
-                <input
-                  type="text"
-                  name="state"
-                  value={form.state}
-                  onChange={handleInputChange}
-                  required
-                />
-                State / Province
-              </label>
-            </div>
-
-            <div>
-              <label className={styles.sublabel}>
-                <input
-                  type="text"
-                  name="postalCode"
-                  value={form.postalCode}
-                  onChange={handleInputChange}
-                  required
-                />
-                Postal / Zip Code
-              </label>
-            </div>
-
-            <div>
-              <label className={styles.sublabel}>
-                <input
-                  type="text"
-                  name="country"
-                  value={form.country}
-                  onChange={handleInputChange}
-                  required
-                />
-                Country
-              </label>
-            </div>
-          </div>
+      {/* ===== PROGRESS BAR ===== */}
+      <div className={styles.progressContainer}>
+        <div className={styles.stepsRow}>
+          {STEP_LABELS.map((label, index) => {
+            const stepNumber = index + 1;
+            const isCompleted = stepNumber < currentStep;
+            return (
+              <div key={label} className={styles.stepItem}>
+                <div className={getStepCircleClass(stepNumber)}>
+                  {isCompleted ? "✓" : stepNumber}
+                </div>
+                <span className={getStepLabelClass(stepNumber)}>
+                  {label}
+                </span>
+              </div>
+            );
+          })}
         </div>
+      </div>
 
-        <div className={styles.confirm}>
-          <label className={styles.label}>
-            Phone Number
+      {/* ===== STEP 1: PERSONAL PROFILE ===== */}
+      {currentStep === 1 && (
+        <div className={styles.card}>
+          <h2 className={styles.cardTitle}>Personal Profile</h2>
+
+          <div className={styles.fieldRow}>
+            <div className={styles.fieldGroup}>
+              <span className={styles.fieldLabel}>First Name</span>
+              <input
+                className={styles.fieldInput}
+                type="text"
+                name="firstName"
+                placeholder="Jane"
+                value={form.firstName}
+                onChange={handleInputChange}
+              />
+            </div>
+            <div className={styles.fieldGroup}>
+              <span className={styles.fieldLabel}>Last Name</span>
+              <input
+                className={styles.fieldInput}
+                type="text"
+                name="lastName"
+                placeholder="Doe"
+                value={form.lastName}
+                onChange={handleInputChange}
+              />
+            </div>
+          </div>
+
+          <div className={styles.fieldGroup}>
+            <span className={styles.fieldLabel}>Date of Birth</span>
             <input
-              type="tel"
-              name="phone"
-              value={form.phone}
+              className={styles.fieldInput}
+              type="date"
+              name="dateOfBirth"
+              value={form.dateOfBirth}
               onChange={handleInputChange}
-              placeholder="(XXX) XXX-XXXX"
-              required
+              style={{ maxWidth: 250 }}
             />
-            {isPhoneInvalid && (
-              <span className={styles.errorText}>
-                Please enter a valid phone number format.
-              </span>
-            )}
-            <span className={styles.helpText}>
-              Valid phone number formats: <br />
-              <ul>
-                <li>123-456-7890</li>
-                <li>(123) 456-7890</li>
-                <li>+1 (123) 456-7890</li>
-              </ul>
+          </div>
+
+          <div className={styles.fieldGroup}>
+            <span className={styles.fieldLabel}>Preferred Pronouns</span>
+            <input
+              className={styles.fieldInput}
+              type="text"
+              name="pronouns"
+              placeholder="she/they"
+              value={form.pronouns}
+              onChange={handleInputChange}
+              style={{ maxWidth: 250 }}
+            />
+          </div>
+
+          <div className={styles.fieldRow}>
+            <div className={styles.fieldGroup}>
+              <span className={styles.fieldLabel}>Enter Your Email Address</span>
+              <input
+                className={styles.fieldInput}
+                type="email"
+                name="email"
+                placeholder="yourname@email.com"
+                value={form.email}
+                onChange={handleInputChange}
+              />
+            </div>
+            <div className={styles.fieldGroup}>
+              <span className={styles.fieldLabel}>Confirm Your Email Address</span>
+              <input
+                className={styles.fieldInput}
+                type="email"
+                name="confirmEmail"
+                placeholder="yourname@email.com"
+                value={form.confirmEmail}
+                onChange={handleInputChange}
+              />
+              {form.confirmEmail !== "" && form.email !== form.confirmEmail && (
+                <span className={styles.errorText}>Email addresses must match.</span>
+              )}
+            </div>
+          </div>
+
+          <div className={styles.fieldRow}>
+            <div className={styles.fieldGroup}>
+              <span className={styles.fieldLabel}>Phone Number</span>
+              <input
+                className={styles.fieldInput}
+                type="tel"
+                name="phone"
+                placeholder="+1"
+                value={form.phone}
+                onChange={handleInputChange}
+              />
+              {isPhoneInvalid && (
+                <span className={styles.errorText}>
+                  Please enter a valid phone number.
+                </span>
+              )}
+            </div>
+            <div className={styles.fieldGroup}>
+              <span className={styles.fieldLabel}>Confirm Phone Number</span>
+              <input
+                className={styles.fieldInput}
+                type="tel"
+                name="confirmPhone"
+                placeholder="+1"
+                value={form.confirmPhone}
+                onChange={handleInputChange}
+              />
+              {isPhoneMismatch && (
+                <span className={styles.errorText}>Phone numbers must match.</span>
+              )}
+            </div>
+          </div>
+
+          <div className={styles.fieldGroup}>
+            <span className={styles.fieldLabel}>
+              Current Mailing Address{" "}
+              <span className={styles.helpText}>(We will be delivering you a package)</span>
             </span>
-          </label>
-
-          <label className={styles.label}>
-            Confirm Phone Number
             <input
-              type="tel"
-              name="confirmPhone"
-              placeholder="(XXX) XXX-XXXX"
-              value={form.confirmPhone}
+              className={styles.fieldInput}
+              type="text"
+              name="addressLine1"
+              placeholder="Street Address"
+              value={form.addressLine1}
               onChange={handleInputChange}
-              required
+              style={{ marginBottom: "0.5rem" }}
             />
-            {isPhoneMismatch && (
-              <span className={styles.errorText}>
-                Phone numbers must match.
-              </span>
-            )}
-          </label>
-        </div>
+            <div className={styles.addressSubRow}>
+              <input
+                className={styles.fieldInput}
+                type="text"
+                name="city"
+                placeholder="City"
+                value={form.city}
+                onChange={handleInputChange}
+              />
+              <input
+                className={styles.fieldInput}
+                type="text"
+                name="state"
+                placeholder="State"
+                value={form.state}
+                onChange={handleInputChange}
+              />
+              <input
+                className={styles.fieldInput}
+                type="text"
+                name="postalCode"
+                placeholder="Postal / Zipcode"
+                value={form.postalCode}
+                onChange={handleInputChange}
+              />
+            </div>
+          </div>
 
-        <div className={styles.confirm}>
-          <label className={styles.label}>
-            Email
-            <input
-              type="email"
-              name="email"
-              value={form.email}
+          {/* Preferred Contact Method */}
+          <div className={styles.fieldGroup}>
+            <span className={styles.fieldLabel}>Preferred Method of Contact</span>
+            <select
+              className={styles.fieldSelect}
+              value={form.preferredContactMethods[0] || ""}
+              onChange={(e) => {
+                setForm((prev) => ({
+                  ...prev,
+                  preferredContactMethods: e.target.value ? [e.target.value] : [],
+                }));
+              }}
+            >
+              <option value="">Select...</option>
+              <option value="Phone">Phone</option>
+              <option value="Email">Email</option>
+              <option value="Portal notification">Portal notification</option>
+            </select>
+          </div>
+
+          {/* Returning Participant */}
+          <div className={styles.fieldGroup}>
+            <span className={styles.fieldLabel}>Are you a returning participant?</span>
+            <div className={styles.returningRow}>
+              <label className={styles.checkboxRow}>
+                <input
+                  type="checkbox"
+                  checked={form.isReturningParticipant === true}
+                  onChange={() =>
+                    setForm((prev) => ({ ...prev, isReturningParticipant: true }))
+                  }
+                />
+                Yes
+              </label>
+              <label className={styles.checkboxRow}>
+                <input
+                  type="checkbox"
+                  checked={form.isReturningParticipant === false}
+                  onChange={() =>
+                    setForm((prev) => ({ ...prev, isReturningParticipant: false }))
+                  }
+                />
+                No
+              </label>
+            </div>
+          </div>
+
+          {/* Step indicator + Continue */}
+          <div className={styles.stepIndicator}>
+            Step {currentStep} of {TOTAL_STEPS}
+          </div>
+          <div className={styles.navButtons}>
+            <button type="button" className={styles.btnContinue} onClick={goNext}>
+              Continue
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ===== STEP 2: ABOUT YOU ===== */}
+      {currentStep === 2 && (
+        <div className={styles.card}>
+          <h2 className={styles.cardTitle}>About You</h2>
+
+          <div className={styles.fieldGroup}>
+            <span className={styles.fieldLabel}>How did you hear about this program?</span>
+            <select
+              className={styles.fieldSelect}
+              name="heardAbout"
+              value={form.heardAbout}
               onChange={handleInputChange}
-              required
-            />
-          </label>
-        </div>
-
-        <label className={styles.label}>
-          Preferred Method of Contact (Select all that apply)
-          <div className={styles.checkboxGroup}>
-            <label className={styles.checkboxLabel}>
-              <input
-                type="checkbox"
-                checked={form.preferredContactMethods.includes("Phone")}
-                onChange={(e) =>
-                  handleContactMethodChange("Phone", e.target.checked)
-                }
-              />
-              Phone
-            </label>
-            <label className={styles.checkboxLabel}>
-              <input
-                type="checkbox"
-                checked={form.preferredContactMethods.includes("Email")}
-                onChange={(e) =>
-                  handleContactMethodChange("Email", e.target.checked)
-                }
-              />
-              Email
-            </label>
-            <label className={styles.checkboxLabel}>
-              <input
-                type="checkbox"
-                checked={form.preferredContactMethods.includes(
-                  "Portal notification"
-                )}
-                onChange={(e) =>
-                  handleContactMethodChange(
-                    "Portal notification",
-                    e.target.checked
-                  )
-                }
-              />
-              Portal notification
-            </label>
+            >
+              <option value="">Select...</option>
+              <option value="social_media">Social Media</option>
+              <option value="word_of_mouth">Word-of-mouth</option>
+              <option value="referral">Referral</option>
+              <option value="returning_member">Returning member</option>
+              <option value="advertisement">Advertisement</option>
+              <option value="other">Other</option>
+            </select>
           </div>
-        </label>
 
-        <label className={styles.label}>
-          Date of Birth
-          <input
-            className={styles.dob}
-            type="date"
-            name="dateOfBirth"
-            value={form.dateOfBirth}
-            onChange={handleInputChange}
-            required
-          />
-        </label>
-
-        <label className={styles.label}>
-          Preferred Pronouns
-          <input
-            className={styles.pronouns}
-            type="text"
-            name="pronouns"
-            value={form.pronouns}
-            onChange={handleInputChange}
-            required
-          />
-        </label>
-
-        <label className={styles.label}>
-          How did you hear about this program?
-          <select
-            name="heardAbout"
-            value={form.heardAbout}
-            onChange={handleInputChange}
-            required
-          >
-            <option value="" disabled>
-              Select an option
-            </option>
-            <option value="social_media">Social Media</option>
-            <option value="word_of_mouth">Word-of-mouth</option>
-            <option value="referral">Referral</option>
-            <option value="returning_member">Returning member</option>
-            <option value="advertisement">Advertisement</option>
-            <option value="other">Other</option>
-          </select>
-        </label>
-
-        <label className={styles.label}>
-          Are you a college student or an adult?
-          <div className={styles.radioGroup}>
-            <label>
-              <input
-                type="radio"
-                name="user_type"
-                value="student"
-                checked={form.user_type === "student"}
-                onChange={handleInputChange}
-                required
-              />
-              Student
-            </label>
-            <label>
-              <input
-                type="radio"
-                name="user_type"
-                value="adult"
-                checked={form.user_type === "adult"}
-                onChange={handleInputChange}
-                required
-              />
-              Adult
-            </label>
-          </div>
-        </label>
-
-        {form.user_type === "student" && (
-          <label className={styles.label}>
-            If you are a college student, what University are you attending?
+          <div className={styles.fieldGroup}>
+            <span className={styles.fieldLabel}>
+              If you are a college student, what university are you attending?
+            </span>
             <input
+              className={styles.fieldInput}
               type="text"
               name="university"
+              placeholder="Type in your university..."
               value={form.university}
               onChange={handleInputChange}
-              required={form.user_type === "student"}
+              style={{ maxWidth: 350 }}
             />
-          </label>
-        )}
+          </div>
 
-        <label className={styles.label}>
-          What are your interests? This will better help us pair you with your
-          Tea-mate!
-          <textarea
-            id={styles.interests}
-            name="interests"
-            rows={5}
-            value={form.interests}
-            onChange={handleInputChange}
-            required
-          />
-        </label>
+          <div className={styles.fieldGroup}>
+            <span className={styles.fieldLabel}>
+              What language do you use for casual conversation?{" "}
+              <span className={styles.helpText}>(Primary language spoken at home.)</span>{" "}
+              <span className={styles.requiredStar}>*</span>
+            </span>
+            <select
+              className={styles.fieldSelect}
+              name="language"
+              value={form.language}
+              onChange={handleInputChange}
+            >
+              <option value="">Select...</option>
+              <option value="english">English</option>
+              <option value="spanish">Spanish</option>
+              <option value="mandarin">Mandarin</option>
+              <option value="cantonese">Cantonese</option>
+              <option value="korean">Korean</option>
+              <option value="japanese">Japanese</option>
+              <option value="french">French</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
 
-        <label className={styles.label}>
-          What type of tea do you prefer?
-          <label>
-            <input
-              type="radio"
-              id="black"
-              name="teaPreference"
-              value="black"
-              checked={form.teaPreference === "black"}
-              onChange={handleInputChange}
-              required
-            />
-            Black
-          </label>
-          <label htmlFor="green">
-            <input
-              type="radio"
-              id="green"
-              name="teaPreference"
-              value="green"
-              checked={form.teaPreference === "green"}
-              onChange={handleInputChange}
-              required
-            />
-            Green
-          </label>
-          <label htmlFor="herbal">
-            <input
-              type="radio"
-              id="herbal"
-              name="teaPreference"
-              value="herbal"
-              checked={form.teaPreference === "herbal"}
-              onChange={handleInputChange}
-              required
-            />
-            Herbal
-          </label>
-          <label htmlFor="variety">
-            <input
-              type="radio"
-              id="variety"
-              name="teaPreference"
-              value="variety"
-              checked={form.teaPreference === "variety"}
-              onChange={handleInputChange}
-              required
-            />
-            Variety
-          </label>
-        </label>
+          <div className={styles.stepIndicator}>
+            Step {currentStep} of {TOTAL_STEPS}
+          </div>
+          <div className={styles.navButtons}>
+            <button type="button" className={styles.btnBack} onClick={goBack}>
+              Go Back
+            </button>
+            <button type="button" className={styles.btnContinue} onClick={goNext}>
+              Continue
+            </button>
+          </div>
+        </div>
+      )}
 
-        <label className={styles.label}>
-          {PREFERENCE_QUESTION_LABELS.q1}
-          <div className={styles.sliderContainer}>
-            <input
-              type="range"
-              min="1"
-              max="5"
-              step="1"
-              value={form.preferenceScores.q1}
-              onChange={(e) =>
-                handlePreferenceScoreChange("q1", parseInt(e.target.value))
-              }
-              className={styles.slider}
+      {/* ===== STEP 3: TEA PREFERENCE & INTERESTS ===== */}
+      {currentStep === 3 && (
+        <div className={styles.card}>
+          <h2 className={styles.cardTitle}>Tea Preference &amp; Interests</h2>
+
+          <div className={styles.fieldGroup}>
+            <span className={styles.fieldLabel}>
+              What are your interests? This will better help us pair you with your Tea-mate!
+            </span>
+            <textarea
+              className={styles.fieldTextarea}
+              name="interests"
+              rows={4}
+              placeholder="Reading books, playing tennis, etc..."
+              value={form.interests}
+              onChange={handleInputChange}
             />
-            <div className={styles.sliderLabels}>
-              <span>1</span>
-              <span>2</span>
-              <span>3</span>
-              <span>4</span>
-              <span>5</span>
+          </div>
+
+          <p className={styles.fieldLabel} style={{ marginBottom: "0.75rem" }}>
+            A few quick questions — rate 1 (strongly dislike) to 5 (strongly like)
+          </p>
+
+          <div className={styles.fieldGroup}>
+            <span className={styles.fieldLabel}>{PREFERENCE_QUESTION_LABELS.q1}</span>
+            <div className={styles.ratingRow}>
+              <span className={styles.ratingEndLabel}>Strongly Dislike</span>
+              <button type="button" className={form.preferenceScores.q1 === 1 ? styles.ratingButton + " " + styles.ratingButtonActive : styles.ratingButton} onClick={() => setForm((prev) => ({ ...prev, preferenceScores: { ...prev.preferenceScores, q1: 1 } }))}>1</button>
+              <button type="button" className={form.preferenceScores.q1 === 2 ? styles.ratingButton + " " + styles.ratingButtonActive : styles.ratingButton} onClick={() => setForm((prev) => ({ ...prev, preferenceScores: { ...prev.preferenceScores, q1: 2 } }))}>2</button>
+              <button type="button" className={form.preferenceScores.q1 === 3 ? styles.ratingButton + " " + styles.ratingButtonActive : styles.ratingButton} onClick={() => setForm((prev) => ({ ...prev, preferenceScores: { ...prev.preferenceScores, q1: 3 } }))}>3</button>
+              <button type="button" className={form.preferenceScores.q1 === 4 ? styles.ratingButton + " " + styles.ratingButtonActive : styles.ratingButton} onClick={() => setForm((prev) => ({ ...prev, preferenceScores: { ...prev.preferenceScores, q1: 4 } }))}>4</button>
+              <button type="button" className={form.preferenceScores.q1 === 5 ? styles.ratingButton + " " + styles.ratingButtonActive : styles.ratingButton} onClick={() => setForm((prev) => ({ ...prev, preferenceScores: { ...prev.preferenceScores, q1: 5 } }))}>5</button>
+              <span className={styles.ratingEndLabel}>Strongly Like</span>
             </div>
           </div>
-        </label>
 
-        <label className={styles.label}>
-          {PREFERENCE_QUESTION_LABELS.q2}
-          <div className={styles.sliderContainer}>
-            <input
-              type="range"
-              min="1"
-              max="5"
-              step="1"
-              value={form.preferenceScores.q2}
-              onChange={(e) =>
-                handlePreferenceScoreChange("q2", parseInt(e.target.value))
-              }
-              className={styles.slider}
-            />
-            <div className={styles.sliderLabels}>
-              <span>1</span>
-              <span>2</span>
-              <span>3</span>
-              <span>4</span>
-              <span>5</span>
+
+          <div className={styles.fieldGroup}>
+            <span className={styles.fieldLabel}>{PREFERENCE_QUESTION_LABELS.q2}</span>
+            <div className={styles.ratingRow}>
+              <span className={styles.ratingEndLabel}>Strongly Dislike</span>
+              <button type="button" className={form.preferenceScores.q2 === 1 ? styles.ratingButton + " " + styles.ratingButtonActive : styles.ratingButton} onClick={() => setForm((prev) => ({ ...prev, preferenceScores: { ...prev.preferenceScores, q2: 1 } }))}>1</button>
+              <button type="button" className={form.preferenceScores.q2 === 2 ? styles.ratingButton + " " + styles.ratingButtonActive : styles.ratingButton} onClick={() => setForm((prev) => ({ ...prev, preferenceScores: { ...prev.preferenceScores, q2: 2 } }))}>2</button>
+              <button type="button" className={form.preferenceScores.q2 === 3 ? styles.ratingButton + " " + styles.ratingButtonActive : styles.ratingButton} onClick={() => setForm((prev) => ({ ...prev, preferenceScores: { ...prev.preferenceScores, q2: 3 } }))}>3</button>
+              <button type="button" className={form.preferenceScores.q2 === 4 ? styles.ratingButton + " " + styles.ratingButtonActive : styles.ratingButton} onClick={() => setForm((prev) => ({ ...prev, preferenceScores: { ...prev.preferenceScores, q2: 4 } }))}>4</button>
+              <button type="button" className={form.preferenceScores.q2 === 5 ? styles.ratingButton + " " + styles.ratingButtonActive : styles.ratingButton} onClick={() => setForm((prev) => ({ ...prev, preferenceScores: { ...prev.preferenceScores, q2: 5 } }))}>5</button>
+              <span className={styles.ratingEndLabel}>Strongly Like</span>
             </div>
           </div>
-        </label>
 
-        <label className={styles.label}>
-          {PREFERENCE_QUESTION_LABELS.q3}
-          <div className={styles.sliderContainer}>
-            <input
-              type="range"
-              min="1"
-              max="5"
-              step="1"
-              value={form.preferenceScores.q3}
-              onChange={(e) =>
-                handlePreferenceScoreChange("q3", parseInt(e.target.value))
-              }
-              className={styles.slider}
-            />
-            <div className={styles.sliderLabels}>
-              <span>1</span>
-              <span>2</span>
-              <span>3</span>
-              <span>4</span>
-              <span>5</span>
+          <div className={styles.fieldGroup}>
+            <span className={styles.fieldLabel}>{PREFERENCE_QUESTION_LABELS.q3}</span>
+            <div className={styles.ratingRow}>
+              <span className={styles.ratingEndLabel}>Strongly Dislike</span>
+              <button type="button" className={form.preferenceScores.q3 === 1 ? styles.ratingButton + " " + styles.ratingButtonActive : styles.ratingButton} onClick={() => setForm((prev) => ({ ...prev, preferenceScores: { ...prev.preferenceScores, q3: 1 } }))}>1</button>
+              <button type="button" className={form.preferenceScores.q3 === 2 ? styles.ratingButton + " " + styles.ratingButtonActive : styles.ratingButton} onClick={() => setForm((prev) => ({ ...prev, preferenceScores: { ...prev.preferenceScores, q3: 2 } }))}>2</button>
+              <button type="button" className={form.preferenceScores.q3 === 3 ? styles.ratingButton + " " + styles.ratingButtonActive : styles.ratingButton} onClick={() => setForm((prev) => ({ ...prev, preferenceScores: { ...prev.preferenceScores, q3: 3 } }))}>3</button>
+              <button type="button" className={form.preferenceScores.q3 === 4 ? styles.ratingButton + " " + styles.ratingButtonActive : styles.ratingButton} onClick={() => setForm((prev) => ({ ...prev, preferenceScores: { ...prev.preferenceScores, q3: 4 } }))}>4</button>
+              <button type="button" className={form.preferenceScores.q3 === 5 ? styles.ratingButton + " " + styles.ratingButtonActive : styles.ratingButton} onClick={() => setForm((prev) => ({ ...prev, preferenceScores: { ...prev.preferenceScores, q3: 5 } }))}>5</button>
+              <span className={styles.ratingEndLabel}>Strongly Like</span>
             </div>
           </div>
-        </label>
 
-        {error && <div className={styles.errorBanner}>{error}</div>}
-        {status && <div className={styles.statusBanner}>{status}</div>}
+          <div className={styles.fieldGroup}>
+            <span className={styles.fieldLabel}>What type of tea do you prefer?</span>
+            <div className={styles.teaButtons}>
+              <button
+                type="button"
+                className={form.teaPreference === "black" ? styles.teaButton + " " + styles.teaButtonActive : styles.teaButton}
+                onClick={() => setForm((prev) => ({ ...prev, teaPreference: "black" }))}
+              >
+                Black
+              </button>
+              <button
+                type="button"
+                className={form.teaPreference === "green" ? styles.teaButton + " " + styles.teaButtonActive : styles.teaButton}
+                onClick={() => setForm((prev) => ({ ...prev, teaPreference: "green" }))}
+              >
+                Green
+              </button>
+              <button
+                type="button"
+                className={form.teaPreference === "herbal" ? styles.teaButton + " " + styles.teaButtonActive : styles.teaButton}
+                onClick={() => setForm((prev) => ({ ...prev, teaPreference: "herbal" }))}
+              >
+                Herbal
+              </button>
+              <button
+                type="button"
+                className={form.teaPreference === "variety" ? styles.teaButton + " " + styles.teaButtonActive : styles.teaButton}
+                onClick={() => setForm((prev) => ({ ...prev, teaPreference: "variety" }))}
+              >
+                Variety
+              </button>
+            </div>
+          </div>
 
-        <button
-          id={styles.submit}
-          type="submit"
-          disabled={!allRequiredFilled || submitting}
-        >
-          {submitting ? "Submitting..." : "Submit"}
-        </button>
-      </form>
-    </>
+          <div className={styles.stepIndicator}>
+            Step {currentStep} of {TOTAL_STEPS}
+          </div>
+          <div className={styles.navButtons}>
+            <button type="button" className={styles.btnBack} onClick={goBack}>
+              Go Back
+            </button>
+            <button type="button" className={styles.btnContinue} onClick={goNext}>
+              Continue
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ===== STEP 4: HEALTH ===== */}
+      {currentStep === 4 && (
+        <div className={styles.card}>
+          <h2 className={styles.cardTitle}>Health</h2>
+          <p className={styles.sectionNote}>
+            A few final questions. Your answers are confidential and help us support you better.
+          </p>
+
+          <div className={styles.infoBox}>
+            <span className={styles.infoBoxTitle}>A note on these questions:</span>{" "}
+            Many Tea @ 3 members live with ongoing health challenges. These questions
+            help us ensure everyone gets the support they need. All responses are optional
+            and kept private.
+          </div>
+
+          <div className={styles.fieldGroup}>
+            <span className={styles.fieldLabel}>
+              Many people join <strong>Tea @ 3</strong> while also living with
+              ongoing health challenges. Would you say this applies to you?
+            </span>
+            <div className={styles.radioGroup}>
+              <label className={styles.radioLabel}>
+                <input
+                  type="radio"
+                  name="healthChallenge"
+                  value="Yes"
+                  checked={form.healthChallenge === "Yes"}
+                  onChange={handleInputChange}
+                />
+                Yes
+              </label>
+              <label className={styles.radioLabel}>
+                <input
+                  type="radio"
+                  name="healthChallenge"
+                  value="No"
+                  checked={form.healthChallenge === "No"}
+                  onChange={handleInputChange}
+                />
+                No
+              </label>
+              <label className={styles.radioLabel}>
+                <input
+                  type="radio"
+                  name="healthChallenge"
+                  value="Prefer not to say"
+                  checked={form.healthChallenge === "Prefer not to say"}
+                  onChange={handleInputChange}
+                />
+                Prefer not to say
+              </label>
+            </div>
+          </div>
+
+          {/* Only show follow-up checkboxes if they selected "Yes" */}
+          {form.healthChallenge === "Yes" && (
+            <div className={styles.fieldGroup}>
+              <span className={styles.fieldLabel} style={{ marginTop: "1rem" }}>
+                Optional follow-up (only if "Yes" is selected)
+              </span>
+              <p className={styles.sectionNote}>
+                If you'd like to share, does living with ongoing health challenges
+                affect your daily life in any of the following ways? (Check all that apply.)
+              </p>
+
+              <label className={styles.checkboxRow}>
+                <input
+                  type="checkbox"
+                  checked={form.healthChallengeAreas.includes("Fatigue or low energy")}
+                  onChange={(e) => handleHealthAreaChange("Fatigue or low energy", e.target.checked)}
+                />
+                Fatigue or low energy
+              </label>
+              <label className={styles.checkboxRow}>
+                <input
+                  type="checkbox"
+                  checked={form.healthChallengeAreas.includes("Chronic pain")}
+                  onChange={(e) => handleHealthAreaChange("Chronic pain", e.target.checked)}
+                />
+                Chronic pain
+              </label>
+              <label className={styles.checkboxRow}>
+                <input
+                  type="checkbox"
+                  checked={form.healthChallengeAreas.includes("Limited mobility")}
+                  onChange={(e) => handleHealthAreaChange("Limited mobility", e.target.checked)}
+                />
+                Limited mobility
+              </label>
+              <label className={styles.checkboxRow}>
+                <input
+                  type="checkbox"
+                  checked={form.healthChallengeAreas.includes("Vision or hearing changes")}
+                  onChange={(e) => handleHealthAreaChange("Vision or hearing changes", e.target.checked)}
+                />
+                Vision or hearing changes
+              </label>
+              <label className={styles.checkboxRow}>
+                <input
+                  type="checkbox"
+                  checked={form.healthChallengeAreas.includes("Memory or cognitive changes")}
+                  onChange={(e) => handleHealthAreaChange("Memory or cognitive changes", e.target.checked)}
+                />
+                Memory or cognitive changes
+              </label>
+              <label className={styles.checkboxRow}>
+                <input
+                  type="checkbox"
+                  checked={form.healthChallengeAreas.includes("Emotional stress or anxiety related to health")}
+                  onChange={(e) => handleHealthAreaChange("Emotional stress or anxiety related to health", e.target.checked)}
+                />
+                Emotional stress or anxiety related to health
+              </label>
+              <label className={styles.checkboxRow}>
+                <input
+                  type="checkbox"
+                  checked={form.healthChallengeAreas.includes("Something else")}
+                  onChange={(e) => handleHealthAreaChange("Something else", e.target.checked)}
+                />
+                Something else (optional):
+                <input
+                  className={styles.fieldInput}
+                  type="text"
+                  name="healthOther"
+                  value={form.healthOther}
+                  onChange={handleInputChange}
+                  style={{ maxWidth: 150, marginLeft: "0.25rem" }}
+                />
+              </label>
+              <label className={styles.checkboxRow}>
+                <input
+                  type="checkbox"
+                  checked={form.healthChallengeAreas.includes("Prefer not to say")}
+                  onChange={(e) => handleHealthAreaChange("Prefer not to say", e.target.checked)}
+                />
+                Prefer not to say
+              </label>
+            </div>
+          )}
+
+          <div className={styles.stepIndicator}>
+            Step {currentStep} of {TOTAL_STEPS}
+          </div>
+          <div className={styles.navButtons}>
+            <button type="button" className={styles.btnBack} onClick={goBack}>
+              Go Back
+            </button>
+            <button type="button" className={styles.btnContinue} onClick={goNext}>
+              Continue
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ===== STEP 5: REGISTRATION AGREEMENT ===== */}
+      {currentStep === 5 && (
+        <div className={styles.card}>
+          <h2 className={styles.cardTitle}>Registration Agreement</h2>
+          <p className={styles.sectionNote}>
+            Please read the following disclaimer carefully.
+          </p>
+
+          <div className={styles.disclaimerBox}>
+            <div className={styles.disclaimerTitle}>Community Program Disclaimer</div>
+            <p>
+              I understand that my application and acceptance to join the Tea @ 3
+              community means that I have read, understand, and agree to the
+              following. I am at least age 18, am voluntarily providing personal
+              information to For All Ages, Inc., and hereby give For All Ages, Inc.,
+              its officers, directors, agents, volunteers and employees ("For All
+              Ages") permission to share my contact and other information included in
+              my application with my Tea-Mate. I assume all risks associated with
+              joining this community including, but not limited to injury whether
+              arising in contract, negligence or otherwise, all such risks being
+              known and appreciated by me. I, for myself and anyone entitled to act
+              on my behalf, waive and release For All Ages from any and all claims or
+              liabilities of any kind arising out of my participation in this
+              community program. I grant permission to For All Ages to use any
+              photographs, videos, recordings, or any other record of this community
+              for any legitimate purpose.
+            </p>
+            <p>
+              In addition, I understand that For All Ages will contact me before the
+              session begins to evaluate my commitment to participation and that it
+              has the right to decline my application to join this Community at its
+              discretion for any reason it deems appropriate, including but not
+              limited to, ensuring the safety of Community members and the integrity
+              of the program.
+            </p>
+          </div>
+
+          <div className={styles.fieldGroup}>
+            <span className={styles.fieldLabel}>
+              Please type your full name below to confirm you have read and agree to
+              the disclaimer above.
+            </span>
+            <input
+              className={styles.fieldInput}
+              type="text"
+              name="agreementName"
+              placeholder="Type in your full legal name"
+              value={form.agreementName}
+              onChange={handleInputChange}
+              style={{ maxWidth: 350 }}
+            />
+          </div>
+
+          <div className={styles.stepIndicator}>
+            Step {currentStep} of {TOTAL_STEPS}
+          </div>
+          <div className={styles.navButtons}>
+            <button type="button" className={styles.btnBack} onClick={goBack}>
+              Go Back
+            </button>
+            <button
+              type="submit"
+              className={styles.btnContinue}
+              disabled={!allRequiredFilled || submitting}
+            >
+              {submitting ? "Submitting..." : "Submit"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Error / success banners (outside the card so they're visible) */}
+      {error && <div className={styles.errorBanner}>{error}</div>}
+      {status && <div className={styles.statusBanner}>{status}</div>}
+    </form>
   );
 };
 
