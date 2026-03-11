@@ -559,34 +559,9 @@ const FormBuilder: React.FC = () => {
 
   return (
     <div className={styles.page}>
-      <header className={styles.topBar}>
-        <div className={styles.topBarLogo}>
-          <img src={Logo} alt="For All Ages" className={styles.topBarLogoImg} />
-        </div>
-        <div className={styles.topBarCenter}>
-          <span className={styles.topBarPill}>Edit Form</span>
-        </div>
-        <div className={styles.topBarActions}>
-          <button
-            type="button"
-            className={styles.cancelBtn}
-            onClick={() => {
-              if (savedFormRef.current) loadForm(savedFormRef.current);
-            }}
-            disabled={!savedFormRef.current}
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            className={styles.saveBtn}
-            onClick={handleSave}
-            disabled={saving}
-          >
-            {saving ? "Saving…" : "Save"}
-          </button>
-        </div>
-      </header>
+
+
+
 
       {/* Success/error banner */}
       {banner && (
@@ -610,6 +585,28 @@ const FormBuilder: React.FC = () => {
 
       {/* Top wrapper for sections  */}
       <div className={styles.blueWrap}>
+          <div className={styles.topBarActions}>
+            <button
+              type="button"
+              className={styles.cancelBtn}
+              onClick={() => {
+                if (savedFormRef.current) loadForm(savedFormRef.current);
+              }}
+              disabled={!savedFormRef.current}
+            >
+              Cancel
+            </button>
+
+            <button
+              type="button"
+              className={styles.saveBtn}
+              onClick={handleSave}
+              disabled={saving}
+            >
+              {saving ? "Saving…" : "Save"}
+            </button>
+      </div>
+
         {/* Program title */}
         <div className={styles.programHeader}>
           <h1 className={styles.programTitle}>Tea @ 3</h1>
