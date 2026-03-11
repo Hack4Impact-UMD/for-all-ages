@@ -141,6 +141,7 @@ export type PersonTagVariant = "rose" | "green" | "gold"
 export interface PersonAssignment {
     names: string[]
     variant?: PersonTagVariant
+    matchId?: string
 }
 
 /** Params for inviting a new admin account */
