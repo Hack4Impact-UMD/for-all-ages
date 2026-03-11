@@ -18,6 +18,7 @@ import Profile from "./pages/Profile/Profile";
 import RecapPage from "./pages/Recap/RecapPage";
 import Rematching from "./pages/Rematching/Rematching";
 import PreProgram from "./pages/PreProgram/PreProgram";
+import FormBuilder from "./pages/FormBuilder/FormBuilder";
 import Waiting from "./pages/Waiting/Waiting";
 import MainLayout from "./components/MainLayout";
 
@@ -194,6 +195,7 @@ function App() {
             <Route path="creator" element={<AdminCreator />} />
             <Route path="main" element={<PreProgram />} />
             <Route path="rematching" element={<Rematching />} />
+            <Route path="form-builder" element={<FormBuilder />} />
           </Route>
         </Route>
 
