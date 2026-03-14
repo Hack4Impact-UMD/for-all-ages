@@ -1,0 +1,31 @@
+import { useState } from "react";
+import styles from "../../Profile.module.css";
+
+const ProfilePicture = ({
+  uid,
+  size = 64,
+}: {
+  uid?: string;
+  size?: number;
+}) => {
+  const [imageError, setImageError] = useState(false);
+
+  const defaultSrc =
+    "https://i.pinimg.com/474x/33/f8/26/33f8266681c946cd80de486c499fe992.jpg";
+
+  const src = uid
+    ? `https://storage.googleapis.com/for-all-ages-cdn/profile-pictures/${uid}?t=${Date.now()}`
+    : "";
+
+  return (
+    <img
+      src={!uid || imageError ? defaultSrc : src}
+      alt="Profile"
+      className={styles.profileImage}
+      style={{ width: size, height: size }}
+      onError={() => setImageError(true)}
+    />
+  );
+};
+
+export default ProfilePicture;
