@@ -1,3 +1,5 @@
+import type { Timestamp } from "firebase/firestore";
+
 export type Role = "Admin" | "Subadmin";
 
 export type UserType = "student" | "adult";
@@ -25,7 +27,7 @@ export interface PreferenceScores {
     q3?: number
 }
 
-/** Participant document shape (Firestore-friendly; all fields optional) */
+/** Participant document shape - stores only basic info (Firestore-friendly; all fields optional) */
 export interface Participant {
     id?: string
     type?: "Participant"
@@ -47,6 +49,8 @@ export interface Participant {
     preferenceScores?: PreferenceScores | null
     status?: string | null
     role?: Role | null
+    createdAt?: Timestamp | null
+    updatedAt?: Timestamp | null
 }
 
 export type ParticipantDoc = Partial<Participant>;
@@ -55,6 +59,21 @@ export type ParticipantProfile = Pick<
     Participant,
     "displayName" | "firstName" | "lastName"
 >;
+
+/** Question response for FormResponse collection */
+export interface Questions {
+	title: string
+	type: QuestionType
+	answer: string | number
+}
+
+/** FormResponse document - stores all non-basic questions */
+export interface FormResponse {
+    uid: string  // user uid
+    questions: Questions[]
+    createdAt?: Timestamp | null
+    updatedAt?: Timestamp | null
+}
 
 /** Participant view for rematching page (participants-test2 collection) */
 export interface RematchingParticipant {

@@ -57,7 +57,12 @@ export async function matchAll(body: any = {}) {
 
 const UPSERT_USER_URL =
   "https://us-central1-for-all-ages-8a4e2.cloudfunctions.net/upsertUser";
-export async function upsertUser(body: { uid: string; freeResponse: string; q1: number, q2: number, q3: number, user_type: string }) {
+export async function upsertUser(body: {
+  uid: string;
+  textResponses?: string[];  // array of free-form text responses
+  numericResponses?: number[];  // array of numeric responses
+  user_type: string;
+}) {
   const res = await fetch(UPSERT_USER_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
