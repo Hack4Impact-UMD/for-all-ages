@@ -17,6 +17,7 @@ import { getMatchesByParticipant, getPartnerId } from "../../services/matches";
 import type { ErrorState, UserProfile } from "../../types";
 import EmailReauthModal from "./components/EmailReauthModal/EmailReauthModal";
 import MatchInterestsModal from "./components/MatchInterestsModal/MatchInterestsModal";
+import ProfilePictureEdit from "./components/ProfilePictureEdit/ProfilePictureEdit";
 
 // normalize birthday to MM/DD/YYYY for profile display/edit
 const toDisplayBirthday = (raw: string | undefined | null): string => {
@@ -306,7 +307,6 @@ const Profile = () => {
         setEmailReauthError(null);
 
         emailNotice = `We’ve emailed a verification link to ${user.email}. Please confirm it to finish updating your login email.`;
-
       }
 
       const userRef = doc(db, "participants", user.uid);
@@ -535,11 +535,9 @@ const Profile = () => {
         {/* LEFT COLUMN */}
         <div className={styles.leftColumn}>
           <div className={styles.infoCard}>
-            <img
-              src="https://thumbs.dreamstime.com/b/default-profile-picture-avatar-photo-placeholder-vector-illustration-default-profile-picture-avatar-photo-placeholder-vector-189495158.jpg"
-              alt="Profile"
-              className={styles.profileImage}
-            />
+
+            <ProfilePictureEdit uid={user.uid}></ProfilePictureEdit>
+
             <h2 className={styles.profileName}>{user.name}</h2>
             <span className={styles.statusTag}>{user.status}</span>
           </div>
@@ -605,7 +603,9 @@ const Profile = () => {
                       name={field.name}
                       value={user[field.name as keyof UserProfile] as string}
                       onChange={handleChange}
-                      placeholder={field.name === "birthday" ? "MM/DD/YYYY" : undefined}
+                      placeholder={
+                        field.name === "birthday" ? "MM/DD/YYYY" : undefined
+                      }
                       autoFocus
                       className={styles.input}
                     />
