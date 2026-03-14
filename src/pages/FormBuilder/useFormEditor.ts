@@ -9,7 +9,7 @@ export type EditorSection = {
   questions: EditorQuestion[];
 };
 
-type FormEditorState = {
+export type FormEditorState = {
   sections: EditorSection[];
 };
 

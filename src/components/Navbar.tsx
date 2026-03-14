@@ -18,6 +18,7 @@ const ADMIN_NAV_ITEMS: NavItem[] = [
   { label: "Matching", path: "/admin/main" },
   { label: "Users", path: "/admin/creator" },
   { label: "Stats", path: "/admin/recap" },
+  { label: "Registration Form", path: "/admin/form-builder" },
   { label: "Profile", path: "/profile" },
 ];
 
