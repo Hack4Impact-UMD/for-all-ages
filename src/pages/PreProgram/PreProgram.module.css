@@ -311,6 +311,75 @@
   margin-top: 0;
 }
 
+.filterBar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-bottom: 12px;
+  position: relative;
+}
+
+.filterButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  border: 1px solid #127bbe;
+  background-color: #ffffff;
+  color: #127bbe;
+  font-family: "Merriweather", serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.filterButton:hover {
+  background-color: #e6eef8;
+}
+
+.filterIcon {
+  font-size: 18px !important;
+}
+
+.filterPopover {
+  position: absolute;
+  top: 40px;
+  right: 0;
+  background-color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15);
+  padding: 10px 12px;
+  min-width: 200px;
+  z-index: 10;
+}
+
+.filterOption {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.clearFilterButton {
+  margin-top: 8px;
+  width: 100%;
+  border: none;
+  border-radius: 9999px;
+  padding: 6px 10px;
+  font-family: "Merriweather", serif;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  background-color: #f3f6fb;
+  color: #1d4e89;
+}
+
+.clearFilterButton:hover {
+  background-color: #e0ebfa;
+}
+
 .table {
   width: 100%;
   border-collapse: collapse;
