@@ -79,10 +79,10 @@ export async function fetchAllParticipants(): Promise<{
       console.log(p)
     })
     const students = allParticipants.filter(p => 
-      p.user_type === 'student'
+      p.user_type === 'Student'
     );
     const seniors = allParticipants.filter(p => 
-      p.user_type === 'adult'
+      p.user_type === 'Adult'
     );
     
     logger.info(`Separated participants: ${students.length} students, ${seniors.length} seniors`);

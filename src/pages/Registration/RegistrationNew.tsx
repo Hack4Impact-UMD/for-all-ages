@@ -342,6 +342,7 @@ const RegistrationNew = () => {
       email: user?.email || basicByKey[BASIC_FIELD_KEYS.email] || undefined,
       phoneNumber: basicByKey[BASIC_FIELD_KEYS.phoneNumber] || undefined,
       address: parseAddress(formData, formConfig),
+      user_type: basicByKey[BASIC_FIELD_KEYS.userType] || "student"
     };
   };
 
