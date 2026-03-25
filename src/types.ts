@@ -1,3 +1,5 @@
+import type { Timestamp } from "firebase/firestore";
+
 export type Role = "Admin" | "Subadmin";
 
 export type UserType = "student" | "adult";
@@ -25,7 +27,7 @@ export interface PreferenceScores {
     q3?: number
 }
 
-/** Participant document shape (Firestore-friendly; all fields optional) */
+/** Participant document shape - stores only basic info (Firestore-friendly; all fields optional) */
 export interface Participant {
     id?: string
     type?: "Participant"
@@ -47,6 +49,8 @@ export interface Participant {
     preferenceScores?: PreferenceScores | null
     status?: string | null
     role?: Role | null
+    createdAt?: Timestamp | null
+    updatedAt?: Timestamp | null
 }
 
 export type ParticipantDoc = Partial<Participant>;
@@ -55,6 +59,21 @@ export type ParticipantProfile = Pick<
     Participant,
     "displayName" | "firstName" | "lastName"
 >;
+
+/** Question response for FormResponse collection */
+export interface Questions {
+	title: string
+	type: QuestionType
+	answer: string | number
+}
+
+/** FormResponse document - stores all non-basic questions */
+export interface FormResponse {
+    uid: string  // user uid
+    questions: Questions[]
+    createdAt?: Timestamp | null
+    updatedAt?: Timestamp | null
+}
 
 /** Participant view for rematching page (participants-test2 collection) */
 export interface RematchingParticipant {
@@ -80,7 +99,7 @@ export interface Survey {
 export interface Match {
     participant1_id: string
     participant2_id: string
-    day_of_call: number // 1-7 (Monday-Sunday)
+    day_of_call: number // 1-7 (Monday-Sunday), or -1 if not yet set
     similarity: number
 }
 
@@ -111,7 +130,6 @@ export interface AdminRecord {
     user_type?: string | null
     status?: string | null
     university?: string | null
-    user_type?: any
 }
 
 /** Banner message for success/error feedback */
@@ -125,6 +143,8 @@ export interface ProgramState {
     started: boolean
     matches_final: boolean
     week: number
+    maxParticipants: number
+    numWeeks: number
 }
 
 /** PreProgram match row status */
@@ -211,25 +231,75 @@ export interface RegistrationFormState {
 
 /** Profile page display / form state */
 export interface UserProfile {
-    name: string
-    email: string
-    password: string
-    pronouns: string
-    phone: string
-    birthday: string
-    address: string
-    interests: string
-    startDate: string
-    endDate: string
-    status: string
+    uid: string;
+    name: string;
+    email: string;
+    pronouns: string;
+    phone: string;
+    birthday: string;
+
+    addressLine1: string;
+    addressCity: string;
+    addressState: string;
+    addressPostalCode: string;
+    addressCountry: string;
+
+    interests: string;
+    startDate: string;
+    endDate: string;
+    status: string;
+    matchName?: string;
+    matchInterests?: string;
 }
 
 /** Validation error fields (Profile and similar forms) */
 export interface ErrorState {
-    email?: string
-    phone?: string
-    birthday?: string
-    address?: string
+    email?: string;
+    phone?: string;
+    birthday?: string;
+    addressLine1?: string;
+    addressCity?: string;
+    addressState?: string;
+    addressPostalCode?: string;
+    addressCountry?: string;
+}
+
+/** Question type for dynamic form rendering */
+export type QuestionType =
+  | "short_input"
+  | "medium_input"
+  | "long_input"
+  | "Dropdown"
+  | "Slider"
+  | "Radio"
+  | "Date"
+  | "phoneNumber"
+  | "text"
+  | "multiple"
+  | "address"
+  | "profilePicture";
+
+/** Single question in a dynamic form */
+export interface Question {
+  type: QuestionType;
+  title: string;
+  description?: string;
+  options?: string[];
+  min?: number;
+  max?: number;
+  required: boolean;
+  matchable: boolean;
+}
+
+/** Section containing questions in a dynamic form */
+export interface Section {
+  title?: string;
+  questions: Question[];
+}
+
+/** Root form definition for dynamic form rendering */
+export interface Form {
+  sections: Section[];
 }
 
 /** Partner card display (MatchedDashboard) */

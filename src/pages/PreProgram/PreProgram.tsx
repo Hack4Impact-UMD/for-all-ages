@@ -2,11 +2,21 @@ import { useEffect, useState } from "react";
 import styles from "./PreProgram.module.css";
 import { useNavigate } from "react-router-dom";
 import SearchIcon from "@mui/icons-material/Search";
+import SettingsIcon from '@mui/icons-material/Settings';
 import AutorenewIcon from "@mui/icons-material/Autorenew";
 import SendIcon from "@mui/icons-material/Send";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 import { db, getUser, matchAll } from "../../firebase";
-import { collection, doc, getDocs, updateDoc, writeBatch } from "firebase/firestore";
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDocs,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+  writeBatch,
+} from "firebase/firestore";
 import {
   finalizeMatches,
   startProgram,
@@ -14,8 +24,18 @@ import {
   type ProgramState,
 } from "../../services/programState";
 import type { BackendMatch, UI_Match, MatchStatus } from "../../types";
+import SettingsPopup from "./SettingsPopup";
 
 const APPROVAL_THRESHOLD = 0.8; // 80%
+const DEV_MODE = true; // ← flip to false before deploying to production
+
+// Collections to wipe on End Program
+const COLLECTIONS_TO_CLEAR = [
+  "participants",
+  "matches",
+  "logs",
+  "weeks",
+];
 
 const PreProgram = () => {
   const [matches, setMatches] = useState<UI_Match[]>([]);
@@ -23,10 +43,19 @@ const PreProgram = () => {
   const [matching, setMatching] = useState(false);
   const [programState, setProgramState] = useState<ProgramState | null>(null);
   const [programStateLoading, setProgramStateLoading] = useState(true);
-  const [programStateError, setProgramStateError] = useState<string | null>(null);
+  const [programStateError, setProgramStateError] = useState<string | null>(
+    null,
+  );
   const [startingProgram, setStartingProgram] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
-  const [confirmAction, setConfirmAction] = useState<"start" | "finalize" | null>(null);
+  const [confirmAction, setConfirmAction] = useState<"start" | "finalize" | "endProgram" | null>(null);
+
+  // End Program state
+  const [endConfirmText, setEndConfirmText] = useState("");
+  const [endingProgram, setEndingProgram] = useState(false);
+  const [endProgramError, setEndProgramError] = useState<string | null>(null);
+
+  const [settingsPopup, setSettingsPopup] = useState(false)
 
   const navigate = useNavigate();
 
@@ -42,7 +71,7 @@ const PreProgram = () => {
     };
     return [...list].sort((a, b) => order[a.status] - order[b.status]);
   };
-  
+
   useEffect(() => {
     const unsubscribe = subscribeToProgramState(
       (state) => {
@@ -53,23 +82,19 @@ const PreProgram = () => {
         console.error("Failed to subscribe to program state", err);
         setProgramStateError("Unable to load program state.");
         setProgramStateLoading(false);
-      }
+      },
     );
 
     return unsubscribe;
   }, []);
 
-
   /**
    * Convert backend match results + unmatched arrays into UI_Match rows.
-   * Pairs become rows with status Approved/Pending.
-   * unmatchedStudents -> student on left, "No match yet" on right.
-   * unmatchedSeniors -> "No match yet" on left, senior on right.
    */
   const convertMatches = async (
     rawMatches: BackendMatch[],
     unmatchedStudents: string[],
-    unmatchedSeniors: string[]
+    unmatchedSeniors: string[],
   ): Promise<UI_Match[]> => {
     const pairRows: UI_Match[] = await Promise.all(
       rawMatches.map(async (m) => {
@@ -90,7 +115,7 @@ const PreProgram = () => {
           status,
           score: m.scores.finalScore,
         };
-      })
+      }),
     );
 
     const unmatchedStudentRows: UI_Match[] = await Promise.all(
@@ -105,7 +130,7 @@ const PreProgram = () => {
           status: "No Match",
           score: 0,
         };
-      })
+      }),
     );
 
     const unmatchedSeniorRows: UI_Match[] = await Promise.all(
@@ -120,7 +145,7 @@ const PreProgram = () => {
           status: "No Match",
           score: 0,
         };
-      })
+      }),
     );
 
     return [...pairRows, ...unmatchedStudentRows, ...unmatchedSeniorRows];
@@ -134,7 +159,6 @@ const PreProgram = () => {
     const matchedIds = new Set<string>();
 
     if (!snap.empty) {
-      // Build rows for all stored pair matches
       const pairRows: UI_Match[] = await Promise.all(
         snap.docs.map(async (d) => {
           const data = d.data() as any;
@@ -159,8 +183,8 @@ const PreProgram = () => {
               similarity >= 80
                 ? "Approved"
                 : similarity > 0
-                ? "Pending"
-                : "No Match";
+                  ? "Pending"
+                  : "No Match";
           }
 
           return {
@@ -173,7 +197,7 @@ const PreProgram = () => {
             score: similarity / 100,
             matchId: d.id,
           };
-        })
+        }),
       );
 
       loadedPairs.push(...pairRows);
@@ -189,7 +213,6 @@ const PreProgram = () => {
       const data = pDoc.data() as any;
       const id = pDoc.id;
 
-      // if this participant appears in any match, skip
       if (matchedIds.has(id)) return;
 
       const displayName =
@@ -201,7 +224,6 @@ const PreProgram = () => {
         | undefined;
 
       if (userType === "student") {
-        // unmatched student
         unmatchedRows.push({
           name1: displayName,
           name2: "No match yet",
@@ -212,7 +234,6 @@ const PreProgram = () => {
           score: 0,
         });
       } else if (userType === "adult" || userType === "senior") {
-        // unmatched senior
         unmatchedRows.push({
           name1: "No match yet",
           name2: displayName,
@@ -235,11 +256,6 @@ const PreProgram = () => {
     setMatches(sorted);
   };
 
-  /**
-   * Store only paired matches in Firestore.
-   * "No Match" rows (with missing participant) are not stored.
-   * Returns UI_Match with matchId filled in for stored docs.
-   */
   const storeMatches = async (list: UI_Match[]): Promise<UI_Match[]> => {
     const colRef = collection(db, "matches");
 
@@ -254,18 +270,14 @@ const PreProgram = () => {
 
     list.forEach((m) => {
       // Skip unmatched rows (no Firestore doc)
-      if (
-        m.status === "No Match" ||
-        !m.participant1_id ||
-        !m.participant2_id
-      ) {
+      if (m.status === "No Match" || !m.participant1_id || !m.participant2_id) {
         withIds.push({ ...m, matchId: undefined });
         return;
       }
 
       const newDocRef = doc(colRef);
       writeBatchRef.set(newDocRef, {
-        day_of_call: 0,
+        day_of_call: -1,
         participant1_id: m.participant1_id,
         participant2_id: m.participant2_id,
         similarity: m.confidence,
@@ -293,19 +305,19 @@ const PreProgram = () => {
       const converted = await convertMatches(
         rawMatches,
         unmatchedStudents,
-        unmatchedSeniors
+        unmatchedSeniors,
       );
 
       const storedWithIds = await storeMatches(converted);
       const sorted = sortMatches(storedWithIds);
       setMatches(sorted);
     } catch (err) {
-      console.error('Error creating matches:', err);
+      console.error("Error creating matches:", err);
     } finally {
       setMatching(false);
     }
   };
-  
+
   // handlers for program state buttons
   const handleStartProgram = async () => {
     try {
@@ -335,15 +347,159 @@ const PreProgram = () => {
     }
   };
 
+  // ── Export Data ──────────────────────────────────────────────────────────────
+
+  /**
+   * Fetch all collections and export them as individual CSV blobs zipped into
+   * one download. For simplicity (no zip dependency) we export each collection
+   * as a separate CSV download.
+   */
+  const handleExportData = async () => {
+    try {
+      const exportCollections = [
+        "participants",
+        "matches",
+        "logs",
+        "weeks",
+      ];
+
+      for (const colName of exportCollections) {
+        const snap = await getDocs(collection(db, colName));
+        if (snap.empty) continue;
+
+        const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+        // Collect all keys
+        const allKeys = Array.from(
+          new Set(rows.flatMap((r) => Object.keys(r)))
+        );
+
+        const escapeCell = (val: unknown): string => {
+          if (val === null || val === undefined) return "";
+          const str = typeof val === "object" ? JSON.stringify(val) : String(val);
+          // Wrap in quotes if contains comma, quote, or newline
+          if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+            return `"${str.replace(/"/g, '""')}"`;
+          }
+          return str;
+        };
+
+        const csvLines = [
+          allKeys.join(","),
+          ...rows.map((r) =>
+            allKeys.map((k) => escapeCell((r as any)[k])).join(",")
+          ),
+        ];
+
+        const blob = new Blob([csvLines.join("\n")], {
+          type: "text/csv;charset=utf-8;",
+        });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${colName}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+    } catch (err) {
+      console.error("Export failed:", err);
+    }
+  };
+
+  const handleEndProgram = async () => {
+    if (endConfirmText.toLowerCase() !== "confirm") return;
+
+    try {
+      setEndProgramError(null);
+      setEndingProgram(true);
+
+      if (DEV_MODE) {
+        // Simulate the operation without touching Firestore
+        console.log("[DEV_MODE] End Program triggered. Would have cleared:", COLLECTIONS_TO_CLEAR);
+        console.log("[DEV_MODE] Would have reset config/programState to:", {
+          matches_final: false,
+          started: false,
+          updatedAt: "serverTimestamp()",
+          week: 0,
+        });
+        await new Promise((res) => setTimeout(res, 800)); // simulate async delay
+        setMatches([]);
+        setConfirmAction(null);
+        setEndConfirmText("");
+        return;
+      }
+
+      // Delete all docs in each collection (Firestore has no "delete collection" API)
+      for (const colName of COLLECTIONS_TO_CLEAR) {
+        const snap = await getDocs(collection(db, colName));
+        const batch = writeBatch(db);
+        snap.docs.forEach((d) => batch.delete(d.ref));
+        await batch.commit();
+      }
+
+      // Reset config doc
+      const configRef = doc(db, "config", "programState");
+      await setDoc(configRef, {
+        matches_final: false,
+        started: false,
+        updatedAt: serverTimestamp(),
+        week: 0,
+      });
+
+      // Clear local state
+      setMatches([]);
+      setConfirmAction(null);
+      setEndConfirmText("");
+    } catch (err) {
+      console.error("Failed to end program:", err);
+      setEndProgramError("Something went wrong. Please try again.");
+    } finally {
+      setEndingProgram(false);
+    }
+  };
+
   const handleStatusChange = async (
     index: number,
-    newStatus: MatchStatus
+    newStatus: MatchStatus | "Separate",
   ) => {
     const updated = [...matches];
     const match = updated[index];
 
-    // No editing allowed for "No Match" rows
-    if (match.status === "No Match") {
+    if (match.status === "No Match") return;
+
+    // Handles the deletion of the match and update Firebase statuses
+    if (newStatus === "Separate") {
+      if (match.matchId) {
+        const newUnmatchedStudent: UI_Match = {
+          name1: match.name1,
+          name2: "No match yet",
+          participant1_id: match.participant1_id,
+          participant2_id: null,
+          confidence: undefined,
+          status: "No Match",
+          score: 0,
+        };
+
+        const newUnmatchedSenior: UI_Match = {
+          name1: "No match yet",
+          name2: match.name2,
+          participant1_id: null,
+          participant2_id: match.participant2_id,
+          confidence: undefined,
+          status: "No Match",
+          score: 0,
+        };
+
+        const newUpdated = updated.filter((m) => m.matchId !== match.matchId);
+        newUpdated.push(newUnmatchedStudent, newUnmatchedSenior);
+        setMatches(sortMatches(newUpdated));
+
+        const deleteMatchRef = doc(db, "matches", match.matchId);
+        await deleteDoc(deleteMatchRef);
+      }
+
       return;
     }
 
@@ -360,7 +516,7 @@ const PreProgram = () => {
   const filteredMatches = matches.filter(
     (m) =>
       m.name1.toLowerCase().includes(search.toLowerCase()) ||
-      m.name2.toLowerCase().includes(search.toLowerCase())
+      m.name2.toLowerCase().includes(search.toLowerCase()),
   );
 
   // global bools for program state
@@ -391,8 +547,8 @@ const PreProgram = () => {
             {programStarted
               ? "Program Started"
               : startingProgram
-              ? "Starting..."
-              : "Start Program"}
+                ? "Starting..."
+                : "Start Program"}
           </button>
           <button
             onClick={() => setConfirmAction("finalize")}
@@ -403,18 +559,47 @@ const PreProgram = () => {
             {matchesFinalized
               ? "Matches Locked"
               : finalizing
-              ? "Locking..."
-              : "Lock In All Matches"}
+                ? "Locking..."
+                : "Lock In All Matches"}
           </button>
-          <button onClick={handleMatch} className={styles.rematchBtn} disabled={matching}>
+          <button
+            onClick={() => setSettingsPopup(true)}
+            className={styles.adminBtn}
+          >
+            <SettingsIcon className={styles.icon} />
+            Program Settings
+          </button>
+
+          <button
+            onClick={handleMatch}
+            className={styles.rematchBtn}
+            disabled={matching}
+          >
             <AutorenewIcon className={styles.icon} />
-            {matching ? 'Creating...' : 'Create Matches'}
+            {matching ? "Creating..." : "Create Matches"}
           </button>
+
           <button
             className={styles.adminBtn}
             onClick={() => navigate("/admin/rematching")}
           >
             Manual Rematch
+          </button>
+          <button
+            className={styles.exportBtn}
+            onClick={handleExportData}
+          >
+            Export Data
+          </button>
+          <button
+            className={styles.endProgramBtn}
+            onClick={() => {
+              setEndConfirmText("");
+              setEndProgramError(null);
+              setConfirmAction("endProgram");
+            }}
+          >
+            End Program
           </button>
         </div>
         {programStateError && (
@@ -422,44 +607,113 @@ const PreProgram = () => {
         )}
       </div>
 
+      {/* ── Confirm overlay (start / finalize / endProgram) ── */}
       {confirmAction && (
         <div className={styles.confirmOverlay}>
           <div className={styles.confirmCard}>
-            <h3 className={styles.confirmTitle}>
-              {confirmAction === "start"
-                ? "Starting the Program"
-                : "Finalizing..."}
-            </h3>
-            <p className={styles.confirmText}>
-              {confirmAction === "start"
-                ? "Are you sure you want to start the program?"
-                : "Are you sure you want to lock all matches?"}
-            </p>
-            <div className={styles.confirmActions}>
-              <button
-                className={styles.cancelButton}
-                onClick={() => setConfirmAction(null)}
-                disabled={startingProgram || finalizing}
-              >
-                Cancel
-              </button>
-              <button
-                className={styles.confirmButton}
-                onClick={
-                  confirmAction === "start"
-                    ? handleStartProgram
-                    : handleFinalizeMatches
-                }
-                disabled={startingProgram || finalizing}
-              >
-                Yes, I'm sure
-              </button>
-            </div>
+
+            {/* ── Start / Finalize dialogs (unchanged) ── */}
+            {(confirmAction === "start" || confirmAction === "finalize") && (
+              <>
+                <h3 className={styles.confirmTitle}>
+                  {confirmAction === "start"
+                    ? "Starting the Program"
+                    : "Finalizing..."}
+                </h3>
+                <p className={styles.confirmText}>
+                  {confirmAction === "start"
+                    ? "Are you sure you want to start the program?"
+                    : "Are you sure you want to lock all matches?"}
+                </p>
+                <div className={styles.confirmActions}>
+                  <button
+                    className={styles.cancelButton}
+                    onClick={() => setConfirmAction(null)}
+                    disabled={startingProgram || finalizing}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className={styles.confirmButton}
+                    onClick={
+                      confirmAction === "start"
+                        ? handleStartProgram
+                        : handleFinalizeMatches
+                    }
+                    disabled={startingProgram || finalizing}
+                  >
+                    Yes, I'm sure
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* ── End Program dialog ── */}
+            {confirmAction === "endProgram" && (
+              <>
+                <h3 className={styles.confirmTitle}>End Program</h3>
+                <p className={styles.confirmText}>
+                  This will permanently delete all participants, logs, weeks,
+                  and matches, and reset the program config. This cannot be
+                  undone.
+                </p>
+                <p className={styles.confirmText}>
+                  We recommend exporting your data first.
+                </p>
+                <div className={styles.confirmActions} style={{ marginBottom: 14 }}>
+                  <button
+                    className={styles.exportBtn}
+                    onClick={handleExportData}
+                    disabled={endingProgram}
+                  >
+                    Export Data
+                  </button>
+                </div>
+                <p className={styles.confirmText} style={{ marginBottom: 8 }}>
+                  Type <strong>confirm</strong> to proceed:
+                </p>
+                <input
+                  type="text"
+                  value={endConfirmText}
+                  onChange={(e) => setEndConfirmText(e.target.value)}
+                  placeholder="confirm"
+                  className={styles.endConfirmInput}
+                  disabled={endingProgram}
+                />
+                {endProgramError && (
+                  <div className={styles.stateError}>{endProgramError}</div>
+                )}
+                <div className={styles.confirmActions} style={{ marginTop: 16 }}>
+                  <button
+                    className={styles.cancelButton}
+                    onClick={() => {
+                      setConfirmAction(null);
+                      setEndConfirmText("");
+                      setEndProgramError(null);
+                    }}
+                    disabled={endingProgram}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className={styles.endProgramConfirmBtn}
+                    onClick={handleEndProgram}
+                    disabled={
+                      endingProgram ||
+                      endConfirmText.toLowerCase() !== "confirm"
+                    }
+                  >
+                    {endingProgram ? "Ending..." : "End Program"}
+                  </button>
+                </div>
+              </>
+            )}
+
           </div>
         </div>
       )}
 
-      {/* --- Match Table --- */}
+      {/* ── Match Table ── */}
       <div className={styles.container}>
         <table className={styles.table}>
           <thead>
@@ -482,24 +736,15 @@ const PreProgram = () => {
                 <tr key={i}>
                   <td>{m.name1}</td>
                   <td>{m.name2}</td>
-                  <td>
-                    {m.confidence != null ? `${m.confidence}%` : "—"}
-                  </td>
+                  <td>{m.confidence != null ? `${m.confidence}%` : "—"}</td>
                   <td>
                     {m.status === "No Match" ? (
-                      <span
-                        className={`${styles.noMatch}`}
-                      >
-                        No Match
-                      </span>
+                      <span className={`${styles.noMatch}`}>No Match</span>
                     ) : (
                       <select
                         value={m.status}
                         onChange={(e) =>
-                          handleStatusChange(
-                            i,
-                            e.target.value as MatchStatus
-                          )
+                          handleStatusChange(i, e.target.value as MatchStatus | "Separate")
                         }
                         className={`${styles.status} ${
                           m.status === "Approved"
@@ -509,6 +754,7 @@ const PreProgram = () => {
                       >
                         <option value="Pending">Pending</option>
                         <option value="Approved">Approved</option>
+                        <option value="Separate">Separate</option>
                       </select>
                     )}
                   </td>
@@ -518,6 +764,7 @@ const PreProgram = () => {
           </tbody>
         </table>
       </div>
+      <SettingsPopup isOpened={settingsPopup} close={()=>{setSettingsPopup(false)}} program={programState} setProgram = {setProgramState}></SettingsPopup>
     </div>
   );
 };
