@@ -66,14 +66,7 @@ export const upsertUser = onRequest(async (req, res) => {
   }
 
   try {
-    const { uid, textResponses, numericResponses, user_type } = req.body;
-
-    if (!uid || !freeResponse || !user_type) {
-      res.status(400).json({
-        error: "Missing required fields: uid, freeResponse, user_type",
-      });
-      return;
-    }
+    const { uid, textResponses, numericResponses, user_type, pronouns } = req.body;
 
     // If there are no matchable responses, just return success
     if ((!textResponses || textResponses.length === 0) && 
@@ -86,7 +79,8 @@ export const upsertUser = onRequest(async (req, res) => {
       uid,
       textResponses || [],
       numericResponses || [],
-      user_type
+      user_type,
+      pronouns
     );
 
     res.status(200).json({ message: "Responses upserted successfully." });
@@ -328,14 +322,14 @@ export const uploadProfilePicture = onRequest(async (req, res) => {
   let fileBuffer: Buffer | null = null;
   let fileMimeType = "image/jpeg";
 
-  bb.on("field", (name, value) => {
+  bb.on("field", (name: any, value: any) => {
     if (name === "uid") uid = value;
   });
 
-  bb.on("file", (_, file, info) => {
+  bb.on("file", (_: any, file: any, info: any) => {
     fileMimeType = info.mimeType;
     const chunks: Buffer[] = [];
-    file.on("data", (chunk) => chunks.push(chunk));
+    file.on("data", (chunk: any) => chunks.push(chunk));
     file.on("end", () => {
       fileBuffer = Buffer.concat(chunks);
     });

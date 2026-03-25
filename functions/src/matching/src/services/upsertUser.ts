@@ -5,7 +5,8 @@ export async function upsertFreeResponse(
   uid: string,
   textResponses: string[],
   numericResponses: number[],
-  user_type: string
+  user_type: string,
+  pronouns?: string
 ): Promise<void> {
   logger.info(`Upserting matchable responses for uid=${uid}`);
 
@@ -68,6 +69,10 @@ export async function upsertFreeResponse(
     textResponses.forEach((response, index) => {
       metadata[`text${index + 1}`] = response.substring(0, 1000);
     });
+    
+    if (pronouns) {
+      metadata.pronouns = pronouns;
+    }
 
     const vector = {
       id: uid,

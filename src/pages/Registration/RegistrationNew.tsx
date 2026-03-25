@@ -619,6 +619,17 @@ const RegistrationNew = () => {
     return values;
   };
 
+  //Helper: Get pronouns
+  const getPronouns = (formData: FormData, formConfig: Form): string => {
+    const entry = getQuestionEntries(formConfig).find(
+      ({ question }) => question.title?.toLowerCase().includes("pronoun")
+    );
+
+    if (!entry) return "Other";
+
+    return (formData.get(entry.fieldName) as string) || "Other"; //defualt to other
+  };
+
   // Helper: Parse address fields from form data
   const parseAddress = (formData: FormData, formConfig: Form): RawAddress => {
     const addressEntry = getQuestionEntries(formConfig).find(
@@ -811,6 +822,7 @@ const RegistrationNew = () => {
           textResponses,
           numericResponses,
           user_type: basicByKey[BASIC_FIELD_KEYS.userType] || "student",
+          pronouns: getPronouns(formData, form)
         });
         console.log("User upserted to Pinecone successfully");
       }
