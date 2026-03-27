@@ -1,6 +1,6 @@
 :root {
   --blue: #0f6bb1;
-  --blue-bg: #3a87c8; /* the blue page background */
+  --blue-bg: #127bbe; /* the blue page background */
   --blue-dark: #0a4f87;
   --blue-light: #e8f2fb;
   --blue-mid: #cce0f5;
@@ -383,7 +383,7 @@
 }
 
 .sectionDeleteBtn {
-    color: red;
+  color: red;
 }
 .sectionDeleteBtn:hover {
   background: var(--red-light);
@@ -877,7 +877,6 @@
   background: var(--blue-dark);
 }
 
-
 .questionSelect {
   background-color: rgb(231, 231, 231);
   font-size: 15px;
@@ -891,4 +890,3 @@
   pointer-events: none;
   opacity: 70%;
 }
-
