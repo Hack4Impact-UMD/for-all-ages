@@ -1,13 +1,31 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { doc, getDoc } from "firebase/firestore";
 import { useAuth } from "../../auth/AuthProvider";
-import type { ParticipantProfile, ProgramState, User } from "../../types";
+import { db } from "../../firebase";
+import {
+  getMatchesByParticipant,
+  getPartnerId,
+  updateMatchDayOfWeek,
+} from "../../services/matches";
+import type { Match, PartnerInfo, ParticipantDoc } from "../../types";
+import ProfilePicture from "../Profile/components/ProfilePicture/ProfilePicture";
 import styles from "./Waiting.module.css";
 
 const ADMIN_EMAIL = "info@forallages.org";
 
+const DAYS_OF_WEEK = [
+  { value: 7, label: "Sunday" },
+  { value: 1, label: "Monday" },
+  { value: 2, label: "Tuesday" },
+  { value: 3, label: "Wednesday" },
+  { value: 4, label: "Thursday" },
+  { value: 5, label: "Friday" },
+  { value: 6, label: "Saturday" },
+];
+
 function buildGreetingName(
-  participant: ParticipantProfile | null,
+  participant: ParticipantDoc | null,
   fallbackEmail?: string | null,
 ) {
   const candidate =
@@ -25,15 +43,6 @@ function buildGreetingName(
   return firstWord.charAt(0).toUpperCase() + firstWord.slice(1);
 }
 
-type AuthState = {
-  user: User | null;
-  participant: ParticipantProfile | null;
-  loading: boolean;
-  participantLoading: boolean;
-  programState: ProgramState | null;
-  programStateLoading: boolean;
-};
-
 export default function Waiting() {
   const {
     user,
@@ -42,9 +51,16 @@ export default function Waiting() {
     participantLoading,
     programState,
     programStateLoading,
-  } = useAuth() as AuthState;
+  } = useAuth();
 
   const navigate = useNavigate();
+
+  const [match, setMatch] = useState<(Match & { id: string }) | null>(null);
+  const [partner, setPartner] = useState<PartnerInfo | null>(null);
+  const [matchLoading, setMatchLoading] = useState(false);
+  const [selectedDay, setSelectedDay] = useState<number>(-1);
+
+  const isStudent = participant?.user_type === "student";
 
   const greetingName = useMemo(
     () =>
@@ -73,6 +89,61 @@ export default function Waiting() {
       navigate("/user/dashboard", { replace: true });
     }
   }, [programState, isLoading, navigate]);
+
+  useEffect(() => {
+    async function loadMatchData() {
+      if (!user?.uid || isLoading || !programState?.matches_final) return;
+
+      try {
+        setMatchLoading(true);
+        const matches = await getMatchesByParticipant(user.uid);
+
+        if (matches.length === 0) {
+          setMatchLoading(false);
+          return;
+        }
+
+        const userMatch = matches[0];
+        setMatch(userMatch);
+        setSelectedDay(userMatch.day_of_call >= 1 ? userMatch.day_of_call : -1);
+
+        const partnerId = getPartnerId(userMatch, user.uid);
+        const participantRef = doc(db, "participants", partnerId);
+        const participantDoc = await getDoc(participantRef);
+
+        if (participantDoc.exists()) {
+          const data = participantDoc.data();
+          setPartner({
+            id: participantDoc.id,
+            name: data.name || data.displayName || "Unknown",
+            displayName: data.displayName || data.name || "Unknown",
+            email: data.email || "Not provided",
+            phone_number: data.phone_number || data.phoneNumber || "Not provided",
+            user_type: data.user_type || "adult",
+          });
+        }
+      } catch (error) {
+        console.error("Error loading match data:", error);
+      } finally {
+        setMatchLoading(false);
+      }
+    }
+
+    loadMatchData();
+  }, [user, isLoading, programState?.matches_final]);
+
+  const handleDayChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const dayValue = Number(e.target.value);
+    setSelectedDay(dayValue);
+
+    if (match && dayValue !== -1) {
+      try {
+        await updateMatchDayOfWeek(match.id, dayValue);
+      } catch (error) {
+        console.error("Error updating day of call:", error);
+      }
+    }
+  };
 
   let statusTitle = "";
   let statusBody = "";
@@ -112,6 +183,58 @@ export default function Waiting() {
             <div className={styles.welcomeWrap}>
               <h1 className={styles.welcomeLink}>Welcome, {greetingName}!</h1>
             </div>
+
+            {programState?.matches_final && !programState?.started && (
+              <>
+                {matchLoading ? (
+                  <div className={styles.loadingMessage}>
+                    Loading match info…
+                  </div>
+                ) : partner ? (
+                  <section className={styles.matchInfoSection}>
+                    <div className={styles.matchInfoCard}>
+                      <h2 className={styles.matchInfoTitle}>Your Match</h2>
+                      <div className={styles.matchInfoContent}>
+                        <ProfilePicture uid={partner.id} size={100} />
+                        <h3 className={styles.matchName}>
+                          {partner.displayName}
+                        </h3>
+                        <p className={styles.matchPhone}>
+                          {partner.phone_number}
+                        </p>
+                      </div>
+
+                      {isStudent && (
+                        <div className={styles.daySelectorWrap}>
+                          <label
+                            htmlFor="day-of-call"
+                            className={styles.dayLabel}
+                          >
+                            Preferred Day for Call
+                          </label>
+                          <select
+                            id="day-of-call"
+                            className={styles.daySelect}
+                            value={selectedDay}
+                            onChange={handleDayChange}
+                          >
+                            <option value={-1} disabled>
+                              Select Day for call
+                            </option>
+                            {DAYS_OF_WEEK.map((day) => (
+                              <option key={day.value} value={day.value}>
+                                {day.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                    </div>
+                  </section>
+                ) : null}
+              </>
+            )}
+
             <section className={styles.messageWrapper}>
               <div className={styles.messageCard}>
                 {statusTitle && (
