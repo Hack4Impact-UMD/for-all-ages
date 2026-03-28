@@ -16,6 +16,7 @@ import { db, deleteUser } from "../../firebase";
 import {
   assignAdminRoleToExistingUser,
   inviteAdminAccount,
+  promoteParticipantToSubadmin,
 } from "../../services/adminAccounts";
 import { friendlyAuthError } from "../../services/auth";
 import type { Role, ParticipantDoc, RawAddress, AdminRecord, BannerState } from "../../types";
@@ -78,6 +79,7 @@ export default function AdminDashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [banner, setBanner] = useState<BannerState | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [promoteTarget, setPromoteTarget] = useState<AdminRecord | null>(null);
 
   const handleModalClose = useCallback(() => {
     setIsModalOpen(false);
@@ -86,6 +88,11 @@ export default function AdminDashboard() {
   const handleInviteSuccess = useCallback((message: string) => {
     setBanner({ type: "success", message });
     setIsModalOpen(false);
+  }, []);
+
+  const handlePromoteSuccess = useCallback((message: string) => {
+    setBanner({ type: "success", message });
+    setPromoteTarget(null);
   }, []);
 
   const dismissBanner = useCallback(() => {
@@ -309,6 +316,7 @@ export default function AdminDashboard() {
                   <th scope="col" className={styles.colAddress}>Address</th>
                   <th scope="col" className={styles.colGroup}>Group</th>
                   <th scope="col" className={styles.colDelete} aria-label="Delete user" />
+                  <th scope="col" className={styles.colDelete} aria-label="Promote user" />
                 </tr>
               </thead>
               <tbody>
@@ -376,6 +384,22 @@ export default function AdminDashboard() {
                           <FaTrash aria-hidden />
                         </button>
                       </td>
+                      <td data-label="Promote" className={styles.colDelete}>
+                        {admin.role === "Participant" ? (
+                          <button
+                            type="button"
+                            className={styles.addButton}
+                            style={{ fontSize: "0.75rem", padding: "0.25rem 0.6rem", whiteSpace: "nowrap" }}
+                            onClick={() => setPromoteTarget(admin)}
+                            aria-label={`Promote ${admin.name} to Sub-admin`}
+                            title="Promote to Sub-admin"
+                          >
+                            Promote
+                          </button>
+                        ) : (
+                          <span />
+                        )}
+                      </td>
                     </tr>
                   ))
                 )}
@@ -391,12 +415,131 @@ export default function AdminDashboard() {
             onSuccess={handleInviteSuccess}
           />
         ) : null}
+
+        {promoteTarget ? (
+          <PromoteModal
+            participant={promoteTarget}
+            onClose={() => setPromoteTarget(null)}
+            onSuccess={handlePromoteSuccess}
+          />
+        ) : null}
       </div>
     </div>
   );
 }
 
-// ==================== AddAdminModal Component =====================
+// ==================== PromoteModal Component =====================
+
+type PromoteModalProps = {
+  participant: AdminRecord;
+  onClose: () => void;
+  onSuccess: (message: string) => void;
+};
+
+/**
+ * Confirms and executes the promotion of a participant to Sub-admin.
+ * All existing participant data (user_type, matches, etc.) is preserved —
+ * only the `role` field is updated in Firestore.
+ */
+function PromoteModal({ participant, onClose, onSuccess }: PromoteModalProps) {
+  const [university, setUniversity] = useState(participant.university ?? "");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Close on Escape
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { e.preventDefault(); onClose(); }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  const handleConfirm = async () => {
+    if (!university.trim()) {
+      setError("Please enter a university name.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      await promoteParticipantToSubadmin({
+        participantId: participant.id,
+        university: university.trim(),
+      });
+      onSuccess(`${participant.name} has been promoted to Sub-admin.`);
+    } catch (err) {
+      console.error("Failed to promote participant", err);
+      setError("Could not promote this participant. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div
+      className={styles.modalBackdrop}
+      role="presentation"
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div
+        className={styles.modalCard}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="promote-modal-title"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <header className={styles.modalHeader}>
+          <h2 id="promote-modal-title" className={styles.modalTitle}>
+            Promote to Sub-admin
+          </h2>
+        </header>
+
+        <div className={styles.modalForm}>
+          <p style={{ marginBottom: "1rem" }}>
+            <strong>{participant.name}</strong> will be promoted to Sub-admin.
+            They will keep their participant role and remain in the matching process.
+          </p>
+
+          <div className={styles.field}>
+            <label htmlFor="promote-university">University Name</label>
+            <input
+              id="promote-university"
+              type="text"
+              className={styles.textInput}
+              value={university}
+              onChange={(e) => { setUniversity(e.target.value); setError(null); }}
+              placeholder="University name"
+              autoFocus
+            />
+          </div>
+
+          {error ? <div className={styles.errorMessage}>{error}</div> : null}
+
+          <div className={styles.modalActions}>
+            <button
+              type="button"
+              className={styles.cancelButton}
+              onClick={onClose}
+              disabled={submitting}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className={styles.submitButton}
+              onClick={handleConfirm}
+              disabled={submitting || !university.trim()}
+            >
+              {submitting ? "Promoting…" : "Confirm"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
 // Props for the AddAdminModal component
 type AddAdminModalProps = {
