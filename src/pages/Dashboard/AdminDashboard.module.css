@@ -80,3 +80,91 @@
         padding: 1.25rem;
     }
 }
+
+.scheduleHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.searchContainer {
+    position: relative;
+    width: 320px;
+    max-width: 100%;
+}
+
+.searchIcon {
+    position: absolute;
+    top: 50%;
+    left: 12px;
+    transform: translateY(-50%);
+    color: #0f6bb1;
+    font-size: 20px !important;
+}
+
+.searchInput {
+    width: 100%;
+    padding: 10px 12px 10px 42px;
+    border-radius: 9999px;
+    border: 2px solid rgba(15, 107, 177, 0.2);
+    outline: none;
+    font-size: 15px;
+    font-family: "Merriweather", serif;
+    color: #0f4f86;
+    background: #ffffff;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.searchInput:focus {
+    border-color: #0f6bb1;
+    box-shadow: 0 0 0 3px rgba(15, 107, 177, 0.1);
+}
+
+.searchInput::placeholder {
+    color: rgba(15, 107, 177, 0.5);
+}
+
+.noResults {
+    color: #0f4f86;
+    font-size: 0.95rem;
+    opacity: 0.7;
+    padding: 0.25rem 0;
+}
+
+.emptyDay {
+    color: rgba(15, 79, 134, 0.4);
+    font-size: 0.85rem;
+    text-align: center;
+    padding: 0.5rem 0;
+}
+
+.errorBox {
+    background: #fff0f0;
+    border: 1px solid #ffb3b3;
+    border-radius: 0.5rem;
+    color: #cc0000;
+    font-size: 0.9rem;
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.loading {
+    color: #0f4f86;
+    font-size: 0.95rem;
+    opacity: 0.7;
+    padding: 1rem 0;
+    text-align: center;
+}
+
+@media (max-width: 768px) {
+    .scheduleHeader {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .searchContainer {
+        width: 100%;
+    }
+}

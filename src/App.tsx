@@ -154,7 +154,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<LoginSignup />} />
-
+        
         {/* Routes with navbar */}
         <Route element={<MainLayout />}>
           <Route path="/registration" element={<RegistrationGate />} />
@@ -199,7 +199,7 @@ function App() {
           </Route>
         </Route>
 
-        {/* <Route path={"/user/dashboard"} element={<Dashboard></Dashboard>}></Route>
+          {/* <Route path={"/user/dashboard"} element={<Dashboard></Dashboard>}></Route>
           <Route path={"/admin/dashboard"} element={<Dashboard></Dashboard>}></Route> */}
       </Routes>
     </BrowserRouter>
