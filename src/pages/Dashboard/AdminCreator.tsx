@@ -316,7 +316,7 @@ export default function AdminDashboard() {
                   <th scope="col" className={styles.colAddress}>Address</th>
                   <th scope="col" className={styles.colGroup}>Group</th>
                   <th scope="col" className={styles.colDelete} aria-label="Delete user" />
-                  <th scope="col" className={styles.colDelete} aria-label="Promote user" />
+                  <th scope="col" className={styles.colPromote} aria-label="Promote user" />
                 </tr>
               </thead>
               <tbody>
@@ -384,12 +384,12 @@ export default function AdminDashboard() {
                           <FaTrash aria-hidden />
                         </button>
                       </td>
-                      <td data-label="Promote" className={styles.colDelete}>
+                      <td data-label="Promote" className={`${styles.deleteCell} ${styles.colPromote}`}>
                         {admin.role === "Participant" ? (
                           <button
                             type="button"
                             className={styles.addButton}
-                            style={{ fontSize: "0.75rem", padding: "0.25rem 0.6rem", whiteSpace: "nowrap" }}
+                            style={{ fontSize: "0.75rem", padding: "0.3rem 0.75rem" }}
                             onClick={() => setPromoteTarget(admin)}
                             aria-label={`Promote ${admin.name} to Sub-admin`}
                             title="Promote to Sub-admin"
