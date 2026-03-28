@@ -9,6 +9,21 @@
   margin-bottom: 1.5rem;
 }
 
+.contactButton {
+  background: linear-gradient(135deg, #0f6bb1 0%, #1f8ed8 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 999px;
+  padding: 0.7rem 1.6rem;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+  box-shadow: 0 12px 24px rgba(15, 107, 177, 0.3);
+}
+
 .searchGroup {
   display: flex;
   flex-direction: column;

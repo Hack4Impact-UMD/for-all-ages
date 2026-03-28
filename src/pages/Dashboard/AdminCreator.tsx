@@ -18,7 +18,13 @@ import {
   inviteAdminAccount,
 } from "../../services/adminAccounts";
 import { friendlyAuthError } from "../../services/auth";
-import type { Role, ParticipantDoc, RawAddress, AdminRecord, BannerState } from "../../types";
+import type {
+  Role,
+  ParticipantDoc,
+  RawAddress,
+  AdminRecord,
+  BannerState,
+} from "../../types";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -190,31 +196,52 @@ export default function AdminDashboard() {
     }
   }, [roleFilter]);
 
-    const handleDeleteUser = useCallback(
-      async (admin: AdminRecord) => { 
+  // Handles the Contact All button and allows admins to contact all participants and subadmins
+  const handleContactAll = () => {
+    if (typeof window === "undefined") return;
 
-        const confirmed = window.confirm(
-          `Permanently delete ${admin.name}? They will no longer be able to log in.`
-        );
+    // Filters only participants and subadmins
+    const list = admins.filter((user) => {
+      const r = normaliseRole(user.role);
+      return r === "Participant" || r === "Subadmin";
+    });
 
-        if (!confirmed) return;
-        setDeletingId(admin.id);
-        setBanner(null);
+    // Holds all of the emails of the new list, filtering falsy emails
+    const emailList = list
+      .map((user) => {
+        return user.email;
+      })
+      .filter(Boolean);
 
-        try {
-          await deleteUser(admin.id);
-          setBanner({ type: "success", message: "User deleted." });
-        } catch (err) {
-          const message =
-            err && typeof err === "object" && "message" in err
-              ? String((err as { message: string }).message)
-              : "Could not delete user.";
-          setBanner({ type: "error", message });
-        } finally {
-          setDeletingId(null);
-        }
-      },[]
+    // Format the email list to be one string
+    const mailToEmailList = emailList.join(",");
+
+    const mailto = `mailto:${mailToEmailList}`;
+    window.location.href = mailto;
+  };
+
+  const handleDeleteUser = useCallback(async (admin: AdminRecord) => {
+    const confirmed = window.confirm(
+      `Permanently delete ${admin.name}? They will no longer be able to log in.`,
     );
+
+    if (!confirmed) return;
+    setDeletingId(admin.id);
+    setBanner(null);
+
+    try {
+      await deleteUser(admin.id);
+      setBanner({ type: "success", message: "User deleted." });
+    } catch (err) {
+      const message =
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message: string }).message)
+          : "Could not delete user.";
+      setBanner({ type: "error", message });
+    } finally {
+      setDeletingId(null);
+    }
+  }, []);
 
   return (
     <div className={layoutStyles.page}>
@@ -223,6 +250,15 @@ export default function AdminDashboard() {
           <label className={styles.searchLabel} htmlFor="admin-search">
             Search
           </label>
+          <button
+            type="button"
+            className={styles.contactButton}
+            onClick={() => {
+              handleContactAll();
+            }}
+          >
+            Contact All
+          </button>
           <input
             id="admin-search"
             type="search"
@@ -299,88 +335,114 @@ export default function AdminDashboard() {
         <section className={styles.tableSection}>
           <div className={styles.tableCard}>
             <div className={styles.tableScroll}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th scope="col" className={styles.colName}>Name</th>
-                  <th scope="col" className={styles.colRole}>Role</th>
-                  <th scope="col" className={styles.colEmail}>Email</th>
-                  <th scope="col" className={styles.colPhone}>Phone Number</th>
-                  <th scope="col" className={styles.colAddress}>Address</th>
-                  <th scope="col" className={styles.colGroup}>Group</th>
-                  <th scope="col" className={styles.colDelete} aria-label="Delete user" />
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr className={styles.stateRow}>
-                    <td colSpan={6} className={styles.stateCell}>
-                      Loading admin accounts…
-                    </td>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th scope="col" className={styles.colName}>
+                      Name
+                    </th>
+                    <th scope="col" className={styles.colRole}>
+                      Role
+                    </th>
+                    <th scope="col" className={styles.colEmail}>
+                      Email
+                    </th>
+                    <th scope="col" className={styles.colPhone}>
+                      Phone Number
+                    </th>
+                    <th scope="col" className={styles.colAddress}>
+                      Address
+                    </th>
+                    <th scope="col" className={styles.colGroup}>
+                      Group
+                    </th>
+                    <th
+                      scope="col"
+                      className={styles.colDelete}
+                      aria-label="Delete user"
+                    />
                   </tr>
-                ) : error ? (
-                  <tr className={styles.stateRow}>
-                    <td colSpan={6} className={styles.stateCell}>
-                      {error}
-                    </td>
-                  </tr>
-                ) : filteredAdmins.length === 0 ? (
-                  <tr className={styles.stateRow}>
-                    <td colSpan={6} className={styles.stateCell}>
-                      No admins match your search.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredAdmins.map((admin) => (
-                    <tr key={admin.id}>
-                      <td data-label="Name" className={styles.colName}>{admin.name}</td>
-                      <td data-label="Role" className={styles.colRole}>
-                        {admin.role === "Admin"
-                          ? "Admin"
-                          : admin.role === "Subadmin"
-                            ? "Sub-admin"
-                            : "Participant"}
-                      </td>
-                      <td data-label="Email" className={styles.colEmail}>
-                        {admin.email ? (
-                          <a
-                            href={`mailto:${admin.email}`}
-                            className={styles.emailLink}
-                          >
-                            {admin.email}
-                          </a>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
-                      <td data-label="Phone Number" className={styles.colPhone}>
-                        {admin.phoneNumber || "—"}
-                      </td>
-                      <td data-label="Address" className={styles.colAddress}>{admin.address || "—"}</td>
-                      <td data-label="Group" className={styles.colGroup}>
-                        {admin.role === "Participant" && admin.user_type ? (
-                          <span>{admin.user_type}</span>
-                        ) : (
-                          <span>—</span>
-                        )}
-                      </td>
-                      <td data-label="Delete" className={`${styles.deleteCell} ${styles.colDelete}`}>
-                        <button
-                          type="button"
-                          className={styles.deleteButton}
-                          onClick={() => handleDeleteUser(admin)}
-                          disabled={deletingId === admin.id}
-                          aria-label={`Delete ${admin.name}`}
-                          title="Delete user"
-                        >
-                          <FaTrash aria-hidden />
-                        </button>
+                </thead>
+                <tbody>
+                  {loading ? (
+                    <tr className={styles.stateRow}>
+                      <td colSpan={6} className={styles.stateCell}>
+                        Loading admin accounts…
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : error ? (
+                    <tr className={styles.stateRow}>
+                      <td colSpan={6} className={styles.stateCell}>
+                        {error}
+                      </td>
+                    </tr>
+                  ) : filteredAdmins.length === 0 ? (
+                    <tr className={styles.stateRow}>
+                      <td colSpan={6} className={styles.stateCell}>
+                        No admins match your search.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredAdmins.map((admin) => (
+                      <tr key={admin.id}>
+                        <td data-label="Name" className={styles.colName}>
+                          {admin.name}
+                        </td>
+                        <td data-label="Role" className={styles.colRole}>
+                          {admin.role === "Admin"
+                            ? "Admin"
+                            : admin.role === "Subadmin"
+                              ? "Sub-admin"
+                              : "Participant"}
+                        </td>
+                        <td data-label="Email" className={styles.colEmail}>
+                          {admin.email ? (
+                            <a
+                              href={`mailto:${admin.email}`}
+                              className={styles.emailLink}
+                            >
+                              {admin.email}
+                            </a>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+                        <td
+                          data-label="Phone Number"
+                          className={styles.colPhone}
+                        >
+                          {admin.phoneNumber || "—"}
+                        </td>
+                        <td data-label="Address" className={styles.colAddress}>
+                          {admin.address || "—"}
+                        </td>
+                        <td data-label="Group" className={styles.colGroup}>
+                          {admin.role === "Participant" && admin.user_type ? (
+                            <span>{admin.user_type}</span>
+                          ) : (
+                            <span>—</span>
+                          )}
+                        </td>
+                        <td
+                          data-label="Delete"
+                          className={`${styles.deleteCell} ${styles.colDelete}`}
+                        >
+                          <button
+                            type="button"
+                            className={styles.deleteButton}
+                            onClick={() => handleDeleteUser(admin)}
+                            disabled={deletingId === admin.id}
+                            aria-label={`Delete ${admin.name}`}
+                            title="Delete user"
+                          >
+                            <FaTrash aria-hidden />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </section>
