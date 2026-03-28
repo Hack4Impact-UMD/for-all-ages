@@ -151,14 +151,17 @@ export async function fetchParticipantsByIds(
  */
 function parseParticipantFromMatch(match: any): ParticipantWithEmbedding {
   const metadata = match.metadata || {};
+
+  const numericResponses: number[] = Object.keys(metadata)
+    .filter(key => key.startsWith('q_'))
+    .sort((a, b) => parseInt(a.split('_')[1]) - parseInt(b.split('_')[1]))
+    .map(key => Number(metadata[key]));
   
   return {
     id: match.id,
     user_type: metadata.user_type || 'unknown',
     embedding: match.values || [],
-    q1: metadata.q1 !== undefined ? Number(metadata.q1) : undefined,
-    q2: metadata.q2 !== undefined ? Number(metadata.q2) : undefined,
-    q3: metadata.q3 !== undefined ? Number(metadata.q3) : undefined,
+    numericResponses,
     metadata: metadata,
   };
 }
@@ -169,13 +172,20 @@ function parseParticipantFromMatch(match: any): ParticipantWithEmbedding {
 function parseParticipantFromRecord(id: string, record: any): ParticipantWithEmbedding {
   const metadata = record.metadata || {};
   
+  const numericResponses: number[] = Object.keys(metadata)
+    .filter(key => /^q_\d+$/.test(key)) 
+    .sort((a, b) => {
+      const indexA = parseInt(a.split('_')[1], 10);
+      const indexB = parseInt(b.split('_')[1], 10);
+      return indexA - indexB;
+    })
+    .map(key => Number(metadata[key]));
+
   return {
-    id: id,
+    id: record.id,
     user_type: metadata.user_type || 'unknown',
     embedding: record.values || [],
-    q1: metadata.q1 !== undefined ? Number(metadata.q1) : undefined,
-    q2: metadata.q2 !== undefined ? Number(metadata.q2) : undefined,
-    q3: metadata.q3 !== undefined ? Number(metadata.q3) : undefined,
+    numericResponses, // Extracted dynamic array
     metadata: metadata,
   };
 }
@@ -205,28 +215,33 @@ function validateParticipantData(
   
   // Validate embedding dimensions consistency
   const allParticipants = [...students, ...seniors];
-  if (allParticipants.length > 0) {
-    const firstDimension = allParticipants[0].embedding.length;
-    const inconsistentDimensions = allParticipants.some(
-      p => p.embedding.length !== firstDimension
-    );
-    
-    if (inconsistentDimensions) {
-      logger.error('Inconsistent embedding dimensions detected across participants');
-      throw new Error('Embedding dimension mismatch');
-    }
-    
-    logger.info(`All embeddings have consistent dimensions: ${firstDimension}`);
-  }
-  
-  // Check for missing Q scores
-  const missingQScores = allParticipants.filter(
-    p => p.q1 === undefined || p.q2 === undefined || p.q3 === undefined
+  if (allParticipants.length === 0) return;
+
+  // 1. Validate embedding dimensions consistency
+  const expectedDim = allParticipants[0].embedding.length;
+  const hasInconsistentEmbeddings = allParticipants.some(
+    p => p.embedding.length !== expectedDim
   );
   
-  if (missingQScores.length > 0) {
+  if (hasInconsistentEmbeddings) {
+    logger.error('Inconsistent embedding dimensions detected');
+    throw new Error('Embedding dimension mismatch across participant records');
+  }
+
+  // 2. Validate numeric response consistency
+  // We check if all users have the same number of answers. 
+  // If not, the similarity algorithm will handle it, but we log it here.
+  const expectedNumericCount = allParticipants[0].numericResponses.length;
+  const inconsistentUsers = allParticipants.filter(
+    p => p.numericResponses.length !== expectedNumericCount
+  );
+
+  if (inconsistentUsers.length > 0) {
     logger.warn(
-      `${missingQScores.length} participants have missing Q scores (will use defaults)`
+      `${inconsistentUsers.length} participants have a different number of responses than the baseline (${expectedNumericCount}). ` +
+      `Matching will proceed using the overlapping indices.`
     );
+  } else {
+    logger.info(`All participants have a consistent set of ${expectedNumericCount} numeric responses.`);
   }
 }

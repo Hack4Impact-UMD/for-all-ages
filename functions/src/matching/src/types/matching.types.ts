@@ -2,9 +2,7 @@ export interface ParticipantWithEmbedding {
   id: string;
   user_type: 'student' | 'adult' | string;
   embedding: number[];
-  q1?: number;
-  q2?: number;
-  q3?: number;
+  numericResponses: number[];
   metadata?: Record<string, unknown>;
 }
 
@@ -33,14 +31,10 @@ export interface Match {
 export interface MatchingConfig {
   frqWeight: number;
   quantWeight: number;
-  scoreRanges: {
-    q1Min: number;
-    q1Max: number;
-    q2Min: number;
-    q2Max: number;
-    q3Min: number;
-    q3Max: number;
-  };
+  scoreRanges: Array<{
+    min: number;
+    max: number;
+  }>;
   confidenceThresholds: {
     high: number;
     medium: number;
@@ -78,14 +72,7 @@ export interface MatchingResult {
 export const DEFAULT_MATCHING_CONFIG: MatchingConfig = {
   frqWeight: 0.7,
   quantWeight: 0.3,
-  scoreRanges: {
-    q1Min: 1,
-    q1Max: 5,
-    q2Min: 1,
-    q2Max: 5,
-    q3Min: 1,
-    q3Max: 5,
-  },
+  scoreRanges: [{ min: 1, max: 5 }, { min: 1, max: 5 }, { min: 1, max: 5 }],
   confidenceThresholds: {
     high: 0.8,
     medium: 0.6,
