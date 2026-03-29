@@ -180,9 +180,10 @@
     cursor: pointer;
 }
 
-.daySelect:focus {
-    outline: none;
+.daySelect:focus-visible {
     border-color: #3879B9;
+    outline: 2px solid #3879B9;
+    outline-offset: 2px;
 }
 
 @media (max-width: 768px) {

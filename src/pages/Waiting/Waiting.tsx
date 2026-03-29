@@ -99,7 +99,6 @@ export default function Waiting() {
         const matches = await getMatchesByParticipant(user.uid);
 
         if (matches.length === 0) {
-          setMatchLoading(false);
           return;
         }
 
@@ -121,6 +120,15 @@ export default function Waiting() {
             phone_number: data.phone_number || data.phoneNumber || "Not provided",
             user_type: data.user_type || "adult",
           });
+        } else {
+          setPartner({
+            id: partnerId,
+            name: "Unknown",
+            displayName: "Unknown",
+            email: "Not provided",
+            phone_number: "Not provided",
+            user_type: "adult",
+          });
         }
       } catch (error) {
         console.error("Error loading match data:", error);
@@ -132,15 +140,23 @@ export default function Waiting() {
     loadMatchData();
   }, [user, isLoading, programState?.matches_final]);
 
+  const [updatingDay, setUpdatingDay] = useState(false);
+
   const handleDayChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    if (updatingDay) return;
     const dayValue = Number(e.target.value);
+    const previousDay = selectedDay;
     setSelectedDay(dayValue);
 
     if (match && dayValue !== -1) {
       try {
+        setUpdatingDay(true);
         await updateMatchDayOfWeek(match.id, dayValue);
       } catch (error) {
+        setSelectedDay(previousDay);
         console.error("Error updating day of call:", error);
+      } finally {
+        setUpdatingDay(false);
       }
     }
   };
@@ -217,6 +233,7 @@ export default function Waiting() {
                             className={styles.daySelect}
                             value={selectedDay}
                             onChange={handleDayChange}
+                            disabled={updatingDay}
                           >
                             <option value={-1} disabled>
                               Select Day for call
@@ -231,7 +248,12 @@ export default function Waiting() {
                       )}
                     </div>
                   </section>
-                ) : null}
+                ) : (
+                  <div className={styles.loadingMessage}>
+                    Match info unavailable. Please contact admins at{" "}
+                    <a href={`mailto:${ADMIN_EMAIL}`}>{ADMIN_EMAIL}</a>.
+                  </div>
+                )}
               </>
             )}
 
