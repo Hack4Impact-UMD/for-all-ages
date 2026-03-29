@@ -3,13 +3,14 @@ import type { RematchingParticipant } from "../../Rematching";
 
 /**
  * Participant Card Component
- * Displays a single participant with their name, school (for students), and interests.
+ * Displays a single participant with their name and score details.
  */
 interface ParticipantCardProps {
   participant: RematchingParticipant;
   isSelected: boolean;
   onClick: () => void;
   isStudentColumn: boolean;
+  compatibilityPercentage?: number | null;
 }
 
 export default function ParticipantCard({
@@ -17,6 +18,7 @@ export default function ParticipantCard({
   isSelected,
   onClick,
   isStudentColumn,
+  compatibilityPercentage,
 }: ParticipantCardProps) {
   return (
     <div
@@ -28,6 +30,11 @@ export default function ParticipantCard({
       <div className={styles.participantName}>{participant.name}</div>
       {isStudentColumn && participant.school && (
         <div className={styles.participantSchool}>{participant.school}</div>
+      )}
+      {compatibilityPercentage !== null && compatibilityPercentage !== undefined && (
+        <div className={styles.compatibilityScore}>
+          Compatibility: {Math.round(compatibilityPercentage)}%
+        </div>
       )}
     </div>
   );
