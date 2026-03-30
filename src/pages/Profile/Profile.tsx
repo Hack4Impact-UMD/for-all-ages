@@ -19,7 +19,6 @@ import EmailReauthModal from "./components/EmailReauthModal/EmailReauthModal";
 import MatchInterestsModal from "./components/MatchInterestsModal/MatchInterestsModal";
 import ProfilePictureEdit from "./components/ProfilePictureEdit/ProfilePictureEdit";
 
-// normalize birthday to MM/DD/YYYY for profile display/edit
 const toDisplayBirthday = (raw: string | undefined | null): string => {
   if (!raw) return "";
   if (/^(0[1-9]|1[0-2])\/(0[1-9]|[12]\d|3[01])\/\d{4}$/.test(raw)) {
@@ -41,7 +40,6 @@ const toDisplayBirthday = (raw: string | undefined | null): string => {
   return raw;
 };
 
-// normalize birthday to YYYY-MM-DD for Firebase storage
 const toStorageBirthday = (raw: string | undefined | null): string => {
   if (!raw) return "";
 
@@ -73,7 +71,6 @@ const Profile = () => {
 
   const [showInterestsModal, setShowInterestsModal] = useState(false);
 
-  // password change
   const [passwordCurrent, setPasswordCurrent] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
@@ -81,7 +78,6 @@ const Profile = () => {
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
-  // email reauth modal
   const [showEmailReauthModal, setShowEmailReauthModal] = useState(false);
   const [emailReauthPassword, setEmailReauthPassword] = useState("");
   const [emailReauthError, setEmailReauthError] = useState<string | null>(null);
@@ -117,6 +113,8 @@ const Profile = () => {
             startDate: "",
             endDate: "",
             status: "Participant",
+            matchName: "",
+            matchInterests: "",
           };
           setUser(fallback);
           setLoading(false);
@@ -125,32 +123,36 @@ const Profile = () => {
 
         const data: any = snap.data();
         const addr = data.address ?? {};
+        const status = data.type ?? "Participant";
+        const isAdmin = String(status).toLowerCase() === "admin";
 
         let matchName = "";
         let matchInterests = "";
 
-        try {
-          const matches = await getMatchesByParticipant(fbUser.uid);
-          if (matches.length > 0) {
-            const firstMatch = matches[0];
-            const partnerId = getPartnerId(firstMatch, fbUser.uid);
+        if (!isAdmin) {
+          try {
+            const matches = await getMatchesByParticipant(fbUser.uid);
+            if (matches.length > 0) {
+              const firstMatch = matches[0];
+              const partnerId = getPartnerId(firstMatch, fbUser.uid);
 
-            const partnerRef = doc(db, "participants", partnerId);
-            const partnerSnap = await getDoc(partnerRef);
-            if (partnerSnap.exists()) {
-              const partnerData: any = partnerSnap.data();
-              matchName =
-                partnerData.displayName ??
-                partnerData.name ??
-                [partnerData.firstName, partnerData.lastName]
-                  .filter(Boolean)
-                  .join(" ");
-              matchInterests =
-                partnerData.interests ?? partnerData.freeResponse ?? "";
+              const partnerRef = doc(db, "participants", partnerId);
+              const partnerSnap = await getDoc(partnerRef);
+              if (partnerSnap.exists()) {
+                const partnerData: any = partnerSnap.data();
+                matchName =
+                  partnerData.displayName ??
+                  partnerData.name ??
+                  [partnerData.firstName, partnerData.lastName]
+                    .filter(Boolean)
+                    .join(" ");
+                matchInterests =
+                  partnerData.interests ?? partnerData.freeResponse ?? "";
+              }
             }
+          } catch (matchErr) {
+            console.error("Error fetching match info:", matchErr);
           }
-        } catch (matchErr) {
-          console.error("Error fetching match info:", matchErr);
         }
 
         const profile: UserProfile = {
@@ -159,7 +161,6 @@ const Profile = () => {
           email: data.email ?? fbUser.email ?? "",
           pronouns: data.pronouns ?? "",
           phone: data.phoneNumber ?? "",
-          // normalize when loading from Firestore for profile display
           birthday: toDisplayBirthday(data.dateOfBirth),
           addressLine1: addr.line1 ?? "",
           addressCity: addr.city ?? "",
@@ -169,7 +170,7 @@ const Profile = () => {
           interests: data.interests ?? "",
           startDate: data.startDate ?? "",
           endDate: data.endDate ?? "",
-          status: data.type ?? "Participant",
+          status,
           matchName,
           matchInterests,
         };
@@ -193,6 +194,8 @@ const Profile = () => {
           startDate: "",
           endDate: "",
           status: "Participant",
+          matchName: "",
+          matchInterests: "",
         };
         setUser(fallback);
       } finally {
@@ -203,7 +206,6 @@ const Profile = () => {
     return () => unsubscribe();
   }, []);
 
-  // live password mismatch validation
   useEffect(() => {
     if (!newPassword && !confirmNewPassword) {
       setPasswordError(null);
@@ -216,6 +218,8 @@ const Profile = () => {
     }
   }, [newPassword, confirmNewPassword]);
 
+  const isAdmin = user?.status?.toLowerCase() === "admin";
+
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
@@ -224,6 +228,9 @@ const Profile = () => {
     if (profileSaveError) {
       setProfileSaveError(null);
     }
+    if (errors[name as keyof ErrorState]) {
+      setErrors((prev) => ({ ...prev, [name]: undefined }));
+    }
     setUser({ ...user, [name]: value });
   };
 
@@ -231,23 +238,40 @@ const Profile = () => {
     if (!user) return { hasErrors: true, newErrors: {} as ErrorState };
 
     const newErrors: ErrorState = {};
-    if (!emailRegex.test(user.email)) newErrors.email = "Invalid email format";
-    if (!phoneNumberRegex.test(user.phone))
-      newErrors.phone = "Invalid phone format";
 
-    if (user.birthday && !dateRegex.test(user.birthday))
-      newErrors.birthday = "Invalid date format";
+    if (!user.name.trim()) {
+      newErrors.name = "Name cannot be empty";
+    }
 
-    if (!user.addressLine1.trim())
-      newErrors.addressLine1 = "Street address cannot be empty";
-    if (!user.addressCity.trim())
-      newErrors.addressCity = "City cannot be empty";
-    if (!user.addressState.trim())
-      newErrors.addressState = "State cannot be empty";
-    if (!user.addressPostalCode.trim())
-      newErrors.addressPostalCode = "Postal code cannot be empty";
-    if (!user.addressCountry.trim())
-      newErrors.addressCountry = "Country cannot be empty";
+    if (!emailRegex.test(user.email)) {
+      newErrors.email = "Invalid email format";
+    }
+
+    if (!isAdmin) {
+      if (!phoneNumberRegex.test(user.phone)) {
+        newErrors.phone = "Invalid phone format";
+      }
+
+      if (user.birthday && !dateRegex.test(user.birthday)) {
+        newErrors.birthday = "Invalid date format";
+      }
+
+      if (!user.addressLine1.trim()) {
+        newErrors.addressLine1 = "Street address cannot be empty";
+      }
+      if (!user.addressCity.trim()) {
+        newErrors.addressCity = "City cannot be empty";
+      }
+      if (!user.addressState.trim()) {
+        newErrors.addressState = "State cannot be empty";
+      }
+      if (!user.addressPostalCode.trim()) {
+        newErrors.addressPostalCode = "Postal code cannot be empty";
+      }
+      if (!user.addressCountry.trim()) {
+        newErrors.addressCountry = "Country cannot be empty";
+      }
+    }
 
     const hasErrors = Object.keys(newErrors).length > 0;
     return { hasErrors, newErrors };
@@ -298,8 +322,6 @@ const Profile = () => {
         );
 
         await reauthenticateWithCredential(authUser, credential);
-
-        // verify email before updating in firebase auth
         await verifyBeforeUpdateEmail(authUser, user.email);
 
         setShowEmailReauthModal(false);
@@ -310,20 +332,31 @@ const Profile = () => {
       }
 
       const userRef = doc(db, "participants", user.uid);
-      await updateDoc(userRef, {
+
+      const baseUpdate = {
         displayName: user.name,
         email: user.email,
-        pronouns: user.pronouns,
-        phoneNumber: user.phone,
-        dateOfBirth: normalizedBirthday,
-        interests: user.interests,
-        address: {
-          line1: user.addressLine1,
-          city: user.addressCity,
-          state: user.addressState,
-          postalCode: user.addressPostalCode,
-          country: user.addressCountry,
-        },
+      };
+
+      const participantUpdate = isAdmin
+        ? {}
+        : {
+            pronouns: user.pronouns,
+            phoneNumber: user.phone,
+            dateOfBirth: normalizedBirthday,
+            interests: user.interests,
+            address: {
+              line1: user.addressLine1,
+              city: user.addressCity,
+              state: user.addressState,
+              postalCode: user.addressPostalCode,
+              country: user.addressCountry,
+            },
+          };
+
+      await updateDoc(userRef, {
+        ...baseUpdate,
+        ...participantUpdate,
       });
 
       window.alert(
@@ -489,6 +522,7 @@ const Profile = () => {
       setIsUpdatingPassword(false);
     }
   };
+
   const passwordsMatch = newPassword === confirmNewPassword;
   const canSubmitPassword =
     !!passwordCurrent &&
@@ -509,22 +543,35 @@ const Profile = () => {
     );
   }
 
-  const personalFields = [
-    { label: "Name", name: "name", value: user.name },
-    { label: "E-mail", name: "email", value: user.email },
-    { label: "Pronouns", name: "pronouns", value: user.pronouns },
-    { label: "Phone Number", name: "phone", value: user.phone },
-    { label: "Birthday", name: "birthday", value: user.birthday },
-    { label: "Street Address", name: "addressLine1", value: user.addressLine1 },
-    { label: "City", name: "addressCity", value: user.addressCity },
-    { label: "State", name: "addressState", value: user.addressState },
-    {
-      label: "Postal Code",
-      name: "addressPostalCode",
-      value: user.addressPostalCode,
-    },
-    { label: "Country", name: "addressCountry", value: user.addressCountry },
-  ] as const;
+  const personalFields = isAdmin
+    ? [
+        { label: "Name", name: "name", value: user.name },
+        { label: "E-mail", name: "email", value: user.email },
+      ]
+    : [
+        { label: "Name", name: "name", value: user.name },
+        { label: "E-mail", name: "email", value: user.email },
+        { label: "Pronouns", name: "pronouns", value: user.pronouns },
+        { label: "Phone Number", name: "phone", value: user.phone },
+        { label: "Birthday", name: "birthday", value: user.birthday },
+        {
+          label: "Street Address",
+          name: "addressLine1",
+          value: user.addressLine1,
+        },
+        { label: "City", name: "addressCity", value: user.addressCity },
+        { label: "State", name: "addressState", value: user.addressState },
+        {
+          label: "Postal Code",
+          name: "addressPostalCode",
+          value: user.addressPostalCode,
+        },
+        {
+          label: "Country",
+          name: "addressCountry",
+          value: user.addressCountry,
+        },
+      ];
 
   const isEditingPersonalField =
     isEditing && personalFields.some((f) => f.name === editingField);
@@ -532,49 +579,50 @@ const Profile = () => {
   return (
     <div className={styles.page}>
       <div className={styles.container}>
-        {/* LEFT COLUMN */}
         <div className={styles.leftColumn}>
           <div className={styles.infoCard}>
-
-            <ProfilePictureEdit uid={user.uid}></ProfilePictureEdit>
-
+            <ProfilePictureEdit uid={user.uid} />
             <h2 className={styles.profileName}>{user.name}</h2>
             <span className={styles.statusTag}>{user.status}</span>
           </div>
 
-          <div className={styles.infoCard}>
-            <h3>Your Match</h3>
-            <div className={styles.matchCircle}></div>
-            <p className={styles.matchText}>
-              {user.matchName && user.matchName.trim().length > 0
-                ? user.matchName
-                : "No match assigned yet"}
-            </p>
+          {!isAdmin && (
+            <div className={styles.infoCard}>
+              <h3>Your Match</h3>
+              <div className={styles.matchCircle}></div>
+              <p className={styles.matchText}>
+                {user.matchName && user.matchName.trim().length > 0
+                  ? user.matchName
+                  : "No match assigned yet"}
+              </p>
 
-            {user.matchName && user.matchName.trim().length > 0 && (
-              <button
-                type="button"
-                className={styles.viewInterestsButton}
-                onClick={() => setShowInterestsModal(true)}
-              >
-                View their interests
-              </button>
-            )}
-          </div>
+              {user.matchName && user.matchName.trim().length > 0 && (
+                <button
+                  type="button"
+                  className={styles.viewInterestsButton}
+                  onClick={() => setShowInterestsModal(true)}
+                >
+                  View their interests
+                </button>
+              )}
+            </div>
+          )}
 
-          <div className={styles.infoCard}>
-            <h3>Program Info</h3>
-            <p>
-              <strong>Start Date:</strong>
-              <br />
-              <span className={styles.date}>{user.startDate}</span>
-            </p>
-            <p>
-              <strong>End Date:</strong>
-              <br />
-              <span className={styles.date}>{user.endDate}</span>
-            </p>
-          </div>
+          {!isAdmin && (
+            <div className={styles.infoCard}>
+              <h3>Program Info</h3>
+              <p>
+                <strong>Start Date:</strong>
+                <br />
+                <span className={styles.date}>{user.startDate}</span>
+              </p>
+              <p>
+                <strong>End Date:</strong>
+                <br />
+                <span className={styles.date}>{user.endDate}</span>
+              </p>
+            </div>
+          )}
 
           <div className={styles.infoCard}>
             <h3>Account</h3>
@@ -589,9 +637,7 @@ const Profile = () => {
           </div>
         </div>
 
-        {/* RIGHT COLUMN */}
         <form className={styles.rightColumn} onSubmit={handleSave}>
-          {/* Personal information */}
           <div className={styles.infoSection}>
             <h3 className={styles.sectionTitle}>Personal Information</h3>
             <div className={styles.grid}>
@@ -641,25 +687,26 @@ const Profile = () => {
                 </button>
               </div>
             )}
+
             {profileSaveError && (
               <span className={styles.error}>{profileSaveError}</span>
             )}
           </div>
 
-          {/* About Me */}
-          <div className={styles.infoSection}>
-            <h3 className={styles.sectionTitle}>About Me</h3>
-            <div className={styles.fieldBox}>
-              <div className={styles.boxContent}>
-                <div className={styles.boxHeader}>
-                  <span className={styles.boxLabel}>Interests</span>
+          {!isAdmin && (
+            <div className={styles.infoSection}>
+              <h3 className={styles.sectionTitle}>About Me</h3>
+              <div className={styles.fieldBox}>
+                <div className={styles.boxContent}>
+                  <div className={styles.boxHeader}>
+                    <span className={styles.boxLabel}>Interests</span>
+                  </div>
+                  <span className={styles.boxValue}>{user.interests}</span>
                 </div>
-                <span className={styles.boxValue}>{user.interests}</span>
               </div>
             </div>
-          </div>
+          )}
 
-          {/* Change Password */}
           <div className={styles.infoSection}>
             <h3 className={styles.sectionTitle}>Change Password</h3>
 
@@ -736,12 +783,14 @@ const Profile = () => {
         </form>
       </div>
 
-      <MatchInterestsModal
-        open={showInterestsModal}
-        matchName={user.matchName}
-        matchInterests={user.matchInterests}
-        onClose={() => setShowInterestsModal(false)}
-      />
+      {!isAdmin && (
+        <MatchInterestsModal
+          open={showInterestsModal}
+          matchName={user.matchName}
+          matchInterests={user.matchInterests}
+          onClose={() => setShowInterestsModal(false)}
+        />
+      )}
 
       <EmailReauthModal
         open={showEmailReauthModal}
