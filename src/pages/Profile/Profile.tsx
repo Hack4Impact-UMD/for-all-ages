@@ -42,11 +42,11 @@ const toDisplayBirthday = (raw: string | undefined | null): string => {
 
 const toStorageBirthday = (raw: string | undefined | null): string => {
   if (!raw) return "";
-
   if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
     return raw;
   }
 
+  // normalize birthday to MM/DD/YYYY for profile display/edit
   const display = toDisplayBirthday(raw);
   const m = display.match(/^(0[1-9]|1[0-2])\/(0[1-9]|[12]\d|3[01])\/(\d{4})$/);
   if (m) {
@@ -71,6 +71,7 @@ const Profile = () => {
 
   const [showInterestsModal, setShowInterestsModal] = useState(false);
 
+  // password change
   const [passwordCurrent, setPasswordCurrent] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
@@ -78,6 +79,7 @@ const Profile = () => {
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
+  // email reauth modal
   const [showEmailReauthModal, setShowEmailReauthModal] = useState(false);
   const [emailReauthPassword, setEmailReauthPassword] = useState("");
   const [emailReauthError, setEmailReauthError] = useState<string | null>(null);
@@ -206,6 +208,7 @@ const Profile = () => {
     return () => unsubscribe();
   }, []);
 
+  // live password mismatch validation
   useEffect(() => {
     if (!newPassword && !confirmNewPassword) {
       setPasswordError(null);
@@ -322,6 +325,8 @@ const Profile = () => {
         );
 
         await reauthenticateWithCredential(authUser, credential);
+
+        // verify email before updating in firebase auth
         await verifyBeforeUpdateEmail(authUser, user.email);
 
         setShowEmailReauthModal(false);
