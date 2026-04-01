@@ -26,7 +26,7 @@ import {
 import type { BackendMatch, UI_Match, MatchStatus } from "../../types";
 import SettingsPopup from "./SettingsPopup";
 
-const APPROVAL_THRESHOLD = 0.8; // 80%
+const DEFAULT_APPROVAL_THRESHOLD = 0.8; // 80%
 const DEV_MODE = true; // ← flip to false before deploying to production
 
 // Collections to wipe on End Program
@@ -103,8 +103,11 @@ const PreProgram = () => {
 
         const pct = Math.round(m.scores.finalScore * 100);
 
+        const approvalThreshold =
+          (programState?.autoApprovalThreshold ?? 80) / 100 || DEFAULT_APPROVAL_THRESHOLD;
+
         const status: MatchStatus =
-          m.scores.finalScore >= APPROVAL_THRESHOLD ? "Approved" : "Pending";
+          m.scores.finalScore >= approvalThreshold ? "Approved" : "Pending";
 
         return {
           name1: u1.displayName,
@@ -173,6 +176,8 @@ const PreProgram = () => {
           const u2 = await getUser(p2);
 
           const rawStatus = (data.status as string | undefined) || "";
+          const approvalThreshold = programState?.autoApprovalThreshold ?? 80;
+
           let status: MatchStatus;
           if (rawStatus === "approved") {
             status = "Approved";
@@ -180,7 +185,7 @@ const PreProgram = () => {
             status = "Pending";
           } else {
             status =
-              similarity >= 80
+              similarity >= approvalThreshold
                 ? "Approved"
                 : similarity > 0
                   ? "Pending"

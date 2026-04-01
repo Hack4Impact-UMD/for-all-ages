@@ -145,6 +145,7 @@ export interface ProgramState {
     week: number
     maxParticipants: number
     numWeeks: number
+    autoApprovalThreshold?: number
 }
 
 /** PreProgram match row status */
