@@ -19,15 +19,16 @@ export default function PhoneNumberInput({
     phone !== "" && confirmPhone !== "" && phone !== confirmPhone;
 
   return (
-    <div className={styles.confirm}>
-      <label className={styles.label}>
-        Phone Number
+    <div className={styles.fieldRow}>
+      <div className={styles.fieldGroup}>
+        <span className={styles.fieldLabel}>Phone Number</span>
         <input
+          className={styles.fieldInput}
           type="tel"
           name={name}
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
-          placeholder="(XXX) XXX-XXXX"
+          placeholder="+1"
           required={required}
         />
         {isPhoneInvalid && (
@@ -38,16 +39,17 @@ export default function PhoneNumberInput({
         <span className={styles.helpText}>
           Valid formats: 123-456-7890, (123) 456-7890, +1 (123) 456-7890
         </span>
-      </label>
+      </div>
 
-      <label className={styles.label}>
-        Confirm Phone Number
+      <div className={styles.fieldGroup}>
+        <span className={styles.fieldLabel}>Confirm Phone Number</span>
         <input
+          className={styles.fieldInput}
           type="tel"
           name={`${name}_confirm`}
           value={confirmPhone}
           onChange={(e) => setConfirmPhone(e.target.value)}
-          placeholder="(XXX) XXX-XXXX"
+          placeholder="+1"
           required={required}
         />
         {(isMismatch || isConfirmInvalid) && (
@@ -57,7 +59,7 @@ export default function PhoneNumberInput({
               : "Please enter a valid phone number format."}
           </span>
         )}
-      </label>
+      </div>
     </div>
   );
 }
