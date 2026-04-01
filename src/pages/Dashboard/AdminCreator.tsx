@@ -16,11 +16,20 @@ import { db, deleteUser } from "../../firebase";
 import {
   assignAdminRoleToExistingUser,
   inviteAdminAccount,
+  promoteParticipantToSubadmin,
 } from "../../services/adminAccounts";
 import { friendlyAuthError } from "../../services/auth";
-import type { Role, ParticipantDoc, RawAddress, AdminRecord, BannerState } from "../../types";
+import type {
+  Role,
+  ParticipantDoc,
+  RawAddress,
+  AdminRecord,
+  BannerState,
+} from "../../types";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+type RoleFilter = "All" | Role | "Participant";
+type GroupFilter = "All" | "Student" | "Adult";
 
 // Formats a RawAddress into a single-line string suitable for display
 function formatAddress(address?: RawAddress | null): string | null {
@@ -69,15 +78,12 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [roleFilter, setRoleFilter] = useState<"All" | Role | "Participant">(
-    "All",
-  );
-  const [groupFilter, setGroupFilter] = useState<"All" | "Student" | "Adult">(
-    "All",
-  );
+  const [roleFilter, setRoleFilter] = useState<RoleFilter>("All");
+  const [groupFilter, setGroupFilter] = useState<GroupFilter>("All");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [banner, setBanner] = useState<BannerState | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [promoteTarget, setPromoteTarget] = useState<AdminRecord | null>(null);
 
   const handleModalClose = useCallback(() => {
     setIsModalOpen(false);
@@ -86,6 +92,11 @@ export default function AdminDashboard() {
   const handleInviteSuccess = useCallback((message: string) => {
     setBanner({ type: "success", message });
     setIsModalOpen(false);
+  }, []);
+
+  const handlePromoteSuccess = useCallback((message: string) => {
+    setBanner({ type: "success", message });
+    setPromoteTarget(null);
   }, []);
 
   const dismissBanner = useCallback(() => {
@@ -190,31 +201,52 @@ export default function AdminDashboard() {
     }
   }, [roleFilter]);
 
-    const handleDeleteUser = useCallback(
-      async (admin: AdminRecord) => { 
+  // Handles the Contact All button and allows admins to contact all participants and subadmins
+  const handleContactAll = () => {
+    if (typeof window === "undefined") return;
 
-        const confirmed = window.confirm(
-          `Permanently delete ${admin.name}? They will no longer be able to log in.`
-        );
+    // Filters only participants and subadmins
+    const list = admins.filter((user) => {
+      const r = normaliseRole(user.role);
+      return r === "Participant" || r === "Subadmin";
+    });
 
-        if (!confirmed) return;
-        setDeletingId(admin.id);
-        setBanner(null);
+    // Holds all of the emails of the new list, filtering falsy emails
+    const emailList = list
+      .map((user) => {
+        return user.email;
+      })
+      .filter(Boolean);
 
-        try {
-          await deleteUser(admin.id);
-          setBanner({ type: "success", message: "User deleted." });
-        } catch (err) {
-          const message =
-            err && typeof err === "object" && "message" in err
-              ? String((err as { message: string }).message)
-              : "Could not delete user.";
-          setBanner({ type: "error", message });
-        } finally {
-          setDeletingId(null);
-        }
-      },[]
+    // Format the email list to be one string
+    const mailToEmailList = emailList.join(",");
+
+    const mailto = `mailto:${mailToEmailList}`;
+    window.location.href = mailto;
+  };
+
+  const handleDeleteUser = useCallback(async (admin: AdminRecord) => {
+    const confirmed = window.confirm(
+      `Permanently delete ${admin.name}? They will no longer be able to log in.`,
     );
+
+    if (!confirmed) return;
+    setDeletingId(admin.id);
+    setBanner(null);
+
+    try {
+      await deleteUser(admin.id);
+      setBanner({ type: "success", message: "User deleted." });
+    } catch (err) {
+      const message =
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message: string }).message)
+          : "Could not delete user.";
+      setBanner({ type: "error", message });
+    } finally {
+      setDeletingId(null);
+    }
+  }, []);
 
   return (
     <div className={layoutStyles.page}>
@@ -223,6 +255,15 @@ export default function AdminDashboard() {
           <label className={styles.searchLabel} htmlFor="admin-search">
             Search
           </label>
+          <button
+            type="button"
+            className={styles.contactButton}
+            onClick={() => {
+              handleContactAll();
+            }}
+          >
+            Contact All
+          </button>
           <input
             id="admin-search"
             type="search"
@@ -239,7 +280,7 @@ export default function AdminDashboard() {
             <select
               id="role-filter"
               value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value as any)}
+              onChange={(e) => setRoleFilter(e.target.value as RoleFilter)}
               className={styles.searchInput}
             >
               <option value="All">All</option>
@@ -256,7 +297,7 @@ export default function AdminDashboard() {
               <select
                 id="group-filter"
                 value={groupFilter}
-                onChange={(e) => setGroupFilter(e.target.value as any)}
+                onChange={(e) => setGroupFilter(e.target.value as GroupFilter)}
                 className={styles.searchInput}
               >
                 <option value="All">All</option>
@@ -299,88 +340,118 @@ export default function AdminDashboard() {
         <section className={styles.tableSection}>
           <div className={styles.tableCard}>
             <div className={styles.tableScroll}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th scope="col" className={styles.colName}>Name</th>
-                  <th scope="col" className={styles.colRole}>Role</th>
-                  <th scope="col" className={styles.colEmail}>Email</th>
-                  <th scope="col" className={styles.colPhone}>Phone Number</th>
-                  <th scope="col" className={styles.colAddress}>Address</th>
-                  <th scope="col" className={styles.colGroup}>Group</th>
-                  <th scope="col" className={styles.colDelete} aria-label="Delete user" />
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr className={styles.stateRow}>
-                    <td colSpan={6} className={styles.stateCell}>
-                      Loading admin accounts…
-                    </td>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th scope="col" className={styles.colName}>Name</th>
+                    <th scope="col" className={styles.colRole}>Role</th>
+                    <th scope="col" className={styles.colEmail}>Email</th>
+                    <th scope="col" className={styles.colPhone}>Phone Number</th>
+                    <th scope="col" className={styles.colAddress}>Address</th>
+                    <th scope="col" className={styles.colGroup}>Group</th>
+                    <th scope="col" className={styles.colDelete} aria-label="Delete user" />
+                    <th scope="col" className={styles.colPromote} aria-label="Promote user" />
                   </tr>
-                ) : error ? (
-                  <tr className={styles.stateRow}>
-                    <td colSpan={6} className={styles.stateCell}>
-                      {error}
-                    </td>
-                  </tr>
-                ) : filteredAdmins.length === 0 ? (
-                  <tr className={styles.stateRow}>
-                    <td colSpan={6} className={styles.stateCell}>
-                      No admins match your search.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredAdmins.map((admin) => (
-                    <tr key={admin.id}>
-                      <td data-label="Name" className={styles.colName}>{admin.name}</td>
-                      <td data-label="Role" className={styles.colRole}>
-                        {admin.role === "Admin"
-                          ? "Admin"
-                          : admin.role === "Subadmin"
-                            ? "Sub-admin"
-                            : "Participant"}
-                      </td>
-                      <td data-label="Email" className={styles.colEmail}>
-                        {admin.email ? (
-                          <a
-                            href={`mailto:${admin.email}`}
-                            className={styles.emailLink}
-                          >
-                            {admin.email}
-                          </a>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
-                      <td data-label="Phone Number" className={styles.colPhone}>
-                        {admin.phoneNumber || "—"}
-                      </td>
-                      <td data-label="Address" className={styles.colAddress}>{admin.address || "—"}</td>
-                      <td data-label="Group" className={styles.colGroup}>
-                        {admin.role === "Participant" && admin.user_type ? (
-                          <span>{admin.user_type}</span>
-                        ) : (
-                          <span>—</span>
-                        )}
-                      </td>
-                      <td data-label="Delete" className={`${styles.deleteCell} ${styles.colDelete}`}>
-                        <button
-                          type="button"
-                          className={styles.deleteButton}
-                          onClick={() => handleDeleteUser(admin)}
-                          disabled={deletingId === admin.id}
-                          aria-label={`Delete ${admin.name}`}
-                          title="Delete user"
-                        >
-                          <FaTrash aria-hidden />
-                        </button>
+                </thead>
+                <tbody>
+                  {loading ? (
+                    <tr className={styles.stateRow}>
+                      <td colSpan={8} className={styles.stateCell}>
+                        Loading admin accounts…
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : error ? (
+                    <tr className={styles.stateRow}>
+                      <td colSpan={8} className={styles.stateCell}>
+                        {error}
+                      </td>
+                    </tr>
+                  ) : filteredAdmins.length === 0 ? (
+                    <tr className={styles.stateRow}>
+                      <td colSpan={8} className={styles.stateCell}>
+                        No admins match your search.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredAdmins.map((admin) => (
+                      <tr key={admin.id}>
+                        <td data-label="Name" className={styles.colName}>
+                          {admin.name}
+                        </td>
+                        <td data-label="Role" className={styles.colRole}>
+                          {admin.role === "Admin"
+                            ? "Admin"
+                            : admin.role === "Subadmin"
+                              ? "Sub-admin"
+                              : "Participant"}
+                        </td>
+                        <td data-label="Email" className={styles.colEmail}>
+                          {admin.email ? (
+                            <a
+                              href={`mailto:${admin.email}`}
+                              className={styles.emailLink}
+                            >
+                              {admin.email}
+                            </a>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+                        <td
+                          data-label="Phone Number"
+                          className={styles.colPhone}
+                        >
+                          {admin.phoneNumber || "—"}
+                        </td>
+                        <td data-label="Address" className={styles.colAddress}>
+                          {admin.address || "—"}
+                        </td>
+                        <td data-label="Group" className={styles.colGroup}>
+                          {admin.role === "Participant" && admin.user_type ? (
+                            <span>{admin.user_type}</span>
+                          ) : (
+                            <span>—</span>
+                          )}
+                        </td>
+                        <td
+                          data-label="Delete"
+                          className={`${styles.deleteCell} ${styles.colDelete}`}
+                        >
+                          <button
+                            type="button"
+                            className={styles.deleteButton}
+                            onClick={() => handleDeleteUser(admin)}
+                            disabled={deletingId === admin.id}
+                            aria-label={`Delete ${admin.name}`}
+                            title="Delete user"
+                          >
+                            <FaTrash aria-hidden />
+                          </button>
+                        </td>
+                        <td
+                          data-label="Promote"
+                          className={`${styles.deleteCell} ${styles.colPromote}`}
+                        >
+                          {admin.role === "Participant" ? (
+                            <button
+                              type="button"
+                              className={styles.addButton}
+                              style={{ fontSize: "0.75rem", padding: "0.3rem 0.75rem" }}
+                              onClick={() => setPromoteTarget(admin)}
+                              aria-label={`Promote ${admin.name} to Sub-admin`}
+                              title="Promote to Sub-admin"
+                            >
+                              Promote
+                            </button>
+                          ) : (
+                            <span>—</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </section>
@@ -391,12 +462,131 @@ export default function AdminDashboard() {
             onSuccess={handleInviteSuccess}
           />
         ) : null}
+
+        {promoteTarget ? (
+          <PromoteModal
+            participant={promoteTarget}
+            onClose={() => setPromoteTarget(null)}
+            onSuccess={handlePromoteSuccess}
+          />
+        ) : null}
       </div>
     </div>
   );
 }
 
-// ==================== AddAdminModal Component =====================
+// ==================== PromoteModal Component =====================
+
+type PromoteModalProps = {
+  participant: AdminRecord;
+  onClose: () => void;
+  onSuccess: (message: string) => void;
+};
+
+/**
+ * Confirms and executes the promotion of a participant to Sub-admin.
+ * All existing participant data (user_type, matches, etc.) is preserved —
+ * only the `role` field is updated in Firestore.
+ */
+function PromoteModal({ participant, onClose, onSuccess }: PromoteModalProps) {
+  const [university, setUniversity] = useState(participant.university ?? "");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Close on Escape
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { e.preventDefault(); onClose(); }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  const handleConfirm = async () => {
+    if (!university.trim()) {
+      setError("Please enter a university name.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      await promoteParticipantToSubadmin({
+        participantId: participant.id,
+        university: university.trim(),
+      });
+      onSuccess(`${participant.name} has been promoted to Sub-admin.`);
+    } catch (err) {
+      console.error("Failed to promote participant", err);
+      setError("Could not promote this participant. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div
+      className={styles.modalBackdrop}
+      role="presentation"
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div
+        className={styles.modalCard}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="promote-modal-title"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <header className={styles.modalHeader}>
+          <h2 id="promote-modal-title" className={styles.modalTitle}>
+            Promote to Sub-admin
+          </h2>
+        </header>
+
+        <div className={styles.modalForm}>
+          <p style={{ marginBottom: "1rem" }}>
+            <strong>{participant.name}</strong> will be promoted to Sub-admin.
+            They will keep their participant role and remain in the matching process.
+          </p>
+
+          <div className={styles.field}>
+            <label htmlFor="promote-university">University Name</label>
+            <input
+              id="promote-university"
+              type="text"
+              className={styles.textInput}
+              value={university}
+              onChange={(e) => { setUniversity(e.target.value); setError(null); }}
+              placeholder="University name"
+              autoFocus
+            />
+          </div>
+
+          {error ? <div className={styles.errorMessage}>{error}</div> : null}
+
+          <div className={styles.modalActions}>
+            <button
+              type="button"
+              className={styles.cancelButton}
+              onClick={onClose}
+              disabled={submitting}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className={styles.submitButton}
+              onClick={handleConfirm}
+              disabled={submitting || !university.trim()}
+            >
+              {submitting ? "Promoting…" : "Confirm"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
 // Props for the AddAdminModal component
 type AddAdminModalProps = {

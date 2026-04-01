@@ -18,6 +18,89 @@
     min-width: 720px;
 }
 
+.filterBar {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    position: relative;
+}
+
+.filterButton {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 9999px;
+    border: 1px solid #0f4f86;
+    background-color: #ffffff;
+    color: #0f4f86;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.filterButton:hover {
+    background-color: #e6eef8;
+}
+
+.filterIcon {
+    font-size: 18px !important;
+}
+
+.filterPopover {
+  position: absolute;
+  top: 40px;
+  right: 0;
+  background-color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15);
+  padding: 10px 12px;
+  min-width: 200px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+}
+
+.filterOption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 14px;
+  padding: 6px 4px;
+  width: 100%;
+  cursor: pointer;
+}
+
+.filterOption input {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.filterOption span {
+  flex: 1;
+}
+
+.clearFilterButton {
+    margin-top: 8px;
+    width: 100%;
+    border: none;
+    border-radius: 9999px;
+    padding: 6px 10px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    background-color: #f3f6fb;
+    color: #0f4f86;
+}
+
+.clearFilterButton:hover {
+    background-color: #e0ebfa;
+}
+
 .dayGrid {
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));

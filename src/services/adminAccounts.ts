@@ -82,6 +82,27 @@ export async function inviteAdminAccount(params: InviteAdminParams) {
   }
 }
 
+/**
+ * Promotes an existing participant to Subadmin while preserving all of their
+ * participant data (user_type, matches, etc.) so they keep participating normally.
+ * Only the role field is changed — nothing else is touched.
+ */
+export async function promoteParticipantToSubadmin(params: {
+  participantId: string;
+  university?: string | null;
+}): Promise<void> {
+  const docRef = doc(db, "participants", params.participantId);
+  await setDoc(
+    docRef,
+    {
+      role: "Subadmin" as Role,
+      university: params.university?.trim() || null,
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true } // merge: true ensures all existing participant fields are kept
+  );
+}
+
 export async function assignAdminRoleToExistingUser(params: {
   participantId: string;
   firstName?: string;

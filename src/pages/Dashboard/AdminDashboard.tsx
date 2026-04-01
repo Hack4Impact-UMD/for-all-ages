@@ -120,7 +120,6 @@ export default function AdminDashboard() {
      loadWeekData();
    }, [selectedWeek]);
 
-   // Close the call filter popover when clicking outside
    useEffect(() => {
      if (!callFilterOpen) return;
 
@@ -139,19 +138,6 @@ export default function AdminDashboard() {
        document.removeEventListener('touchstart', handleClickOutside);
      };
    }, [callFilterOpen]);
-
-   // Filter matches based on search query
-   const filteredMatches = useMemo(() => {
-     const normalizedQuery = searchQuery.trim().toLowerCase();
-     if (!normalizedQuery) return allMatches;
-
-     return allMatches.filter((match) => {
-       const name1 = participantNames[match.participant1_id] || '';
-       const name2 = participantNames[match.participant2_id] || '';
-       return name1.toLowerCase().includes(normalizedQuery) ||
-              name2.toLowerCase().includes(normalizedQuery);
-     });
-   }, [allMatches, participantNames, searchQuery]);
 
    // Transform matches into calendar format grouped by day
    const activeWeekData = useMemo(() => {
@@ -205,6 +191,12 @@ export default function AdminDashboard() {
      () => filteredMatches.filter((m) => m.day_of_call < 1),
      [filteredMatches]
    );
+
+   const getStatusForVariant = (variant: PersonTagVariant | undefined): CallStatusFilter => {
+     if (variant === 'green') return 'Completed';
+     if (variant === 'rose') return 'Missed';
+     return 'Pending';
+   };
 
    const getStatusForVariant = (variant: PersonTagVariant | undefined): CallStatusFilter => {
      if (variant === 'green') return 'Completed';
