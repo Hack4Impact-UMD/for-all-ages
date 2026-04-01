@@ -160,8 +160,8 @@
 
 @media (max-width: 768px) {
     .scheduleHeader {
-        flex-direction: column;
-        align-items: stretch;
+        grid-template-columns: 1fr;
+        justify-items: stretch;
     }
 
     .searchContainer {
