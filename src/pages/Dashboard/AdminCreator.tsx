@@ -28,6 +28,8 @@ import type {
 } from "../../types";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+type RoleFilter = "All" | Role | "Participant";
+type GroupFilter = "All" | "Student" | "Adult";
 
 // Formats a RawAddress into a single-line string suitable for display
 function formatAddress(address?: RawAddress | null): string | null {
@@ -76,12 +78,8 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [roleFilter, setRoleFilter] = useState<"All" | Role | "Participant">(
-    "All",
-  );
-  const [groupFilter, setGroupFilter] = useState<"All" | "Student" | "Adult">(
-    "All",
-  );
+  const [roleFilter, setRoleFilter] = useState<RoleFilter>("All");
+  const [groupFilter, setGroupFilter] = useState<GroupFilter>("All");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [banner, setBanner] = useState<BannerState | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -282,7 +280,7 @@ export default function AdminDashboard() {
             <select
               id="role-filter"
               value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value as any)}
+              onChange={(e) => setRoleFilter(e.target.value as RoleFilter)}
               className={styles.searchInput}
             >
               <option value="All">All</option>
@@ -299,7 +297,7 @@ export default function AdminDashboard() {
               <select
                 id="group-filter"
                 value={groupFilter}
-                onChange={(e) => setGroupFilter(e.target.value as any)}
+                onChange={(e) => setGroupFilter(e.target.value as GroupFilter)}
                 className={styles.searchInput}
               >
                 <option value="All">All</option>
@@ -342,60 +340,36 @@ export default function AdminDashboard() {
         <section className={styles.tableSection}>
           <div className={styles.tableCard}>
             <div className={styles.tableScroll}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th scope="col" className={styles.colName}>Name</th>
-                  <th scope="col" className={styles.colRole}>Role</th>
-                  <th scope="col" className={styles.colEmail}>Email</th>
-                  <th scope="col" className={styles.colPhone}>Phone Number</th>
-                  <th scope="col" className={styles.colAddress}>Address</th>
-                  <th scope="col" className={styles.colGroup}>Group</th>
-                  <th scope="col" className={styles.colDelete} aria-label="Delete user" />
-                  <th scope="col" className={styles.colPromote} aria-label="Promote user" />
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr className={styles.stateRow}>
-                    <td colSpan={6} className={styles.stateCell}>
-                      Loading admin accounts…
-                    </td>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th scope="col" className={styles.colName}>Name</th>
+                    <th scope="col" className={styles.colRole}>Role</th>
+                    <th scope="col" className={styles.colEmail}>Email</th>
+                    <th scope="col" className={styles.colPhone}>Phone Number</th>
+                    <th scope="col" className={styles.colAddress}>Address</th>
+                    <th scope="col" className={styles.colGroup}>Group</th>
+                    <th scope="col" className={styles.colDelete} aria-label="Delete user" />
+                    <th scope="col" className={styles.colPromote} aria-label="Promote user" />
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
                     <tr className={styles.stateRow}>
-                      <td colSpan={6} className={styles.stateCell}>
+                      <td colSpan={8} className={styles.stateCell}>
                         Loading admin accounts…
                       </td>
                     </tr>
                   ) : error ? (
                     <tr className={styles.stateRow}>
-                      <td colSpan={6} className={styles.stateCell}>
+                      <td colSpan={8} className={styles.stateCell}>
                         {error}
                       </td>
                     </tr>
                   ) : filteredAdmins.length === 0 ? (
                     <tr className={styles.stateRow}>
-                      <td colSpan={6} className={styles.stateCell}>
+                      <td colSpan={8} className={styles.stateCell}>
                         No admins match your search.
-                      </td>
-                      <td data-label="Promote" className={`${styles.deleteCell} ${styles.colPromote}`}>
-                        {admin.role === "Participant" ? (
-                          <button
-                            type="button"
-                            className={styles.addButton}
-                            style={{ fontSize: "0.75rem", padding: "0.3rem 0.75rem" }}
-                            onClick={() => setPromoteTarget(admin)}
-                            aria-label={`Promote ${admin.name} to Sub-admin`}
-                            title="Promote to Sub-admin"
-                          >
-                            Promote
-                          </button>
-                        ) : (
-                          <span />
-                        )}
                       </td>
                     </tr>
                   ) : (
@@ -453,6 +427,25 @@ export default function AdminDashboard() {
                           >
                             <FaTrash aria-hidden />
                           </button>
+                        </td>
+                        <td
+                          data-label="Promote"
+                          className={`${styles.deleteCell} ${styles.colPromote}`}
+                        >
+                          {admin.role === "Participant" ? (
+                            <button
+                              type="button"
+                              className={styles.addButton}
+                              style={{ fontSize: "0.75rem", padding: "0.3rem 0.75rem" }}
+                              onClick={() => setPromoteTarget(admin)}
+                              aria-label={`Promote ${admin.name} to Sub-admin`}
+                              title="Promote to Sub-admin"
+                            >
+                              Promote
+                            </button>
+                          ) : (
+                            <span>—</span>
+                          )}
                         </td>
                       </tr>
                     ))
