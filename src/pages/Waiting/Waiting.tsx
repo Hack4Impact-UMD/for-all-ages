@@ -60,7 +60,7 @@ export default function Waiting() {
   const [matchLoading, setMatchLoading] = useState(false);
   const [selectedDay, setSelectedDay] = useState<number>(-1);
 
-  const isStudent = participant?.user_type === "student";
+  const isStudent = participant?.user_type?.toLowerCase() === "student";
 
   const greetingName = useMemo(
     () =>
