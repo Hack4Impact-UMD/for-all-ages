@@ -369,6 +369,12 @@ const Profile = () => {
           ? `Profile saved. ${emailNotice}`
           : "Profile updated successfully.",
       );
+
+      if (emailChanged) {
+        await signOut(auth);
+        navigate("/", { replace: true });
+      }
+
       return true;
     } catch (err: any) {
       console.error("Error updating profile (email/profile):", err);
@@ -505,10 +511,13 @@ const Profile = () => {
       await reauthenticateWithCredential(authUser, credential);
       await updatePassword(authUser, newPassword);
 
-      setPasswordSuccess("Password updated successfully.");
+      setPasswordSuccess("Password updated successfully. You will be logged out now.");
       setPasswordCurrent("");
       setNewPassword("");
       setConfirmNewPassword("");
+
+      await signOut(auth);
+      navigate("/", { replace: true });
     } catch (err: any) {
       console.error("Error updating password:", err);
 
