@@ -7,10 +7,13 @@ import { getAllMatches } from '../../services/matches'
 import { getWeek } from '../../services/weeks'
 import { getDoc, doc } from 'firebase/firestore'
 import { db } from '../../firebase'
-import type { Match, Week, DayKey, PersonAssignment } from '../../types'
+import type { Match, Week, DayKey, PersonAssignment, PersonTagVariant } from '../../types'
 import { subscribeToProgramState, type ProgramState } from '../../services/programState'
 import CallLogModal from './components/PopUpWindow/CallLogModal'
 import SearchIcon from '@mui/icons-material/Search'
+import FilterListIcon from '@mui/icons-material/FilterList'
+
+type CallStatusFilter = "Missed" | "Pending" | "Completed";
 
 const DAY_LABELS: DayKey[] = [
   "Sun",
@@ -35,9 +38,12 @@ export default function AdminDashboard() {
    const [programState, setProgramState] = useState<ProgramState | null>(null)
    const [activeMatch, setActiveMatch] = useState<(Match & { id: string }) | null>(null);
    const [searchQuery, setSearchQuery] = useState('')
+   const [callStatusFilters, setCallStatusFilters] = useState<CallStatusFilter[]>([]);
+   const [callFilterOpen, setCallFilterOpen] = useState(false);
 
    // Ref to ensure we only sync the week from Firebase ONCE on initial load
    const hasInitializedWeek = useRef(false);
+   const callFilterRef = useRef<HTMLDivElement | null>(null);
 
    useEffect(() => {
        const unsubscribe = subscribeToProgramState(
@@ -114,6 +120,26 @@ export default function AdminDashboard() {
      loadWeekData();
    }, [selectedWeek]);
 
+   // Close the call filter popover when clicking outside
+   useEffect(() => {
+     if (!callFilterOpen) return;
+
+     const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+       if (!callFilterRef.current) return;
+       if (!callFilterRef.current.contains(event.target as Node)) {
+         setCallFilterOpen(false);
+       }
+     };
+
+     document.addEventListener('mousedown', handleClickOutside);
+     document.addEventListener('touchstart', handleClickOutside);
+
+     return () => {
+       document.removeEventListener('mousedown', handleClickOutside);
+       document.removeEventListener('touchstart', handleClickOutside);
+     };
+   }, [callFilterOpen]);
+
    // Filter matches based on search query
    const filteredMatches = useMemo(() => {
      const normalizedQuery = searchQuery.trim().toLowerCase();
@@ -180,6 +206,12 @@ export default function AdminDashboard() {
      [filteredMatches]
    );
 
+   const getStatusForVariant = (variant: PersonTagVariant | undefined): CallStatusFilter => {
+     if (variant === 'green') return 'Completed';
+     if (variant === 'rose') return 'Missed';
+     return 'Pending';
+   };
+
    return (
     <div className={layoutStyles.page}>
       <div className={layoutStyles.surface}>
@@ -218,17 +250,61 @@ export default function AdminDashboard() {
           ) : (
             <div className={adminStyles.scheduleCard}>
               <div className={adminStyles.scheduleInner}>
+                <div className={adminStyles.filterBar} ref={callFilterRef}>
+                  <button
+                    type="button"
+                    className={adminStyles.filterButton}
+                    onClick={() => setCallFilterOpen((open) => !open)}
+                  >
+                    <FilterListIcon className={adminStyles.filterIcon} />
+                    <span>Filter calls</span>
+                  </button>
+                  {callFilterOpen && (
+                    <div className={adminStyles.filterPopover}>
+                      {(["Missed", "Pending", "Completed"] as CallStatusFilter[]).map(
+                        (status) => (
+                          <label key={status} className={adminStyles.filterOption}>
+                            <input
+                              type="checkbox"
+                              checked={callStatusFilters.includes(status)}
+                              onChange={() =>
+                                setCallStatusFilters((prev) =>
+                                  prev.includes(status)
+                                    ? prev.filter((s) => s !== status)
+                                    : [...prev, status],
+                                )
+                              }
+                            />
+                            <span>{status}</span>
+                          </label>
+                        ),
+                      )}
+                      <button
+                        type="button"
+                        className={adminStyles.clearFilterButton}
+                        onClick={() => setCallStatusFilters([])}
+                      >
+                        Clear filters
+                      </button>
+                    </div>
+                  )}
+                </div>
                 <div className={adminStyles.dayGrid}>
                   {DAY_LABELS.map((day) => {
                     const assignments = activeWeekData[day] ?? [];
+                    const visibleAssignments = assignments.filter((assignment) => {
+                      if (callStatusFilters.length === 0) return true;
+                      const status = getStatusForVariant(assignment.variant);
+                      return callStatusFilters.includes(status);
+                    });
                     return (
                       <div className={adminStyles.dayColumn} key={day}>
                         <div className={adminStyles.dayHeader}>{day}</div>
                         <div className={adminStyles.peopleList}>
-                          {assignments.length === 0 ? (
+                          {visibleAssignments.length === 0 ? (
                             <div className={adminStyles.emptyDay}>No calls</div>
                           ) : (
-                            assignments.map((assignment, index) => (
+                            visibleAssignments.map((assignment, index) => (
                               <div
                                 key={`${day}-${index}`}
                                 onClick={() => {

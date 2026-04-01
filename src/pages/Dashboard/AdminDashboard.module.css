@@ -158,6 +158,83 @@
     text-align: center;
 }
 
+.filterBar {
+    position: relative;
+    display: flex;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+.filterButton {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: none;
+    border: 2px solid rgba(15, 107, 177, 0.2);
+    border-radius: 9999px;
+    padding: 6px 16px;
+    font-size: 14px;
+    font-family: Merriweather, serif;
+    color: #0f4f86;
+    cursor: pointer;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.filterButton:hover {
+    border-color: #0f6bb1;
+    box-shadow: 0 0 0 3px rgba(15, 107, 177, 0.1);
+}
+
+.filterIcon {
+    font-size: 18px !important;
+    color: #0f6bb1;
+}
+
+.filterPopover {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 0.4rem;
+    background: #ffffff;
+    border: 1px solid rgba(15, 107, 177, 0.15);
+    border-radius: 0.75rem;
+    box-shadow: 0 8px 24px rgba(15, 107, 177, 0.12);
+    padding: 0.75rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    z-index: 10;
+    min-width: 160px;
+}
+
+.filterOption {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 14px;
+    color: #0f4f86;
+    cursor: pointer;
+}
+
+.filterOption input[type="checkbox"] {
+    accent-color: #0f6bb1;
+}
+
+.clearFilterButton {
+    background: none;
+    border: none;
+    color: #0f6bb1;
+    font-size: 13px;
+    cursor: pointer;
+    padding: 0.25rem 0;
+    text-align: left;
+    font-family: Merriweather, serif;
+}
+
+.clearFilterButton:hover {
+    text-decoration: underline;
+}
+
 @media (max-width: 768px) {
     .scheduleHeader {
         grid-template-columns: 1fr;
