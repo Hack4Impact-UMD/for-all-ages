@@ -82,17 +82,17 @@
 }
 
 .scheduleHeader {
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
-    justify-content: space-between;
     gap: 1.5rem;
     margin-bottom: 1rem;
 }
 
 .searchContainer {
     position: relative;
-    width: 320px;
-    max-width: 100%;
+    width: 100%;
+    max-width: 320px;
 }
 
 .searchIcon {
@@ -111,7 +111,7 @@
     border: 2px solid rgba(15, 107, 177, 0.2);
     outline: none;
     font-size: 15px;
-    font-family: "Merriweather", serif;
+    font-family: Merriweather, serif;
     color: #0f4f86;
     background: #ffffff;
     transition: border-color 0.2s ease, box-shadow 0.2s ease;

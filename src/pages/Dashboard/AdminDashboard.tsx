@@ -189,9 +189,10 @@ export default function AdminDashboard() {
         <section className={`${layoutStyles.contentSection} ${adminStyles.scheduleSection}`}>
           <div className={adminStyles.scheduleHeader}>
             <div className={adminStyles.searchContainer}>
-              <SearchIcon className={adminStyles.searchIcon} />
+              <SearchIcon className={adminStyles.searchIcon} aria-hidden="true" />
               <input
                 type="text"
+                aria-label="Search participants"
                 placeholder="Search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -199,6 +200,7 @@ export default function AdminDashboard() {
               />
             </div>
             <h2 className={layoutStyles.sectionHeading}>Dashboard</h2>
+            <div />
           </div>
           {error && <div className={adminStyles.errorBox}>{error}</div>}
 
@@ -247,11 +249,12 @@ export default function AdminDashboard() {
           <h2 className={layoutStyles.sectionHeading}>Pending</h2>
           <div className={adminStyles.pendingCard}>
             <div className={adminStyles.pendingList}>
-              {filteredMatches.filter((m) => m.day_of_call < 1).length === 0 ? (
+              {(() => {
+                const pendingMatches = filteredMatches.filter((m) => m.day_of_call < 1);
+                return pendingMatches.length === 0 ? (
                 <div className={adminStyles.emptyDay}>No pending matches</div>
               ) : (
-                filteredMatches
-                  .filter((m) => m.day_of_call < 1)
+                pendingMatches
                   .map((match) => (
                     <PersonTag
                       key={match.id}
@@ -262,7 +265,8 @@ export default function AdminDashboard() {
                       variant="gold"
                     />
                   ))
-              )}
+              );
+              })()}
             </div>
           </div>
         </section>
