@@ -1,6 +1,6 @@
 import type { Timestamp } from "firebase/firestore";
 
-export type Role = "Admin" | "Subadmin";
+export type Role = "Admin" | "Subadmin" | "Participant";
 
 export type UserType = "student" | "adult";
 
