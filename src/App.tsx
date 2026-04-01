@@ -154,7 +154,6 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<LoginSignup />} />
-        
         {/* Routes with navbar */}
         <Route element={<MainLayout />}>
           <Route path="/registration" element={<RegistrationGate />} />
