@@ -7,13 +7,10 @@ import { getAllMatches } from '../../services/matches'
 import { getWeek } from '../../services/weeks'
 import { getDoc, doc } from 'firebase/firestore'
 import { db } from '../../firebase'
-import type { Match, Week, DayKey, PersonAssignment, PersonTagVariant } from '../../types'
+import type { Match, Week, DayKey, PersonAssignment } from '../../types'
 import { subscribeToProgramState, type ProgramState } from '../../services/programState'
 import CallLogModal from './components/PopUpWindow/CallLogModal'
 import SearchIcon from '@mui/icons-material/Search'
-import FilterListIcon from '@mui/icons-material/FilterList'
-
-type CallStatusFilter = "Missed" | "Pending" | "Completed";
 
 const DAY_LABELS: DayKey[] = [
   "Sun",
@@ -38,12 +35,9 @@ export default function AdminDashboard() {
    const [programState, setProgramState] = useState<ProgramState | null>(null)
    const [activeMatch, setActiveMatch] = useState<(Match & { id: string }) | null>(null);
    const [searchQuery, setSearchQuery] = useState('')
-   const [callStatusFilters, setCallStatusFilters] = useState<CallStatusFilter[]>([]);
-   const [callFilterOpen, setCallFilterOpen] = useState(false);
 
    // Ref to ensure we only sync the week from Firebase ONCE on initial load
    const hasInitializedWeek = useRef(false);
-   const callFilterRef = useRef<HTMLDivElement | null>(null);
 
    useEffect(() => {
        const unsubscribe = subscribeToProgramState(
@@ -120,36 +114,16 @@ export default function AdminDashboard() {
      loadWeekData();
    }, [selectedWeek]);
 
-   // Close the call filter popover when clicking outside
-   useEffect(() => {
-     if (!callFilterOpen) return;
-
-     const handleClickOutside = (event: MouseEvent | TouchEvent) => {
-       if (!callFilterRef.current) return;
-       if (!callFilterRef.current.contains(event.target as Node)) {
-         setCallFilterOpen(false);
-       }
-     };
-
-     document.addEventListener('mousedown', handleClickOutside);
-     document.addEventListener('touchstart', handleClickOutside);
-
-     return () => {
-       document.removeEventListener('mousedown', handleClickOutside);
-       document.removeEventListener('touchstart', handleClickOutside);
-     };
-   }, [callFilterOpen]);
-
    // Filter matches based on search query
    const filteredMatches = useMemo(() => {
-     if (!searchQuery.trim()) return allMatches;
+     const normalizedQuery = searchQuery.trim().toLowerCase();
+     if (!normalizedQuery) return allMatches;
 
-     const searchLower = searchQuery.toLowerCase();
      return allMatches.filter((match) => {
        const name1 = participantNames[match.participant1_id] || '';
        const name2 = participantNames[match.participant2_id] || '';
-       return name1.toLowerCase().includes(searchLower) ||
-              name2.toLowerCase().includes(searchLower);
+       return name1.toLowerCase().includes(normalizedQuery) ||
+              name2.toLowerCase().includes(normalizedQuery);
      });
    }, [allMatches, participantNames, searchQuery]);
 
@@ -201,11 +175,10 @@ export default function AdminDashboard() {
      return schedule;
    }, [filteredMatches, weekData, participantNames, selectedWeek, programState?.week]);
 
-   const getStatusForVariant = (variant: PersonTagVariant | undefined): CallStatusFilter => {
-     if (variant === 'green') return 'Completed';
-     if (variant === 'rose') return 'Missed';
-     return 'Pending';
-   };
+   const pendingMatches = useMemo(
+     () => filteredMatches.filter((m) => m.day_of_call < 1),
+     [filteredMatches]
+   );
 
    return (
     <div className={layoutStyles.page}>
@@ -236,8 +209,8 @@ export default function AdminDashboard() {
           </div>
           {error && <div className={adminStyles.errorBox}>{error}</div>}
 
-          {searchQuery.trim() && !matchesLoading && filteredMatches.length === 0 && (
-            <div className={adminStyles.noResults}>No matches found for "{searchQuery}"</div>
+          {!error && searchQuery.trim() && !matchesLoading && filteredMatches.length === 0 && (
+            <div className={adminStyles.noResults}>No matches found for "{searchQuery.trim()}"</div>
           )}
 
           {matchesLoading || loading ? (
@@ -245,61 +218,17 @@ export default function AdminDashboard() {
           ) : (
             <div className={adminStyles.scheduleCard}>
               <div className={adminStyles.scheduleInner}>
-                <div className={adminStyles.filterBar} ref={callFilterRef}>
-                  <button
-                    type="button"
-                    className={adminStyles.filterButton}
-                    onClick={() => setCallFilterOpen((open) => !open)}
-                  >
-                    <FilterListIcon className={adminStyles.filterIcon} />
-                    <span>Filter calls</span>
-                  </button>
-                  {callFilterOpen && (
-                    <div className={adminStyles.filterPopover}>
-                      {(["Missed", "Pending", "Completed"] as CallStatusFilter[]).map(
-                        (status) => (
-                          <label key={status} className={adminStyles.filterOption}>
-                            <input
-                              type="checkbox"
-                              checked={callStatusFilters.includes(status)}
-                              onChange={() =>
-                                setCallStatusFilters((prev) =>
-                                  prev.includes(status)
-                                    ? prev.filter((s) => s !== status)
-                                    : [...prev, status],
-                                )
-                              }
-                            />
-                            <span>{status}</span>
-                          </label>
-                        ),
-                      )}
-                      <button
-                        type="button"
-                        className={adminStyles.clearFilterButton}
-                        onClick={() => setCallStatusFilters([])}
-                      >
-                        Clear filters
-                      </button>
-                    </div>
-                  )}
-                </div>
                 <div className={adminStyles.dayGrid}>
                   {DAY_LABELS.map((day) => {
                     const assignments = activeWeekData[day] ?? [];
-                    const visibleAssignments = assignments.filter((assignment) => {
-                      if (callStatusFilters.length === 0) return true;
-                      const status = getStatusForVariant(assignment.variant);
-                      return callStatusFilters.includes(status);
-                    });
                     return (
                       <div className={adminStyles.dayColumn} key={day}>
                         <div className={adminStyles.dayHeader}>{day}</div>
                         <div className={adminStyles.peopleList}>
-                          {visibleAssignments.length === 0 ? (
+                          {assignments.length === 0 ? (
                             <div className={adminStyles.emptyDay}>No calls</div>
                           ) : (
-                            visibleAssignments.map((assignment, index) => (
+                            assignments.map((assignment, index) => (
                               <div
                                 key={`${day}-${index}`}
                                 onClick={() => {
@@ -325,23 +254,20 @@ export default function AdminDashboard() {
           <h2 className={layoutStyles.sectionHeading}>Pending</h2>
           <div className={adminStyles.pendingCard}>
             <div className={adminStyles.pendingList}>
-              {(() => {
-                const pendingMatches = filteredMatches.filter((m) => m.day_of_call < 1);
-                return pendingMatches.length === 0 ? (
-                  <div className={adminStyles.emptyDay}>No pending matches</div>
-                ) : (
-                  pendingMatches.map((match) => (
-                    <PersonTag
-                      key={match.id}
-                      names={[
-                        participantNames[match.participant1_id] || "Loading...",
-                        participantNames[match.participant2_id] || "Loading...",
-                      ]}
-                      variant="gold"
-                    />
-                  ))
-                );
-              })()}
+              {pendingMatches.length === 0 ? (
+                <div className={adminStyles.emptyDay}>No pending matches</div>
+              ) : (
+                pendingMatches.map((match) => (
+                  <PersonTag
+                    key={match.id}
+                    names={[
+                      participantNames[match.participant1_id] || "Loading...",
+                      participantNames[match.participant2_id] || "Loading...",
+                    ]}
+                    variant="gold"
+                  />
+                ))
+              )}
             </div>
           </div>
         </section>
