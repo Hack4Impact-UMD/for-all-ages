@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import styles from "./PreProgram.module.css";
 import { useNavigate } from "react-router-dom";
 import SearchIcon from "@mui/icons-material/Search";
+import FilterListIcon from "@mui/icons-material/FilterList";
 import SettingsIcon from '@mui/icons-material/Settings';
 import AutorenewIcon from "@mui/icons-material/Autorenew";
 import SendIcon from "@mui/icons-material/Send";
@@ -56,6 +57,11 @@ const PreProgram = () => {
   const [endProgramError, setEndProgramError] = useState<string | null>(null);
 
   const [settingsPopup, setSettingsPopup] = useState(false)
+
+  const [statusFilterOpen, setStatusFilterOpen] = useState(false);
+  const [selectedStatuses, setSelectedStatuses] = useState<MatchStatus[]>([]);
+
+  const statusFilterRef = useRef<HTMLDivElement | null>(null);
 
   const navigate = useNavigate();
 
@@ -466,9 +472,12 @@ const PreProgram = () => {
   };
 
   const handleStatusChange = async (
-    index: number,
+    matchId: string | undefined,
     newStatus: MatchStatus | "Separate",
   ) => {
+    const index = matches.findIndex((m) => m.matchId === matchId);
+    if (index === -1) return;
+
     const updated = [...matches];
     const match = updated[index];
 
@@ -518,11 +527,36 @@ const PreProgram = () => {
     await updateDoc(matchRef, { status: firestoreStatus });
   };
 
-  const filteredMatches = matches.filter(
-    (m) =>
-      m.name1.toLowerCase().includes(search.toLowerCase()) ||
-      m.name2.toLowerCase().includes(search.toLowerCase()),
-  );
+  const filteredMatches = matches.filter((m) => {
+    const searchValue = search.toLowerCase();
+    const matchesSearch =
+      m.name1.toLowerCase().includes(searchValue) ||
+      m.name2.toLowerCase().includes(searchValue);
+
+    const matchesStatus =
+      selectedStatuses.length === 0 || selectedStatuses.includes(m.status);
+
+    return matchesSearch && matchesStatus;
+  });
+
+  useEffect(() => {
+    if (!statusFilterOpen) return;
+
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      if (!statusFilterRef.current) return;
+      if (!statusFilterRef.current.contains(event.target as Node)) {
+        setStatusFilterOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
+  }, [statusFilterOpen]);
 
   // global bools for program state
   const programStarted = programState?.started ?? false;
@@ -720,6 +754,48 @@ const PreProgram = () => {
 
       {/* ── Match Table ── */}
       <div className={styles.container}>
+        <div className={styles.filterBar} ref={statusFilterRef}>
+          <button
+            type="button"
+            className={styles.filterButton}
+            onClick={() => setStatusFilterOpen((open) => !open)}
+          >
+            <FilterListIcon className={styles.filterIcon} />
+            <span>Filter by pair status</span>
+          </button>
+
+          {statusFilterOpen && (
+            <div className={styles.filterPopover}>
+              {(["No Match", "Pending", "Approved"] as MatchStatus[]).map(
+                (status) => (
+                  <label key={status} className={styles.filterOption}>
+                    <input
+                      type="checkbox"
+                      checked={selectedStatuses.includes(status)}
+                      onChange={() =>
+                        setSelectedStatuses((prev) =>
+                          prev.includes(status)
+                            ? prev.filter((s) => s !== status)
+                            : [...prev, status]
+                        )
+                      }
+                    />
+                    <span>{status}</span>
+                  </label>
+                ),
+              )}
+              <button
+                type="button"
+                className={styles.clearFilterButton}
+                onClick={() => setSelectedStatuses([])}
+              >
+                Clear filters
+              </button>
+            </div>
+          )}
+        </div>
+
+        
         <table className={styles.table}>
           <thead>
             <tr>
@@ -749,7 +825,10 @@ const PreProgram = () => {
                       <select
                         value={m.status}
                         onChange={(e) =>
-                          handleStatusChange(i, e.target.value as MatchStatus | "Separate")
+                          handleStatusChange(
+                            m.matchId,
+                            e.target.value as MatchStatus | "Separate",
+                          )
                         }
                         className={`${styles.status} ${
                           m.status === "Approved"
