@@ -9,20 +9,24 @@ interface SettingsPopupProps {
     close: ()=>void
     program: ProgramState | null
     setProgram: React.Dispatch<React.SetStateAction<ProgramState | null>>
+    onThresholdChange?: (newThreshold: number) => Promise<void>
 }
 
-export default function SettingsPopup ({isOpened, close, program, setProgram}: SettingsPopupProps) {
+export default function SettingsPopup ({isOpened, close, program, setProgram, onThresholdChange}: SettingsPopupProps) {
     const [numWeeks, setNumWeeks] = useState(program?.numWeeks ?? 1);
     const [maxParticipants, setMaxParticipants] = useState(program?.maxParticipants ?? 2);
     const [autoApprovalThreshold, setAutoApprovalThreshold] = useState(
         program?.autoApprovalThreshold ?? 80,
     );
+    const [originalThreshold, setOriginalThreshold] = useState(program?.autoApprovalThreshold ?? 80);
     const [changed, setChanged] = useState(false);
 
     useEffect(()=>{
+        const threshold = program?.autoApprovalThreshold ?? 80;
         setNumWeeks(program?.numWeeks ?? 1)
         setMaxParticipants(program?.maxParticipants ?? 2)
-        setAutoApprovalThreshold(program?.autoApprovalThreshold ?? 80)
+        setAutoApprovalThreshold(threshold)
+        setOriginalThreshold(threshold)
         setChanged(false)
     },[program, isOpened])
 
@@ -67,6 +71,11 @@ export default function SettingsPopup ({isOpened, close, program, setProgram}: S
                     }
                     : prev
             );
+
+            // Check if threshold changed and update match statuses
+            if (onThresholdChange && clampedThreshold !== originalThreshold) {
+                await onThresholdChange(clampedThreshold);
+            }
 
             close();
         } catch (error) {

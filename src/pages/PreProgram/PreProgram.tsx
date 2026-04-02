@@ -303,6 +303,46 @@ const PreProgram = () => {
     return withIds;
   };
 
+  const updateMatchStatuses = async (newThreshold: number) => {
+    try {
+      const matchesRef = collection(db, "matches");
+      const snap = await getDocs(matchesRef);
+
+      if (snap.empty) {
+        console.log("No matches to update");
+        return;
+      }
+
+      const batch = writeBatch(db);
+      let updateCount = 0;
+
+      snap.docs.forEach((matchDoc) => {
+        const data = matchDoc.data();
+        const similarity = data.similarity ?? 0;
+        const currentStatus = data.status;
+
+        const newStatus = similarity >= newThreshold ? "approved" : "pending";
+
+        if (newStatus !== currentStatus) {
+          batch.update(matchDoc.ref, { status: newStatus });
+          updateCount++;
+        }
+      });
+
+      if (updateCount > 0) {
+        await batch.commit();
+        console.log(`Updated status for ${updateCount} matches`);
+      } else {
+        console.log("No matches needed status updates");
+      }
+
+      // Reload matches to reflect changes in UI
+      await loadMatches();
+    } catch (error) {
+      console.error("Error updating match statuses:", error);
+    }
+  };
+
   const handleMatch = async () => {
     setMatching(true);
     try {
@@ -848,7 +888,7 @@ const PreProgram = () => {
           </tbody>
         </table>
       </div>
-      <SettingsPopup isOpened={settingsPopup} close={()=>{setSettingsPopup(false)}} program={programState} setProgram = {setProgramState}></SettingsPopup>
+      <SettingsPopup isOpened={settingsPopup} close={()=>{setSettingsPopup(false)}} program={programState} setProgram = {setProgramState} onThresholdChange={updateMatchStatuses}></SettingsPopup>
     </div>
   );
 };
