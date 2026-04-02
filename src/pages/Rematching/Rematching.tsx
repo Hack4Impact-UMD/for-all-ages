@@ -74,7 +74,7 @@ const extractPronounsFromResponses = (participant: RematchingParticipant | null)
   if (!pronounsEntry) return null;
   const [, value] = pronounsEntry;
   if (value == null) return null;
-  return String(value).trim();
+  return String(value).trim().replace(/\\/g, "/");
 };
 
 const getParticipantPronouns = (participant: RematchingParticipant | null): string | null => {
@@ -639,6 +639,7 @@ function MatchDetailsColumn({
           participant={selectedStudent}
           onDeselect={onDeselectStudent}
           type="student"
+          pronouns={getParticipantPronouns(selectedStudent)}
         />
 
         <div className={styles.coffeeIcon}>
@@ -650,33 +651,65 @@ function MatchDetailsColumn({
           participant={selectedAdult}
           onDeselect={onDeselectAdult}
           type="adult"
+          pronouns={getParticipantPronouns(selectedAdult)}
         />
 
-        <div className={styles.quantContainer}>
-          <div className={styles.quantTitle}>Matchable preferences</div>
-          <table className={styles.quantTable}>
-            <thead>
-              <tr>
-                <th className={styles.quantQuestionHeader}>Question</th>
-                <th className={styles.quantScoreHeader}>Student</th>
-                <th className={styles.quantScoreHeader}>Older Adult</th>
-              </tr>
-            </thead>
-            <tbody>
-              {matchableQuestions.map((question) => (
-                <tr key={question.title}>
-                  <td className={styles.quantQuestionCell}>{question.title}</td>
-                  <td className={styles.quantScoreCell}>
-                    {selectedStudent?.matchableAnswers?.[question.title] ?? "—"}
-                  </td>
-                  <td className={styles.quantScoreCell}>
-                    {selectedAdult?.matchableAnswers?.[question.title] ?? "—"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        {(() => {
+          const frqTypes = new Set(["short_input", "medium_input", "long_input"]);
+          const numericQuestions = matchableQuestions.filter(q => !frqTypes.has(q.type));
+          const frqQuestions = matchableQuestions.filter(q => frqTypes.has(q.type));
+          return (
+            <>
+              {numericQuestions.length > 0 && (
+                <div className={styles.quantContainer}>
+                  <div className={styles.quantTitle}>Quantitative</div>
+                  <table className={styles.quantTable}>
+                    <thead>
+                      <tr>
+                        <th className={styles.quantQuestionHeader}>Question</th>
+                        <th className={styles.quantScoreHeader}>Student</th>
+                        <th className={styles.quantScoreHeader}>Older Adult</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {numericQuestions.map((question) => (
+                        <tr key={question.title}>
+                          <td className={styles.quantQuestionCell}>{question.title}</td>
+                          <td className={styles.quantScoreCell}>
+                            {selectedStudent?.matchableAnswers?.[question.title] ?? "—"}
+                          </td>
+                          <td className={styles.quantScoreCell}>
+                            {selectedAdult?.matchableAnswers?.[question.title] ?? "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {frqQuestions.length > 0 && (
+                <div className={styles.frqContainer}>
+                  <div className={styles.quantTitle}>Free Response</div>
+                  {frqQuestions.map((question) => (
+                    <div key={question.title} className={styles.frqQuestion}>
+                      <div className={styles.frqQuestionTitle}>{question.title}</div>
+                      <table className={styles.frqTable}>
+                          <tr>
+                            <td className={styles.frqCell}>
+                              {selectedStudent?.matchableAnswers?.[question.title] ?? "—"}
+                            </td>
+                            <td className={styles.frqCell}>
+                              {selectedAdult?.matchableAnswers?.[question.title] ?? "—"}
+                            </td>
+                          </tr>
+                      </table>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          );
+        })()}
 
         <div className={styles.buttonContainer}>
           <button

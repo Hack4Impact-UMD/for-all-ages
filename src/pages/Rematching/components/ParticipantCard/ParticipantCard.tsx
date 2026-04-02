@@ -13,6 +13,16 @@ interface ParticipantCardProps {
   compatibilityPercentage?: number | null;
 }
 
+function getPronouns(participant: RematchingParticipant): string | null {
+  if (participant.pronouns) return participant.pronouns;
+  if (!participant.matchableAnswers) return null;
+  const entry = Object.entries(participant.matchableAnswers).find(([title]) => {
+    const t = title.trim().toLowerCase();
+    return t.includes("pronouns") || t.includes("gender");
+  });
+  return entry ? String(entry[1]).trim().replace(/\\/g, "/") : null;
+}
+
 export default function ParticipantCard({
   participant,
   isSelected,
@@ -20,6 +30,7 @@ export default function ParticipantCard({
   isStudentColumn,
   compatibilityPercentage,
 }: ParticipantCardProps) {
+  const pronouns = getPronouns(participant);
   return (
     <div
       className={`${styles.participantCard} ${
@@ -28,6 +39,7 @@ export default function ParticipantCard({
       onClick={onClick}
     >
       <div className={styles.participantName}>{participant.name}</div>
+      {pronouns && <div className={styles.participantPronouns}>{pronouns}</div>}
       {isStudentColumn && participant.school && (
         <div className={styles.participantSchool}>{participant.school}</div>
       )}

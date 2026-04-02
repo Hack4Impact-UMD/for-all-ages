@@ -32,6 +32,12 @@
     font-size: 1.1rem;
 }
 
+.participantPronouns {
+    font-size: 0.8rem;
+    color: #666;
+    margin-bottom: 0.2rem;
+}
+
 .participantSchool {
     font-size: 0.95rem;
 }
