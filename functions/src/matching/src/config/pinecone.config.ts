@@ -16,7 +16,7 @@ export async function initializePineconeClient(): Promise<Pinecone> {
     return pineconeClient;
   }
   
-  const name = `projects/for-all-ages-8a4e2/secrets/pinecone_api_key/versions/latest`;
+  const name = `projects/for-all-ages-prd/secrets/pinecone_api_key/versions/latest`;
   const [version] = await secretClient.accessSecretVersion({ name });
   const apiKey = version.payload?.data?.toString();
   
@@ -45,6 +45,6 @@ export function getPineconeClient(): Promise<Pinecone> {
  * Get index name from environment or use default
  */
 export function getIndexName(): string {
-  return 'matches-v1';
+  return 'tea3-prd';
 }
 
