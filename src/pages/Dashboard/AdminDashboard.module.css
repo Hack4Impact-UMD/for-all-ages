@@ -277,8 +277,9 @@
     position: absolute;
     top: 100%;
     left: 0;
+    right: auto;
     margin-top: 0.4rem;
-    background: #ffffff;
+    background: `#ffffff`;
     border: 1px solid rgba(15, 107, 177, 0.15);
     border-radius: 0.75rem;
     box-shadow: 0 8px 24px rgba(15, 107, 177, 0.12);
