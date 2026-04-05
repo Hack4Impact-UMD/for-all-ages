@@ -369,20 +369,20 @@ export default function AdminDashboard() {
               <tbody>
                 {loading ? (
                   <tr className={styles.stateRow}>
-                    <td colSpan={isSubadmin ? 3 : 7} className={styles.stateCell}>
+                    <td colSpan={isSubadmin ? 3 : 8} className={styles.stateCell}>
                       Loading…
                     </td>
                   </tr>
                 ) : error ? (
                   <tr className={styles.stateRow}>
-                    <td colSpan={isSubadmin ? 3 : 7} className={styles.stateCell}>
+                    <td colSpan={isSubadmin ? 3 : 8} className={styles.stateCell}>
                       {error}
                     </td>
                   </tr>
                 ) : filteredAdmins.length === 0 ? (
                   <tr className={styles.stateRow}>
-                    <td colSpan={isSubadmin ? 3 : 7} className={styles.stateCell}>
-                      No admins match your search.
+                    <td colSpan={isSubadmin ? 3 : 8} className={styles.stateCell}>
+                      {isSubadmin ? "No users match your search." : "No admins match your search."}
                     </td>
                   </tr>
                 ) : (
