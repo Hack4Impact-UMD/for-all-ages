@@ -79,10 +79,10 @@ export async function fetchAllParticipants(): Promise<{
       console.log(p)
     })
     const students = allParticipants.filter(p => 
-      p.user_type === 'student'
+      p.user_type === 'Student'
     );
     const seniors = allParticipants.filter(p => 
-      p.user_type === 'adult'
+      p.user_type === 'Adult'
     );
     
     logger.info(`Separated participants: ${students.length} students, ${seniors.length} seniors`);
@@ -155,6 +155,7 @@ function parseParticipantFromMatch(match: any): ParticipantWithEmbedding {
   return {
     id: match.id,
     user_type: metadata.user_type || 'unknown',
+    pronouns: metadata.pronouns || undefined,
     embedding: match.values || [],
     q1: metadata.q1 !== undefined ? Number(metadata.q1) : undefined,
     q2: metadata.q2 !== undefined ? Number(metadata.q2) : undefined,
@@ -173,6 +174,7 @@ function parseParticipantFromRecord(id: string, record: any): ParticipantWithEmb
     id: id,
     user_type: metadata.user_type || 'unknown',
     embedding: record.values || [],
+    pronouns: metadata.pronouns || undefined,
     q1: metadata.q1 !== undefined ? Number(metadata.q1) : undefined,
     q2: metadata.q2 !== undefined ? Number(metadata.q2) : undefined,
     q3: metadata.q3 !== undefined ? Number(metadata.q3) : undefined,

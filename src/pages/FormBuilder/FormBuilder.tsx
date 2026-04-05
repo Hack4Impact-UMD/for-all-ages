@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import type { Form, Question, QuestionType } from "../../types";
 import { db } from "../../firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
+import EditIcon from '@mui/icons-material/Edit';
 import {
   DndContext,
   PointerSensor,
@@ -15,10 +16,21 @@ import {
   useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import type { EditorQuestion, EditorSection } from "./useFormEditor";
+import type { EditorQuestion, EditorSection, FormEditorState } from "./useFormEditor";
 import { useFormEditor } from "./useFormEditor";
 import styles from "./FormBuilder.module.css";
 import Logo from "../../assets/for-all-ages-logo.svg";
+import ShortInput from "../Registration/Question Types/ShortInput";
+import MediumInput from "../Registration/MediumInput";
+import LongInput from "../Registration/Question Types/LongInput";
+import TextDisplay from "../Registration/Question Types/TextDisplay";
+import DropdownInput from "../Registration/Question Types/DropdownInput";
+import MultipleInput from "../Registration/Question Types/MultipleInput";
+import RadioInput from "../Registration/Question Types/RadioInput";
+import SliderInput from "../Registration/Question Types/SliderInput";
+import DateInput from "../Registration/Question Types/DateInput";
+import PhoneNumberInput from "../Registration/PhoneNumberInput";
+import AddressInput from "../Registration/Question Types/AddressInput";
 
 // labels for the selection
 
@@ -63,16 +75,17 @@ function QuestionPreview({ question }: { question: Question }) {
           placeholder="Type in your answer..."
         />
       )}
+
       {question.type === "long_input" && (
         <textarea
           className={styles.qMockTextarea}
-          disabled
-          placeholder="Type in your answer..."
         />
       )}
+
       {question.type === "text" && (
         <input className={styles.qMockInput} disabled placeholder="Type..." />
       )}
+
       {question.type === "Dropdown" && (
         <div className={styles.qMockSelect}>
           <span className={styles.qMockSelectText}>
@@ -83,12 +96,14 @@ function QuestionPreview({ question }: { question: Question }) {
           <span className={styles.qMockSelectArrow}>▼</span>
         </div>
       )}
+
       {question.type === "multiple" && (
         <div className={styles.qMockSelect}>
           <span className={styles.qMockSelectText}>Select...</span>
           <span className={styles.qMockSelectArrow}>▼</span>
         </div>
       )}
+
       {question.type === "Radio" && (
         <div className={styles.qMockRadioRow}>
           {(question.options ?? ["Option 1", "Option 2", "Option 3"]).map(
@@ -110,6 +125,7 @@ function QuestionPreview({ question }: { question: Question }) {
           disabled
         />
       )}
+
       {question.type === "Date" && (
         <input
           className={styles.qMockInput}
@@ -117,6 +133,7 @@ function QuestionPreview({ question }: { question: Question }) {
           placeholder="mm/dd/yyyy"
         />
       )}
+
       {question.type === "phoneNumber" && (
         <input
           className={styles.qMockInput}
@@ -128,9 +145,10 @@ function QuestionPreview({ question }: { question: Question }) {
         <input
           className={styles.qMockInput}
           disabled
-          placeholder="Street Address"
+          placeholder="Address"
         />
       )}
+
       {question.type === "profilePicture" && (
         <div className={styles.qMockFile}>📷 Upload photo</div>
       )}
@@ -196,23 +214,6 @@ function InlineEditor({
           <button
             type="button"
             className={styles.tbBtn}
-            onClick={() => setTypeOpen((o) => !o)}
-            title="Change input type"
-          >
-            ≡
-          </button>
-          <button
-            type="button"
-            className={styles.tbBtn}
-            onClick={onUndo}
-            disabled={!canUndo}
-            title="Undo"
-          >
-            ↩
-          </button>
-          <button
-            type="button"
-            className={styles.tbBtn}
             onClick={onMoveUp}
             disabled={index === 0}
             title="Move up"
@@ -234,34 +235,9 @@ function InlineEditor({
             onClick={onDelete}
             title="Delete question"
           >
-            🗑
+            ❌
           </button>
         </div>
-
-        {/* Input type floating dropdown */}
-        {typeOpen && (
-          <div ref={typeSelectorRef} className={styles.typeDropdown}>
-            <div className={styles.typeDropdownHeader}>Input type</div>
-            {(
-              Object.entries(QUESTION_TYPE_LABELS) as [QuestionType, string][]
-            ).map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                className={`${styles.typeDropdownItem} ${value === question.type ? styles.typeDropdownItemActive : ""}`}
-                onClick={() => {
-                  onUpdate({ type: value });
-                  setTypeOpen(false);
-                }}
-              >
-                {label}
-                {value === question.type && (
-                  <span className={styles.typeDropdownCheck}>✓</span>
-                )}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* Blue-bordered editing card */}
@@ -269,16 +245,30 @@ function InlineEditor({
         <input
           className={styles.inlineTitleInput}
           value={question.title ?? ""}
-          placeholder="#Question"
-          onChange={(e) => onUpdate({ title: e.target.value })}
+          placeholder="Question Title"
+          onChange={(e) => e.target.value.length < 100 ? onUpdate({ title: e.target.value }): null}
           autoFocus
         />
-        <input
-          className={styles.inlineTypeInput}
-          value={question.description ?? ""}
-          placeholder="Type"
-          onChange={(e) => onUpdate({ description: e.target.value })}
-        />
+
+        <div className={styles.inlineToggles}>
+          <input
+            className={styles.inlineTypeInput}
+            value={question.description ?? ""}
+            placeholder="Question Description"
+            onChange={(e) => {e.target.value.length < 50 ? onUpdate({ description: e.target.value }): null}}
+          />
+
+          <select  className = {styles.questionSelect} onChange={(e) => {onUpdate({ type: e.target.value as QuestionType })}}>
+            <option value={""}>Select a question Type</option>
+            {(
+              Object.entries(QUESTION_TYPE_LABELS) as [QuestionType, string][]
+            ).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </div>
 
         {/* Options editor for Dropdown / Radio / Multiple */}
         {(question.type === "Dropdown" ||
@@ -286,7 +276,7 @@ function InlineEditor({
           question.type === "multiple") && (
           <div className={styles.inlineOptionsBlock}>
             {(question.options ?? []).map((opt, i) => (
-              <div key={i} className={styles.inlineOptionRow}>
+              <div key={`${opt}-${i}`}className={styles.inlineOptionRow}>
                 <input
                   className={styles.inlineOptionInput}
                   value={opt}
@@ -498,11 +488,43 @@ const FormBuilder: React.FC = () => {
     if (from !== -1 && to !== -1) reorderSections(from, to);
   };
 
+  const validateForm = (formToSave: Form) => {
+    let valid = true
+
+    //at least one section
+    if (formToSave.sections.length == 0) {
+      valid = false
+    }
+
+    //all questions have a title and type
+    formToSave.sections.forEach((section)=>{
+      if (section.questions.length == 0) {
+        valid = false;
+      }
+      section.questions.forEach((question)=>{
+        console.log(question.title)
+        if (question.title == "" || question.type == null) {
+          valid = false;
+        }
+      })
+    })
+    return valid;
+  }
+
   const handleSave = async () => {
     try {
       setSaving(true);
       setBanner(null);
       const formToSave = getForm();
+      
+      if (!validateForm(formToSave)) {
+        setBanner({
+          type: "error",
+          message: "Please fill out all required fields and have at least 1 question per section.",
+        });
+        return
+      }
+      
       await setDoc(doc(db, "config", "registrationForm"), formToSave, {
         merge: false,
       });
@@ -611,7 +633,7 @@ const FormBuilder: React.FC = () => {
         <div className={styles.programHeader}>
           <h1 className={styles.programTitle}>Tea @ 3</h1>
           <p className={styles.programSubtitle}>
-            Let's find your perfect tea-mate. This takes about 8-10 minutes.
+            This is the form that all users will fill out when they register.
           </p>
         </div>
 
@@ -840,35 +862,33 @@ function SectionTitleEditor({
           }}
         />
       ) : (
-        <h2
-          className={styles.sectionTitleText}
-          onDoubleClick={() => {
-            setEditing(true);
-            setDraft(section.title ?? "");
-          }}
-        >
-          {section.title || "Untitled Section"}
-        </h2>
+        <div className={styles.inlineToggle}>
+          <h2
+            className={styles.sectionTitleText}
+            onDoubleClick={() => {
+              setEditing(true);
+              setDraft(section.title ?? "");
+            }}
+          >
+            {section.title || "Untitled Section"}
+          </h2>
+            <EditIcon 
+              onClick={() => {
+                setEditing(true);
+                setDraft(section.title ?? "");
+              }}
+            ></EditIcon>
+        </div>
       )}
       <div className={styles.sectionTitleActions}>
-        <button
-          type="button"
-          className={styles.sectionActionBtn}
-          onClick={() => {
-            setEditing(true);
-            setDraft(section.title ?? "");
-          }}
-          title="Rename"
-        >
-          Edit
-        </button>
+
         <button
           type="button"
           className={`${styles.sectionActionBtn} ${styles.sectionDeleteBtn}`}
           onClick={onDelete}
           title="Delete section"
         >
-          X
+          Delete Section
         </button>
       </div>
     </div>
