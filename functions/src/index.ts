@@ -207,9 +207,38 @@ export const deleteUser = onCall(async (request) => {
     }
   }
 
+  // Check if user is on waitlist before deleting
+  let isOnWaitlist = false;
+  try {
+    const waitlistDocRef = db.collection("waitlist").doc(trimmedTargetId);
+    const waitlistSnap = await waitlistDocRef.get();
+    isOnWaitlist = waitlistSnap.exists;
+    if (isOnWaitlist) {
+      await waitlistDocRef.delete();
+    }
+  } catch (err) {
+    console.error("Error deleteUser (waitlist):", err);
+    errors.push(`Waitlist: ${err}`);
+  }
+
   try {
     const targetDocRef = db.collection(PARTICIPANTS).doc(trimmedTargetId);
+    const targetSnap = await targetDocRef.get();
+    const targetData = targetSnap.data();
+    const targetRole = (
+      targetData && typeof targetData.role === "string" ? targetData.role : ""
+    ).toLowerCase();
+    const isParticipant = !targetRole || targetRole === "participant" || targetRole === "";
+
     await targetDocRef.delete();
+
+    // Decrement currentParticipants if they were a counted participant (not waitlisted, not admin)
+    if (!isOnWaitlist && isParticipant) {
+      const configRef = db.doc("config/programState");
+      await configRef.update({
+        currentParticipants: admin.firestore.FieldValue.increment(-1),
+      });
+    }
   } catch (err) {
     console.error("Error deleteUser (firestore):", err);
     errors.push(`Firestore: ${err}`);

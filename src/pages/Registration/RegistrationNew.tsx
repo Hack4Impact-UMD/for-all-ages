@@ -14,7 +14,7 @@ import TextDisplay from "./Question Types/TextDisplay";
 import MultipleInput from "./Question Types/MultipleInput";
 import AddressInput from "./Question Types/AddressInput";
 import ProfilePictureEdit from "../Profile/components/ProfilePictureEdit/ProfilePictureEdit";
-import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, serverTimestamp, runTransaction, increment } from "firebase/firestore";
 import { db, upsertUser } from "../../firebase";
 import { useAuth } from "../../auth/AuthProvider";
 import { useNavigate } from "react-router-dom";
@@ -497,20 +497,51 @@ const RegistrationNew = () => {
       await setDoc(formResponseDocRef, formResponseData, { merge: true });
       console.log("FormResponse created/updated successfully");
 
-      // Call upsertUser to update Pinecone with matchable questions
-      if (textResponses.length > 0 || numericResponses.length > 0) {
-        await upsertUser({
-          uid: user.uid,
-          textResponses,
-          numericResponses,
-          user_type: basicByKey[BASIC_FIELD_KEYS.userType] || "student",
-          pronouns: getPronouns(formData, form)
-        });
-        console.log("User upserted to Pinecone successfully");
-      }
+      // Check waitlist: atomically read currentParticipants and decide
+      const programStateRef = doc(db, "config", "programState");
+      let shouldWaitlist = false;
 
-      // Navigate to dashboard
-      navigate("/user/dashboard", { replace: true });
+      await runTransaction(db, async (transaction) => {
+        const programSnap = await transaction.get(programStateRef);
+        const programData = programSnap.data();
+        const current = programData?.currentParticipants ?? 0;
+        const max = programData?.maxParticipants ?? Infinity;
+
+        if (current >= max) {
+          shouldWaitlist = true;
+        } else {
+          // Increment currentParticipants atomically
+          transaction.update(programStateRef, {
+            currentParticipants: increment(1),
+          });
+        }
+      });
+
+      if (shouldWaitlist) {
+        // Add to waitlist collection — do NOT upsert to Pinecone
+        const waitlistRef = doc(db, "waitlist", user.uid);
+        await setDoc(waitlistRef, {
+          uid: user.uid,
+          createdAt: serverTimestamp(),
+        });
+        console.log("Participant added to waitlist");
+        navigate("/waiting", { replace: true });
+      } else {
+        // Call upsertUser to update Pinecone with matchable questions
+        if (textResponses.length > 0 || numericResponses.length > 0) {
+          await upsertUser({
+            uid: user.uid,
+            textResponses,
+            numericResponses,
+            user_type: basicByKey[BASIC_FIELD_KEYS.userType] || "student",
+            pronouns: getPronouns(formData, form)
+          });
+          console.log("User upserted to Pinecone successfully");
+        }
+
+        // Navigate to dashboard
+        navigate("/user/dashboard", { replace: true });
+      }
     } catch (err) {
       console.error("Form submission error:", err);
       setSubmitError("Something went wrong. Please try again.");

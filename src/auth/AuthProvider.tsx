@@ -36,6 +36,8 @@ type AuthCtx = {
   participantLoading: boolean;
   programState: ProgramState | null;
   programStateLoading: boolean;
+  isWaitlisted: boolean;
+  waitlistLoading: boolean;
   refreshUser: () => Promise<void>;
   isAdmin: boolean;
 };
@@ -52,6 +54,9 @@ const AuthContext = createContext<AuthCtx>({
   programState: null,
   programStateLoading: true,
 
+  isWaitlisted: false,
+  waitlistLoading: true,
+
   refreshUser: async () => {},
   isAdmin: false,
 });
@@ -66,6 +71,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const [programState, setProgramState] = useState<ProgramState | null>(null);
   const [programStateLoading, setProgramStateLoading] = useState(true);
+
+  const [isWaitlisted, setIsWaitlisted] = useState(false);
+  const [waitlistLoading, setWaitlistLoading] = useState(true);
 
   // Firebase Auth subscription
   useEffect(() => {
@@ -152,6 +160,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe?.();
   }, [user]);
 
+  // Waitlist subscription
+  useEffect(() => {
+    let unsubscribe: Unsubscribe | undefined;
+
+    if (!user || !user.emailVerified) {
+      setIsWaitlisted(false);
+      setWaitlistLoading(false);
+      return () => unsubscribe?.();
+    }
+
+    setWaitlistLoading(true);
+
+    const docRef = doc(db, "waitlist", user.uid);
+    unsubscribe = onSnapshot(
+      docRef,
+      (snapshot) => {
+        setIsWaitlisted(snapshot.exists());
+        setWaitlistLoading(false);
+      },
+      (error) => {
+        console.error("Failed to load waitlist status", error);
+        setIsWaitlisted(false);
+        setWaitlistLoading(false);
+      },
+    );
+
+    return () => unsubscribe?.();
+  }, [user]);
+
   const refreshUser = useCallback(async () => {
     if (!auth.currentUser) return;
     await auth.currentUser.reload();
@@ -173,6 +210,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       programState,
       programStateLoading,
 
+      isWaitlisted,
+      waitlistLoading,
+
       refreshUser,
       isAdmin: isAdminRole(role),
     };
@@ -184,6 +224,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     participantLoading,
     programState,
     programStateLoading,
+    isWaitlisted,
+    waitlistLoading,
     refreshUser,
   ]);
 

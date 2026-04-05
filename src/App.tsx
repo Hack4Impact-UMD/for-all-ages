@@ -27,14 +27,20 @@ function RouteLoader() {
 }
 
 function ProgramGate({ children }: { children: React.ReactNode }) {
-  const { programState, programStateLoading } = useAuth() as {
+  const { programState, programStateLoading, isWaitlisted, waitlistLoading } = useAuth() as {
     programState: { matches_final: boolean; started: boolean } | null;
     programStateLoading: boolean;
+    isWaitlisted: boolean;
+    waitlistLoading: boolean;
   };
   const location = useLocation();
 
-  if (programStateLoading) {
+  if (programStateLoading || waitlistLoading) {
     return <RouteLoader />;
+  }
+
+  if (isWaitlisted) {
+    return <Navigate to="/waiting" replace state={{ from: location }} />;
   }
 
   if (!programState) {
