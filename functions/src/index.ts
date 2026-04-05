@@ -233,7 +233,7 @@ export const deleteUser = onCall(async (request) => {
     await targetDocRef.delete();
 
     // Decrement currentParticipants if they were a counted participant (not waitlisted, not admin)
-    if (!isOnWaitlist && isParticipant) {
+    if (!isOnWaitlist && isParticipant && targetSnap.exists) {
       const configRef = db.doc("config/programState");
       await configRef.update({
         currentParticipants: admin.firestore.FieldValue.increment(-1),
