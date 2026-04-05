@@ -163,11 +163,13 @@ export default function AdminDashboard() {
 
     // Subadmins only see participants from their university
     if (isSubadmin) {
-      list = list.filter((user) =>
-        currentUniversity
-          ? user.university?.toLowerCase() === currentUniversity.toLowerCase()
-          : false
-      );
+      list = list.filter((user) => {
+        const role = normaliseRole(user.role);
+        return currentUniversity
+          ? role === "Participant" &&
+              user.university?.toLowerCase() === currentUniversity.toLowerCase()
+          : false;
+      });
     } else {
       if (roleFilter !== "All") {
         list = list.filter((user) => {
