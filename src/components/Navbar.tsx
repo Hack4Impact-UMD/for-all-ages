@@ -21,6 +21,19 @@ const ADMIN_NAV_ITEMS: NavItem[] = [
   { label: "Profile", path: "/profile" },
 ];
 
+// Non-participating subadmin: only Users page + Profile
+const SUBADMIN_NAV_ITEMS: NavItem[] = [
+  { label: "Users", path: "/admin/creator" },
+  { label: "Profile", path: "/profile" },
+];
+
+// Participating subadmin: participant features + Users page
+const SUBADMIN_PARTICIPANT_NAV_ITEMS: NavItem[] = [
+  { label: "Dashboard", path: "/user/dashboard" },
+  { label: "Users", path: "/admin/creator" },
+  { label: "Profile", path: "/profile" },
+];
+
 const PARTICIPANT_NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", path: "/user/dashboard" },
   { label: "Profile", path: "/profile" },
@@ -32,7 +45,7 @@ const DEFAULT_NAV_ITEMS: NavItem[] = [
 
 export default function Navbar({ navItems }: NavbarProps) {
   const location = useLocation();
-  const { participant, participantLoading, isAdmin } = useAuth();
+  const { participant, participantLoading, isAdmin, isSubadmin } = useAuth();
 
   // Automatically determine navItems based on user type if not provided
   const determinedNavItems = useMemo(() => {
@@ -43,18 +56,28 @@ export default function Navbar({ navItems }: NavbarProps) {
       return DEFAULT_NAV_ITEMS;
     }
 
+    if (isSubadmin) {
+      const isParticipatingSubadmin = (participant as { type?: string } | null)?.type === "Participant";
+      return isParticipatingSubadmin ? SUBADMIN_PARTICIPANT_NAV_ITEMS : SUBADMIN_NAV_ITEMS;
+    }
+
     // Return appropriate navItems based on user type
     if (isAdmin) {
       return ADMIN_NAV_ITEMS;
     }
 
     return PARTICIPANT_NAV_ITEMS;
-  }, [navItems, participant, participantLoading]);
+  }, [navItems, participant, participantLoading, isAdmin, isSubadmin]);
+
+  // Determine logo link destination based on role
+  const logoPath = isSubadmin
+    ? ((participant as { type?: string } | null)?.type === "Participant" ? "/user/dashboard" : "/admin/creator")
+    : (isAdmin ? "/admin/dashboard" : "/user/dashboard");
 
   return (
     <div className={styles.bar}>
       <div className={styles.logoContainer}>
-        <Link to={`/${isAdmin ? "admin":"user"}/dashboard`} className={styles.logoLink}>
+        <Link to={logoPath} className={styles.logoLink}>
           <img src={Logo} alt="For All Ages Logo" className={styles.logo} />
         </Link>
       </div>

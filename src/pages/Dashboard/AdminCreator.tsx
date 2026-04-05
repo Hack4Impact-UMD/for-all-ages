@@ -19,6 +19,7 @@ import {
 } from "../../services/adminAccounts";
 import { friendlyAuthError } from "../../services/auth";
 import type { Role, ParticipantDoc, RawAddress, AdminRecord, BannerState } from "../../types";
+import { useAuth } from "../../auth/AuthProvider";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -65,6 +66,9 @@ function composeDisplayName(doc: ParticipantDoc): string {
 
 // Main component for the Admin Dashboard page
 export default function AdminDashboard() {
+  const { isSubadmin, participant: currentParticipant } = useAuth();
+  const currentUniversity = (currentParticipant as { university?: string | null } | null)?.university ?? null;
+
   const [admins, setAdmins] = useState<AdminRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -151,22 +155,32 @@ export default function AdminDashboard() {
     const term = searchTerm.trim().toLowerCase();
 
     let list = admins;
-    if (roleFilter !== "All") {
-      list = list.filter((user) => {
-        const r = normaliseRole(user.role);
-        return r === roleFilter;
-      });
-    }
 
-    if (
-      (roleFilter === "All" || roleFilter === "Participant") &&
-      groupFilter !== "All"
-    ) {
-      list = list.filter((user) => {
-        const user_type = normaliseUserType(user.user_type);
-        const r = normaliseRole(user.role);
-        return r === "Participant" && user_type === groupFilter;
-      });
+    // Subadmins only see participants from their university
+    if (isSubadmin) {
+      list = list.filter((user) =>
+        currentUniversity
+          ? user.university?.toLowerCase() === currentUniversity.toLowerCase()
+          : false
+      );
+    } else {
+      if (roleFilter !== "All") {
+        list = list.filter((user) => {
+          const r = normaliseRole(user.role);
+          return r === roleFilter;
+        });
+      }
+
+      if (
+        (roleFilter === "All" || roleFilter === "Participant") &&
+        groupFilter !== "All"
+      ) {
+        list = list.filter((user) => {
+          const user_type = normaliseUserType(user.user_type);
+          const r = normaliseRole(user.role);
+          return r === "Participant" && user_type === groupFilter;
+        });
+      }
     }
 
     if (term) {
@@ -181,7 +195,7 @@ export default function AdminDashboard() {
       });
     }
     return list;
-  }, [admins, searchTerm, roleFilter, groupFilter]);
+  }, [admins, searchTerm, roleFilter, groupFilter, isSubadmin, currentUniversity]);
 
   // Resets the selected age value if Admin or Subadmin is selected
   useEffect(() => {
@@ -232,47 +246,50 @@ export default function AdminDashboard() {
             onChange={(event) => setSearchTerm(event.target.value)}
           />
 
-          <div className={styles.searchGroup}>
-            <label className={styles.searchLabel} htmlFor="role-filter">
-              Role
-            </label>
-            <select
-              id="role-filter"
-              value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value as any)}
-              className={styles.searchInput}
-            >
-              <option value="All">All</option>
-              <option value="Admin">Admin</option>
-              <option value="Subadmin">Subadmin</option>
-              <option value="Participant">Participant</option>
-            </select>
-          </div>
-          {roleFilter === "All" || roleFilter === "Participant" ? (
-            <div className={styles.searchGroup}>
-              <label className={styles.searchLabel} htmlFor="group-filter">
-                Group
-              </label>
-              <select
-                id="group-filter"
-                value={groupFilter}
-                onChange={(e) => setGroupFilter(e.target.value as any)}
-                className={styles.searchInput}
+          {!isSubadmin ? (
+            <>
+              <div className={styles.searchGroup}>
+                <label className={styles.searchLabel} htmlFor="role-filter">
+                  Role
+                </label>
+                <select
+                  id="role-filter"
+                  value={roleFilter}
+                  onChange={(e) => setRoleFilter(e.target.value as any)}
+                  className={styles.searchInput}
+                >
+                  <option value="All">All</option>
+                  <option value="Admin">Admin</option>
+                  <option value="Subadmin">Subadmin</option>
+                  <option value="Participant">Participant</option>
+                </select>
+              </div>
+              {roleFilter === "All" || roleFilter === "Participant" ? (
+                <div className={styles.searchGroup}>
+                  <label className={styles.searchLabel} htmlFor="group-filter">
+                    Group
+                  </label>
+                  <select
+                    id="group-filter"
+                    value={groupFilter}
+                    onChange={(e) => setGroupFilter(e.target.value as any)}
+                    className={styles.searchInput}
+                  >
+                    <option value="All">All</option>
+                    <option value="Student">Student</option>
+                    <option value="Adult">Adult</option>
+                  </select>
+                </div>
+              ) : null}
+              <button
+                type="button"
+                className={styles.addButton}
+                onClick={() => setIsModalOpen(true)}
               >
-                <option value="All">All</option>
-                <option value="Student">Student</option>
-                <option value="Adult">Adult</option>
-              </select>
-            </div>
+                Add New Admin
+              </button>
+            </>
           ) : null}
-
-          <button
-            type="button"
-            className={styles.addButton}
-            onClick={() => setIsModalOpen(true)}
-          >
-            Add New Admin
-          </button>
         </section>
 
         {banner ? (
@@ -303,44 +320,46 @@ export default function AdminDashboard() {
               <thead>
                 <tr>
                   <th scope="col" className={styles.colName}>Name</th>
-                  <th scope="col" className={styles.colRole}>Role</th>
+                  {!isSubadmin && <th scope="col" className={styles.colRole}>Role</th>}
                   <th scope="col" className={styles.colEmail}>Email</th>
                   <th scope="col" className={styles.colPhone}>Phone Number</th>
-                  <th scope="col" className={styles.colAddress}>Address</th>
-                  <th scope="col" className={styles.colGroup}>Group</th>
-                  <th scope="col" className={styles.colDelete} aria-label="Delete user" />
+                  {!isSubadmin && <th scope="col" className={styles.colAddress}>Address</th>}
+                  {!isSubadmin && <th scope="col" className={styles.colGroup}>Group</th>}
+                  {!isSubadmin && <th scope="col" className={styles.colDelete} aria-label="Delete user" />}
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr className={styles.stateRow}>
-                    <td colSpan={6} className={styles.stateCell}>
-                      Loading admin accounts…
+                    <td colSpan={isSubadmin ? 3 : 7} className={styles.stateCell}>
+                      Loading…
                     </td>
                   </tr>
                 ) : error ? (
                   <tr className={styles.stateRow}>
-                    <td colSpan={6} className={styles.stateCell}>
+                    <td colSpan={isSubadmin ? 3 : 7} className={styles.stateCell}>
                       {error}
                     </td>
                   </tr>
                 ) : filteredAdmins.length === 0 ? (
                   <tr className={styles.stateRow}>
-                    <td colSpan={6} className={styles.stateCell}>
-                      No admins match your search.
+                    <td colSpan={isSubadmin ? 3 : 7} className={styles.stateCell}>
+                      No participants match your search.
                     </td>
                   </tr>
                 ) : (
                   filteredAdmins.map((admin) => (
                     <tr key={admin.id}>
                       <td data-label="Name" className={styles.colName}>{admin.name}</td>
-                      <td data-label="Role" className={styles.colRole}>
-                        {admin.role === "Admin"
-                          ? "Admin"
-                          : admin.role === "Subadmin"
-                            ? "Sub-admin"
-                            : "Participant"}
-                      </td>
+                      {!isSubadmin && (
+                        <td data-label="Role" className={styles.colRole}>
+                          {admin.role === "Admin"
+                            ? "Admin"
+                            : admin.role === "Subadmin"
+                              ? "Sub-admin"
+                              : "Participant"}
+                        </td>
+                      )}
                       <td data-label="Email" className={styles.colEmail}>
                         {admin.email ? (
                           <a
@@ -356,26 +375,32 @@ export default function AdminDashboard() {
                       <td data-label="Phone Number" className={styles.colPhone}>
                         {admin.phoneNumber || "—"}
                       </td>
-                      <td data-label="Address" className={styles.colAddress}>{admin.address || "—"}</td>
-                      <td data-label="Group" className={styles.colGroup}>
-                        {admin.role === "Participant" && admin.user_type ? (
-                          <span>{admin.user_type}</span>
-                        ) : (
-                          <span>—</span>
-                        )}
-                      </td>
-                      <td data-label="Delete" className={`${styles.deleteCell} ${styles.colDelete}`}>
-                        <button
-                          type="button"
-                          className={styles.deleteButton}
-                          onClick={() => handleDeleteUser(admin)}
-                          disabled={deletingId === admin.id}
-                          aria-label={`Delete ${admin.name}`}
-                          title="Delete user"
-                        >
-                          <FaTrash aria-hidden />
-                        </button>
-                      </td>
+                      {!isSubadmin && (
+                        <td data-label="Address" className={styles.colAddress}>{admin.address || "—"}</td>
+                      )}
+                      {!isSubadmin && (
+                        <td data-label="Group" className={styles.colGroup}>
+                          {admin.role === "Participant" && admin.user_type ? (
+                            <span>{admin.user_type}</span>
+                          ) : (
+                            <span>—</span>
+                          )}
+                        </td>
+                      )}
+                      {!isSubadmin && (
+                        <td data-label="Delete" className={`${styles.deleteCell} ${styles.colDelete}`}>
+                          <button
+                            type="button"
+                            className={styles.deleteButton}
+                            onClick={() => handleDeleteUser(admin)}
+                            disabled={deletingId === admin.id}
+                            aria-label={`Delete ${admin.name}`}
+                            title="Delete user"
+                          >
+                            <FaTrash aria-hidden />
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   ))
                 )}
@@ -385,7 +410,7 @@ export default function AdminDashboard() {
           </div>
         </section>
 
-        {isModalOpen ? (
+        {isModalOpen && !isSubadmin ? (
           <AddAdminModal
             onClose={handleModalClose}
             onSuccess={handleInviteSuccess}
