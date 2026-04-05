@@ -438,9 +438,10 @@ export default function AdminDashboard() {
                         </td>
                       )}
                       {!isSubadmin && (
-                        <td>
+                        <td
                           data-label="Promote"
                           className={`${styles.deleteCell} ${styles.colPromote}`}
+                        >
                           {admin.role === "Participant" ? (
                             <button
                               type="button"
