@@ -9,8 +9,9 @@ import { getDoc, doc } from 'firebase/firestore'
 import { db } from '../../firebase'
 import type { Match, Week, DayKey, PersonAssignment, PersonTagVariant } from '../../types'
 import { subscribeToProgramState, type ProgramState } from '../../services/programState'
-import CallLogModal from './components/PopUpWindow/CallLogModal';
-import FilterListIcon from '@mui/icons-material/FilterList';
+import CallLogModal from './components/PopUpWindow/CallLogModal'
+import SearchIcon from '@mui/icons-material/Search'
+import FilterListIcon from '@mui/icons-material/FilterList'
 
 type CallStatusFilter = "Missed" | "Pending" | "Completed";
 
@@ -36,9 +37,10 @@ export default function AdminDashboard() {
    const [error, setError] = useState<string | null>(null)
    const [programState, setProgramState] = useState<ProgramState | null>(null)
    const [activeMatch, setActiveMatch] = useState<(Match & { id: string }) | null>(null);
+   const [searchQuery, setSearchQuery] = useState('')
    const [callStatusFilters, setCallStatusFilters] = useState<CallStatusFilter[]>([]);
    const [callFilterOpen, setCallFilterOpen] = useState(false);
-   
+
    // Ref to ensure we only sync the week from Firebase ONCE on initial load
    const hasInitializedWeek = useRef(false);
    const callFilterRef = useRef<HTMLDivElement | null>(null);
@@ -83,9 +85,9 @@ export default function AdminDashboard() {
            async (participantId) => {
              const participantRef = doc(db, "participants", participantId);
              const participantDoc = await getDoc(participantRef);
-             return { 
-               participantId, 
-               name: participantDoc.exists() ? (participantDoc.data().displayName || participantDoc.data().name || "Unknown") : "Unknown" 
+             return {
+               participantId,
+               name: participantDoc.exists() ? (participantDoc.data().displayName || participantDoc.data().name || "Unknown") : "Unknown"
              };
            }
          );
@@ -137,6 +139,16 @@ export default function AdminDashboard() {
      };
    }, [callFilterOpen]);
 
+   const filteredMatches = useMemo(() => {
+     const normalizedQuery = searchQuery.trim().toLowerCase();
+     if (!normalizedQuery) return allMatches;
+     return allMatches.filter((match) => {
+       const name1 = (participantNames[match.participant1_id] || '').toLowerCase();
+       const name2 = (participantNames[match.participant2_id] || '').toLowerCase();
+       return name1.includes(normalizedQuery) || name2.includes(normalizedQuery);
+     });
+   }, [allMatches, searchQuery, participantNames]);
+
    // Transform matches into calendar format grouped by day
    const activeWeekData = useMemo(() => {
      const schedule: Record<DayKey, PersonAssignment[]> = {
@@ -147,7 +159,7 @@ export default function AdminDashboard() {
      const today = new Date();
      const todayDayOfWeek = today.getDay(); // 0-6
 
-     allMatches.forEach((match) => {
+     filteredMatches.forEach((match) => {
        if (match.day_of_call < 1) return; // Don't show on roadmap until user has set a day
        const programDayRaw = match.day_of_call;
        const programDay = programDayRaw === 7 ? 0 : programDayRaw; // 0-6 (Sun-Sat)
@@ -155,14 +167,14 @@ export default function AdminDashboard() {
 
        if (!dayKey) return; // Safeguard against bad data
 
-       let variant: "rose" | "green" | "gold" = "gold"; 
+       let variant: "rose" | "green" | "gold" = "gold";
 
        // 1. Check if completed
        if (weekData && weekData.calls.includes(match.id)) {
          variant = "green";
        } else {
          const viewingWeek = selectedWeek + 1;
-         
+
          if (viewingWeek < currentGlobalWeek) {
            variant = "rose"; // Past week missed
          } else if (viewingWeek === currentGlobalWeek) {
@@ -182,8 +194,13 @@ export default function AdminDashboard() {
        });
      });
 
-    return schedule;
-   }, [allMatches, weekData, participantNames, selectedWeek, programState?.week]); // Added selectedWeek and programState.week
+     return schedule;
+   }, [filteredMatches, weekData, participantNames, selectedWeek, programState?.week]);
+
+   const pendingMatches = useMemo(
+     () => filteredMatches.filter((m) => m.day_of_call < 1),
+     [filteredMatches]
+   );
 
    const getStatusForVariant = (variant: PersonTagVariant | undefined): CallStatusFilter => {
      if (variant === 'green') return 'Completed';
@@ -203,15 +220,33 @@ export default function AdminDashboard() {
         </section>
 
         <section className={`${layoutStyles.contentSection} ${adminStyles.scheduleSection}`}>
-          <h2 className={layoutStyles.sectionHeading}>Dashboard</h2>
+          <div className={adminStyles.scheduleHeader}>
+            <div className={adminStyles.searchContainer}>
+              <SearchIcon className={adminStyles.searchIcon} aria-hidden="true" />
+              <input
+                type="text"
+                aria-label="Search participants"
+                placeholder="Search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className={adminStyles.searchInput}
+              />
+            </div>
+            <h2 className={layoutStyles.sectionHeading}>Dashboard</h2>
+            <div />
+          </div>
           {error && <div className={adminStyles.errorBox}>{error}</div>}
+
+          {!error && searchQuery.trim() && !matchesLoading && filteredMatches.length === 0 && (
+            <div className={adminStyles.noResults}>No matches found for "{searchQuery.trim()}"</div>
+          )}
 
           {matchesLoading || loading ? (
             <div className={adminStyles.loading}>Loading Week {selectedWeek + 1}...</div>
           ) : (
             <div className={adminStyles.scheduleCard}>
               <div className={adminStyles.scheduleInner}>
-              <div className={adminStyles.filterBar} ref={callFilterRef}>
+                <div className={adminStyles.filterBar} ref={callFilterRef}>
                   <button
                     type="button"
                     className={adminStyles.filterButton}
@@ -291,21 +326,19 @@ export default function AdminDashboard() {
           <h2 className={layoutStyles.sectionHeading}>Pending</h2>
           <div className={adminStyles.pendingCard}>
             <div className={adminStyles.pendingList}>
-              {allMatches.filter((m) => m.day_of_call < 1).length === 0 ? (
+              {pendingMatches.length === 0 ? (
                 <div className={adminStyles.emptyDay}>No pending matches</div>
               ) : (
-                allMatches
-                  .filter((m) => m.day_of_call < 1)
-                  .map((match) => (
-                    <PersonTag
-                      key={match.id}
-                      names={[
-                        participantNames[match.participant1_id] || "Loading...",
-                        participantNames[match.participant2_id] || "Loading...",
-                      ]}
-                      variant="gold"
-                    />
-                  ))
+                pendingMatches.map((match) => (
+                  <PersonTag
+                    key={match.id}
+                    names={[
+                      participantNames[match.participant1_id] || "Loading...",
+                      participantNames[match.participant2_id] || "Loading...",
+                    ]}
+                    variant="gold"
+                  />
+                ))
               )}
             </div>
           </div>
