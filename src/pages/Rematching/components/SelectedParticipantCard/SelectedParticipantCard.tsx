@@ -11,6 +11,7 @@ interface SelectedParticipantCardProps {
   participant: RematchingParticipant | null;
   onDeselect: () => void;
   type: "student" | "adult";
+  pronouns?: string | null;
 }
 
 export default function SelectedParticipantCard({
@@ -18,6 +19,7 @@ export default function SelectedParticipantCard({
   participant,
   onDeselect,
   type,
+  pronouns,
 }: SelectedParticipantCardProps) {
   const isEmpty = !participant;
 
@@ -42,6 +44,9 @@ export default function SelectedParticipantCard({
       {participant ? (
         <>
           <div className={styles.selectedName}>{participant.name}</div>
+          {pronouns && (
+            <div className={styles.participantPronouns}>{pronouns}</div>
+          )}
           {type === "student" && participant.school && (
             <div className={styles.participantSchool}>{participant.school}</div>
           )}

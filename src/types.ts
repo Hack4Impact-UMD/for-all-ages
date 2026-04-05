@@ -84,6 +84,8 @@ export interface RematchingParticipant {
     interestsText: string
     school?: string
     preferenceScores?: PreferenceScores
+    pronouns?: string | null
+    matchableAnswers?: Record<string, string | number>
 }
 
 export interface SurveyResponse {
