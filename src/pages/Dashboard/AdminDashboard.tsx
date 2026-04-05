@@ -139,6 +139,16 @@ export default function AdminDashboard() {
      };
    }, [callFilterOpen]);
 
+   const filteredMatches = useMemo(() => {
+     const normalizedQuery = searchQuery.trim().toLowerCase();
+     if (!normalizedQuery) return allMatches;
+     return allMatches.filter((match) => {
+       const name1 = (participantNames[match.participant1_id] || '').toLowerCase();
+       const name2 = (participantNames[match.participant2_id] || '').toLowerCase();
+       return name1.includes(normalizedQuery) || name2.includes(normalizedQuery);
+     });
+   }, [allMatches, searchQuery, participantNames]);
+
    // Transform matches into calendar format grouped by day
    const activeWeekData = useMemo(() => {
      const schedule: Record<DayKey, PersonAssignment[]> = {
@@ -191,12 +201,6 @@ export default function AdminDashboard() {
      () => filteredMatches.filter((m) => m.day_of_call < 1),
      [filteredMatches]
    );
-
-   const getStatusForVariant = (variant: PersonTagVariant | undefined): CallStatusFilter => {
-     if (variant === 'green') return 'Completed';
-     if (variant === 'rose') return 'Missed';
-     return 'Pending';
-   };
 
    const getStatusForVariant = (variant: PersonTagVariant | undefined): CallStatusFilter => {
      if (variant === 'green') return 'Completed';
