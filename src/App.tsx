@@ -58,6 +58,7 @@ function RegistrationGate() {
     participant,
     participantLoading,
     isAdmin,
+    isSubadmin,
   } = useAuth();
   const location = useLocation();
   const role = (participant as { role?: string | null } | null)?.role ?? null;
@@ -75,6 +76,14 @@ function RegistrationGate() {
   }
 
   if (role && isAdmin) {
+    // Participating subadmins (type="Participant") keep participant features as their home
+    if (isSubadmin && (participant as { type?: string } | null)?.type === "Participant") {
+      return <Navigate to="/user/dashboard" replace />;
+    }
+    // Non-participating subadmins only have access to the Users page
+    if (isSubadmin) {
+      return <Navigate to="/admin/creator" replace />;
+    }
     return <Navigate to="/admin/" replace />;
   }
 
@@ -112,6 +121,21 @@ function ParticipantGate() {
     return <Navigate to="/registration" replace />;
   }
 
+  return <Outlet />;
+}
+
+// Redirects to the appropriate default page based on role
+function AdminDefaultRedirect() {
+  const { isSubadmin } = useAuth();
+  return <Navigate to={isSubadmin ? "/admin/creator" : "/admin/dashboard"} replace />;
+}
+
+// Blocks subadmins from full-admin-only routes
+function FullAdminOnlyGate() {
+  const { isSubadmin } = useAuth();
+  if (isSubadmin) {
+    return <Navigate to="/admin/creator" replace />;
+  }
   return <Outlet />;
 }
 
@@ -186,16 +210,16 @@ function App() {
           </Route>
 
           <Route path="/admin/*" element={<AdminGate />}>
-            <Route
-              path=""
-              element={<Navigate to="/admin/dashboard" replace />}
-            />
-            <Route path="dashboard" element={<AdminDashboard />} />
-            <Route path="recap" element={<RecapPage />} />
+            <Route path="" element={<AdminDefaultRedirect />} />
             <Route path="creator" element={<AdminCreator />} />
-            <Route path="main" element={<PreProgram />} />
-            <Route path="rematching" element={<Rematching />} />
-            <Route path="form-builder" element={<FormBuilder />} />
+            {/* Full admins only — subadmins are redirected to /admin/creator */}
+            <Route element={<FullAdminOnlyGate />}>
+              <Route path="dashboard" element={<AdminDashboard />} />
+              <Route path="recap" element={<RecapPage />} />
+              <Route path="main" element={<PreProgram />} />
+              <Route path="rematching" element={<Rematching />} />
+              <Route path="form-builder" element={<FormBuilder />} />
+            </Route>
           </Route>
         </Route>
 
