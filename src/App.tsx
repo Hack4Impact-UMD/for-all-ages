@@ -151,7 +151,7 @@ function AdminGate() {
 
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/for-all-ages/">
       <Routes>
         <Route path="/" element={<LoginSignup />} />
 
