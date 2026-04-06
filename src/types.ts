@@ -119,7 +119,7 @@ export interface Logs {
 /** Log document with Firestore document id */
 export type LogWithId = Logs & { id: string }
 
-/** Admin list row (participant doc with required id and name) */
+/** gitin list row (participant doc with required id and name) */
 export interface AdminRecord {
     id: string
     name: string

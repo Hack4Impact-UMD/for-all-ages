@@ -16,21 +16,9 @@ import {
   useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import type { EditorQuestion, EditorSection, FormEditorState } from "./useFormEditor";
+import type { EditorQuestion, EditorSection } from "./useFormEditor";
 import { useFormEditor } from "./useFormEditor";
 import styles from "./FormBuilder.module.css";
-import Logo from "../../assets/for-all-ages-logo.svg";
-import ShortInput from "../Registration/Question Types/ShortInput";
-import MediumInput from "../Registration/MediumInput";
-import LongInput from "../Registration/Question Types/LongInput";
-import TextDisplay from "../Registration/Question Types/TextDisplay";
-import DropdownInput from "../Registration/Question Types/DropdownInput";
-import MultipleInput from "../Registration/Question Types/MultipleInput";
-import RadioInput from "../Registration/Question Types/RadioInput";
-import SliderInput from "../Registration/Question Types/SliderInput";
-import DateInput from "../Registration/Question Types/DateInput";
-import PhoneNumberInput from "../Registration/PhoneNumberInput";
-import AddressInput from "../Registration/Question Types/AddressInput";
 
 // labels for the selection
 
@@ -168,8 +156,6 @@ type InlineEditorProps = {
   onMoveUp: () => void;
   onMoveDown: () => void;
   onDone: () => void;
-  onUndo: () => void;
-  canUndo: boolean;
 };
 
 function InlineEditor({
@@ -181,8 +167,6 @@ function InlineEditor({
   onMoveUp,
   onMoveDown,
   onDone,
-  onUndo,
-  canUndo,
 }: InlineEditorProps) {
   const [typeOpen, setTypeOpen] = useState(false);
   const typeSelectorRef = useRef<HTMLDivElement>(null);
@@ -417,7 +401,6 @@ const FormBuilder: React.FC = () => {
 
   const {
     sections,
-    canUndo,
     addSection,
     deleteSection,
     updateSectionTitle,
@@ -426,7 +409,6 @@ const FormBuilder: React.FC = () => {
     updateQuestion,
     deleteQuestion,
     reorderQuestions,
-    undo,
     loadForm,
     getForm,
   } = useFormEditor();
@@ -753,8 +735,6 @@ const FormBuilder: React.FC = () => {
                           }
                         }}
                         onDone={() => setEditingQuestionId(null)}
-                        onUndo={undo}
-                        canUndo={canUndo}
                       />
                     );
                   }
