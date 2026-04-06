@@ -223,10 +223,8 @@ const PreProgram = () => {
     participantsSnap.forEach((pDoc) => {
       const data = pDoc.data() as any;
       const id = pDoc.id;
-      console.log("CHECKING: " + id)
       if (matchedIds.has(id)) return;
       if (waitlistedIds.has(id)) return;
-      console.log(id + " NOT FOUND IN MATCHIDS")
       const displayName =
         data.displayName ?? data.name ?? data.fullName ?? "Unnamed participant";
       const userType = (data.user_type ?? data.userType) as
@@ -234,7 +232,6 @@ const PreProgram = () => {
         | "Adult"
         | "Senior"
         | undefined;
-      console.log(userType)
       if (userType === "Student") {
         unmatchedRows.push({
           name1: displayName,

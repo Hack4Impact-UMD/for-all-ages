@@ -497,25 +497,28 @@ const RegistrationNew = () => {
       await setDoc(formResponseDocRef, formResponseData, { merge: true });
       console.log("FormResponse created/updated successfully");
 
-      // Check waitlist: atomically read currentParticipants and decide
+      // Check waitlist: atomically read currentParticipants and decide.
+      // Skip the capacity check if the participant already existed (re-submission / profile update).
       const programStateRef = doc(db, "config", "programState");
       let shouldWaitlist = false;
 
-      await runTransaction(db, async (transaction) => {
-        const programSnap = await transaction.get(programStateRef);
-        const programData = programSnap.data();
-        const current = programData?.currentParticipants ?? 0;
-        const max = programData?.maxParticipants ?? Infinity;
+      if (!participantSnap.exists()) {
+        await runTransaction(db, async (transaction) => {
+          const programSnap = await transaction.get(programStateRef);
+          const programData = programSnap.data();
+          const current = programData?.currentParticipants ?? 0;
+          const max = programData?.maxParticipants ?? Infinity;
 
-        if (current >= max) {
-          shouldWaitlist = true;
-        } else {
-          // Increment currentParticipants atomically
-          transaction.update(programStateRef, {
-            currentParticipants: increment(1),
-          });
-        }
-      });
+          if (current >= max) {
+            shouldWaitlist = true;
+          } else {
+            // Use set+merge so the update succeeds even if the document doesn't exist yet
+            transaction.set(programStateRef, {
+              currentParticipants: increment(1),
+            }, { merge: true });
+          }
+        });
+      }
 
       if (shouldWaitlist) {
         // Add to waitlist collection — do NOT upsert to Pinecone

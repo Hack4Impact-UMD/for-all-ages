@@ -232,11 +232,18 @@ export const deleteUser = onCall(async (request) => {
 
     await targetDocRef.delete();
 
-    // Decrement currentParticipants if they were a counted participant (not waitlisted, not admin)
+    // Decrement currentParticipants if they were a counted participant (not waitlisted, not admin).
+    // Use a transaction to guard against going below 0.
     if (!isOnWaitlist && isParticipant && targetSnap.exists) {
       const configRef = db.doc("config/programState");
-      await configRef.update({
-        currentParticipants: admin.firestore.FieldValue.increment(-1),
+      await db.runTransaction(async (txn) => {
+        const configSnap = await txn.get(configRef);
+        const current = (configSnap.data()?.currentParticipants ?? 0) as number;
+        if (current > 0) {
+          txn.update(configRef, {
+            currentParticipants: admin.firestore.FieldValue.increment(-1),
+          });
+        }
       });
     }
   } catch (err) {
