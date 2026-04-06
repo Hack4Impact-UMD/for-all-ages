@@ -6,13 +6,13 @@ import { getFunctions, httpsCallable } from "firebase/functions";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyCeqsJjGwKfdlwgIl0u9GcTlEKh1vLC7J4",
-  authDomain: "for-all-ages-8a4e2.firebaseapp.com",
-  projectId: "for-all-ages-8a4e2",
-  storageBucket: "for-all-ages-8a4e2.firebasestorage.app",
-  messagingSenderId: "42404028579",
-  appId: "1:42404028579:web:420352547a979fce631f16",
-  measurementId: "G-122Y7GEE6Q"
+  apiKey: "AIzaSyAPDsR_t-09BU8UI-MANrjz_gMGe0ejjKM",
+  authDomain: "for-all-ages-prd.firebaseapp.com",
+  projectId: "for-all-ages-prd",
+  storageBucket: "for-all-ages-prd.firebasestorage.app",
+  messagingSenderId: "1042249208676",
+  appId: "1:1042249208676:web:b79984db47d61aad1be071",
+  measurementId: "G-8FYKX9LMC0"
 };
 
 // Initialize Firebase
@@ -40,7 +40,7 @@ export { analytics };
 // FUNCTIONS
 const MATCHING_URL =
   // "https://us-central1-for-all-ages-8a4e2.cloudfunctions.net/matchAllWithGender";
-  "https://us-central1-for-all-ages-8a4e2.cloudfunctions.net/matchAll";
+  "https://us-central1-for-all-ages-prd.cloudfunctions.net/matchAll";
 export async function matchAll(body: any = {}) {
   const res = await fetch(MATCHING_URL, {
     method: "POST",
@@ -57,7 +57,7 @@ export async function matchAll(body: any = {}) {
 
 
 const UPSERT_USER_URL =
-  "https://us-central1-for-all-ages-8a4e2.cloudfunctions.net/upsertUser";
+  "https://us-central1-for-all-ages-prd.cloudfunctions.net/upsertUser";
 export async function upsertUser(body: {
   uid: string;
   textResponses?: string[];  // array of free-form text responses
@@ -81,7 +81,7 @@ export async function upsertUser(body: {
 
 
 const COMPUTE_MATCH_SCORE_URL = 
-  "https://us-central1-for-all-ages-8a4e2.cloudfunctions.net/computeMatchScore";
+  "https://us-central1-for-all-ages-prd.cloudfunctions.net/computeMatchScore";
 export async function computeMatchScore(body: { uid1: string; uid2: string }) {
   const res = await fetch(COMPUTE_MATCH_SCORE_URL, {
     method: 'POST',

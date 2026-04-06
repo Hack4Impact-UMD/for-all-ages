@@ -820,52 +820,7 @@ function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps) {
         </header>
 
         <form className={styles.modalForm} onSubmit={handleSubmit}>
-          <div className={styles.field}>
-            <label htmlFor="admin-first-name">First Name</label>
-            <input
-              ref={firstInputRef}
-              id="admin-first-name"
-              name="firstName"
-              type="text"
-              className={styles.textInput}
-              value={form.firstName}
-              onChange={handleInputChange}
-              placeholder="First name"
-              required
-            />
-          </div>
-
-          <div className={styles.field}>
-            <label htmlFor="admin-last-name">Last Name</label>
-            <input
-              id="admin-last-name"
-              name="lastName"
-              type="text"
-              className={styles.textInput}
-              value={form.lastName}
-              onChange={handleInputChange}
-              placeholder="Last name"
-              required
-            />
-          </div>
-
-          <div className={styles.field}>
-            <label htmlFor="admin-email">Email</label>
-            <input
-              id="admin-email"
-              name="email"
-              type="email"
-              className={styles.textInput}
-              value={form.email}
-              onChange={handleInputChange}
-              placeholder="name@example.com"
-              required
-            />
-            {!emailValid && trimmedEmail.length > 0 ? (
-              <p className={styles.fieldHint}>Enter a valid email address.</p>
-            ) : null}
-          </div>
-
+          {/* ROLE FIRST */}
           <div className={styles.field}>
             <span className={styles.radioLabel}>Role</span>
             <div className={styles.radioGroup}>
@@ -898,6 +853,22 @@ function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps) {
                   <span className={styles.radioText}>Sub-admin</span>
                 </span>
               </label>
+
+
+              <label className={styles.radioOption}>
+                <input
+                  className={styles.radioInput}
+                  type="radio"
+                  name="role"
+                  value="Participant"
+                  checked={form.role === "Participant"}
+                  onChange={handleInputChange}
+                />
+                <span className={styles.radioContent}>
+                  <span className={styles.radioVisual} aria-hidden="true" />
+                  <span className={styles.radioText}>Participant</span>
+                </span>
+              </label>
             </div>
 
             {form.role === "Subadmin" ? (
@@ -917,8 +888,59 @@ function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps) {
             ) : null}
           </div>
 
+          {/* FIRST NAME */}
+          <div className={styles.field}>
+            <label htmlFor="admin-first-name">First Name</label>
+            <input
+              ref={firstInputRef}
+              id="admin-first-name"
+              name="firstName"
+              type="text"
+              className={styles.textInput}
+              value={form.firstName}
+              onChange={handleInputChange}
+              placeholder="First name"
+              required
+            />
+          </div>
+
+          {/* LAST NAME */}
+          <div className={styles.field}>
+            <label htmlFor="admin-last-name">Last Name</label>
+            <input
+              id="admin-last-name"
+              name="lastName"
+              type="text"
+              className={styles.textInput}
+              value={form.lastName}
+              onChange={handleInputChange}
+              placeholder="Last name"
+              required
+            />
+          </div>
+
+          {/* EMAIL */}
+          <div className={styles.field}>
+            <label htmlFor="admin-email">Email</label>
+            <input
+              id="admin-email"
+              name="email"
+              type="email"
+              className={styles.textInput}
+              value={form.email}
+              onChange={handleInputChange}
+              placeholder="name@example.com"
+              required
+            />
+            {!emailValid && trimmedEmail.length > 0 ? (
+              <p className={styles.fieldHint}>Enter a valid email address.</p>
+            ) : null}
+          </div>
+
+          {/* ERROR */}
           {error ? <div className={styles.errorMessage}>{error}</div> : null}
 
+          {/* EXISTING ACCOUNT PROMPT */}
           {existingAccountPrompt ? (
             <div className={styles.existingPrompt}>
               <p className={styles.existingPromptText}>
@@ -958,6 +980,7 @@ function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps) {
             </div>
           ) : null}
 
+          {/* ACTIONS */}
           <div className={styles.modalActions}>
             <button
               type="button"

@@ -13,7 +13,6 @@ import PhoneNumberInput from "./PhoneNumberInput";
 import TextDisplay from "./Question Types/TextDisplay";
 import MultipleInput from "./Question Types/MultipleInput";
 import AddressInput from "./Question Types/AddressInput";
-import ProfilePictureEdit from "../Profile/components/ProfilePictureEdit/ProfilePictureEdit";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { db, upsertUser } from "../../firebase";
 import { useAuth } from "../../auth/AuthProvider";

@@ -13,7 +13,9 @@ import { deleteUserFromPinecone } from "./matching/src/services/deleteUser.js";
 
 import { Readable } from "stream";
 
-admin.initializeApp();
+admin.initializeApp({
+  projectId: "for-all-ages-prd", 
+});
 
 const CORS_ORIGIN = process.env.CORS_ORIGIN || "http://localhost:5173";
 const PARTICIPANTS = "participants";

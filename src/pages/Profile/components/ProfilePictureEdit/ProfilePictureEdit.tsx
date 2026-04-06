@@ -36,7 +36,7 @@ export default function ProfilePictureEdit({ uid }: ProfilePictureEditProps) {
       setLoading(true);
 
       const res = await fetch(
-        "https://us-central1-for-all-ages-8a4e2.cloudfunctions.net/uploadProfilePicture",
+        "https://us-central1-for-all-ages-prd.cloudfunctions.net/uploadProfilePicture",
         {
           method: "POST",
           body: formData,
@@ -68,7 +68,7 @@ export default function ProfilePictureEdit({ uid }: ProfilePictureEditProps) {
       setMenuOpen(false);
 
       const res = await fetch(
-        "https://us-central1-for-all-ages-8a4e2.cloudfunctions.net/removeProfilePicture",
+        "https://us-central1-for-all-ages-prd.cloudfunctions.net/removeProfilePicture",
         {
           method: "POST",
           headers: {
