@@ -48,8 +48,8 @@ export default function Waiting() {
 
   const greetingName = useMemo(
     () =>
-      buildGreetingName(participant, user?.displayName ?? user?.email ?? null),
-    [participant, user?.displayName, user?.email],
+      buildGreetingName(participant, user?.name ?? user?.email ?? null),
+    [participant, user?.name, user?.email],
   );
 
   const handleMessageAdmins = () => {
