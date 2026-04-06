@@ -1,11 +1,11 @@
 import "./App.css";
 import {
-  BrowserRouter,
   Route,
   Routes,
   Navigate,
   Outlet,
   useLocation,
+  HashRouter,
 } from "react-router-dom";
 import { useAuth } from "./auth/AuthProvider";
 import UserDashboard from "./pages/Dashboard/UserDashboard";
@@ -151,7 +151,7 @@ function AdminGate() {
 
 function App() {
   return (
-    <BrowserRouter basename="/for-all-ages/">
+    <HashRouter>
       <Routes>
         <Route path="/" element={<LoginSignup />} />
 
@@ -159,13 +159,10 @@ function App() {
         <Route element={<MainLayout />}>
           <Route path="/registration" element={<RegistrationGate />} />
           <Route path="/waiting" element={<Waiting />} />
-          <Route path={"/profile"} element={<Profile></Profile>}></Route>
+          <Route path="/profile" element={<Profile />} />
 
           <Route path="/user/*" element={<ParticipantGate />}>
-            <Route
-              path=""
-              element={<Navigate to="/user/dashboard" replace />}
-            />
+            <Route path="" element={<Navigate to="/user/dashboard" replace />} />
             <Route
               path="dashboard"
               element={
@@ -186,10 +183,7 @@ function App() {
           </Route>
 
           <Route path="/admin/*" element={<AdminGate />}>
-            <Route
-              path=""
-              element={<Navigate to="/admin/dashboard" replace />}
-            />
+            <Route path="" element={<Navigate to="/admin/dashboard" replace />} />
             <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="recap" element={<RecapPage />} />
             <Route path="creator" element={<AdminCreator />} />
@@ -198,11 +192,8 @@ function App() {
             <Route path="form-builder" element={<FormBuilder />} />
           </Route>
         </Route>
-
-        {/* <Route path={"/user/dashboard"} element={<Dashboard></Dashboard>}></Route>
-          <Route path={"/admin/dashboard"} element={<Dashboard></Dashboard>}></Route> */}
       </Routes>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
 
