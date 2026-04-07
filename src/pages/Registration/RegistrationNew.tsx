@@ -1,7 +1,7 @@
 import styles from "./Registration.module.css";
 import { phoneNumberRegex } from "../../regex";
 import type { Form, Question, Section, FormResponse, Participant, Questions, RawAddress } from "../../types";
-import { useMemo, useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect } from "react";
 import ShortInput from "./Question Types/ShortInput";
 import MediumInput from "./MediumInput";
 import LongInput from "./Question Types/LongInput";
@@ -27,11 +27,9 @@ import { useLocation, useNavigate } from "react-router-dom";
 function QuestionRenderer({
   question,
   name,
-  optionalForManualEntry = false,
 }: {
   question: Question;
   name: string;
-  optionalForManualEntry?: boolean;
 }) {
   // destructure to simplify access below
   const { type, title, description, options, min, max, required } = question;
@@ -58,21 +56,21 @@ function QuestionRenderer({
       return (
         <label className={styles.label}>
           {labelContent}
-          <ShortInput name={name} required={!optionalForManualEntry && required} />
+          <ShortInput name={name} required={required} />
         </label>
       );
     case "medium_input":
       return (
         <label className={styles.label}>
           {labelContent}
-          <MediumInput name={name} required={!optionalForManualEntry && required} />
+          <MediumInput name={name} required={required} />
         </label>
       );
     case "long_input":
       return (
         <label className={styles.label}>
           {labelContent}
-          <LongInput name={name} required={!optionalForManualEntry && required} id={styles.interests} />
+          <LongInput name={name} required={required} id={styles.interests} />
         </label>
       );
     case "Dropdown":
@@ -82,7 +80,7 @@ function QuestionRenderer({
           <DropdownInput
             name={name}
             options={options ?? []}
-            required={!optionalForManualEntry && required}
+            required={required}
           />
         </label>
       );
@@ -94,7 +92,7 @@ function QuestionRenderer({
             name={name}
             min={min ?? 1}
             max={max ?? 5}
-            required={!optionalForManualEntry && required}
+            required={required}
           />
         </label>
       );
@@ -102,19 +100,19 @@ function QuestionRenderer({
       return (
         <label className={styles.label}>
           {labelContent}
-          <RadioInput name={name} options={options ?? []} required={!optionalForManualEntry && required} />
+          <RadioInput name={name} options={options ?? []} required={required} />
         </label>
       );
     case "Date":
       return (
         <label className={styles.label}>
           {labelContent}
-          <DateInput name={name} required={!optionalForManualEntry && required} />
+          <DateInput name={name} required={required} />
         </label>
       );
     case "phoneNumber":
       // phone input includes its own labels/descriptions internally
-      return <PhoneNumberInput name={name} required={!optionalForManualEntry && required} />;
+      return <PhoneNumberInput name={name} required={required} />;
     case "text":
       // purely informational text block
       return (
@@ -127,7 +125,7 @@ function QuestionRenderer({
           <MultipleInput
             name={name}
             options={options ?? []}
-            required={!optionalForManualEntry && required}
+            required={required}
           />
         </label>
       );
@@ -143,7 +141,7 @@ function QuestionRenderer({
             )}
             
           </div>
-          <AddressInput namePrefix={name} required={!optionalForManualEntry && required} />
+          <AddressInput namePrefix={name} required={required} />
         </>
       );
     case "profilePicture":
@@ -158,7 +156,7 @@ function QuestionRenderer({
       return (
         <label className={styles.label}>
           {labelContent}
-          <ShortInput name={name} required={!optionalForManualEntry && required} />
+          <ShortInput name={name} required={required} />
         </label>
       );
   }
@@ -169,7 +167,7 @@ function QuestionRenderer({
 // QuestionRenderer with a unique name identifier.
 // ---------------------------------------------------------------------------
 
-function FormRenderer({ form, isManualEntry }: { form: Form; isManualEntry: boolean }) {
+function FormRenderer({ form }: { form: Form }) {
   return (
     <>
       {form.sections.map((section: Section, sectionIndex) => (
@@ -178,21 +176,13 @@ function FormRenderer({ form, isManualEntry }: { form: Form; isManualEntry: bool
           className={styles.section}
           style={{ marginTop: sectionIndex > 0 ? "2.5rem" : 0 }}
         >
-          {section.questions.map((question, questionIndex) => {
-            // Manual admin flow uses its own top-level email field for user creation.
-            if (isManualEntry && question.title.toLowerCase().includes("email")) {
-              return null;
-            }
-
-            return (
-              <QuestionRenderer
-                key={questionIndex}
-                question={question}
-                name={`s${sectionIndex}_q${questionIndex}`} // unique field name
-                optionalForManualEntry={false}
-              />
-            );
-          })}
+          {section.questions.map((question, questionIndex) => (
+            <QuestionRenderer
+              key={questionIndex}
+              question={question}
+              name={`s${sectionIndex}_q${questionIndex}`}
+            />
+          ))}
         </div>
       ))}
     </>
@@ -223,23 +213,15 @@ const omitUndefined = <T extends Record<string, unknown>>(value: T): Partial<T> 
   ) as Partial<T>;
 };
 
-type RegistrationNewProps = {
-  manualEntry?: boolean;
-};
-
-const RegistrationNew = ({ manualEntry = false }: RegistrationNewProps) => {
+const RegistrationNew = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, loading: authLoading } = useAuth();
-  const manualState = (location.state as {
-    manualEntry?: boolean;
-    name?: string;
-  } | null) ?? null;
-  const isManualEntry = useMemo(
-    () => manualEntry || Boolean(manualState?.manualEntry),
-    [manualEntry, manualState?.manualEntry],
-  );
-  const manualFullName = (manualState?.name ?? "").trim();
+  /** True only on `/admin/add-participant` (admin-created participant, no Auth account). */
+  const isManualEntry = location.pathname === "/admin/add-participant";
+  const manualFullName = (
+    (location.state as { name?: string } | null)?.name ?? ""
+  ).trim();
   const manualUserIdRef = useRef<string>(doc(collection(db, "users")).id);
 
   // local state for the fetched configuration
@@ -602,7 +584,7 @@ const RegistrationNew = ({ manualEntry = false }: RegistrationNewProps) => {
   // once loaded, render the dynamic form
   return (
     <form id={styles.page} onSubmit={handleSubmit}>
-      <FormRenderer form={form} isManualEntry={isManualEntry} />
+      <FormRenderer form={form} />
       {submitError && (
         <p className={styles.errorText} role="alert">{submitError}</p>
       )}

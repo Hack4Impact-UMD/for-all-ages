@@ -339,9 +339,7 @@ export default function AdminDashboard() {
                   });
                   return;
                 }
-                navigate("/admin/add-participant", {
-                  state: { manualEntry: true, name },
-                });
+                navigate("/admin/add-participant", { state: { name } });
               }}
             >
               Add Participant
