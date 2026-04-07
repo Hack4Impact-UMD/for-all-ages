@@ -231,10 +231,15 @@ const RegistrationNew = ({ manualEntry = false }: RegistrationNewProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, loading: authLoading } = useAuth();
+  const manualState = (location.state as {
+    manualEntry?: boolean;
+    name?: string;
+  } | null) ?? null;
   const isManualEntry = useMemo(
-    () => manualEntry || Boolean((location.state as { manualEntry?: boolean } | null)?.manualEntry),
-    [location.state, manualEntry],
+    () => manualEntry || Boolean(manualState?.manualEntry),
+    [manualEntry, manualState?.manualEntry],
   );
+  const manualFullName = (manualState?.name ?? "").trim();
   const manualUserIdRef = useRef<string>(doc(collection(db, "users")).id);
 
   // local state for the fetched configuration
@@ -242,8 +247,6 @@ const RegistrationNew = ({ manualEntry = false }: RegistrationNewProps) => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [manualNames, setManualNames] = useState({ firstName: "", lastName: "" });
-  const [manualEmail, setManualEmail] = useState("");
 
   // on mount, pull the form schema from Firestore
   useEffect(() => {
@@ -368,15 +371,13 @@ const RegistrationNew = ({ manualEntry = false }: RegistrationNewProps) => {
   ): Partial<Participant> => {
     const basicByKey = getBasicInfoByKey(formData, formConfig);
     const formEmail = basicByKey[BASIC_FIELD_KEYS.email]?.trim().toLowerCase() || "";
-    const manualEmailValue = manualEmail.trim().toLowerCase();
-    const manualDisplayName = `${manualNames.firstName.trim()} ${manualNames.lastName.trim()}`.trim();
     return {
       userUid: participantId,
       displayName:
-        (isManualEntry ? manualDisplayName || undefined : user?.displayName) ||
+        (isManualEntry ? manualFullName || undefined : user?.displayName) ||
         basicByKey[BASIC_FIELD_KEYS.displayName] ||
         undefined,
-      email: (isManualEntry ? manualEmailValue : (user?.email || formEmail)) || undefined,
+      email: (isManualEntry ? undefined : (user?.email || formEmail)) || undefined,
       phoneNumber: basicByKey[BASIC_FIELD_KEYS.phoneNumber] || undefined,
       address: parseAddress(formData, formConfig),
       user_type: basicByKey[BASIC_FIELD_KEYS.userType] || "student",
@@ -487,11 +488,9 @@ const RegistrationNew = ({ manualEntry = false }: RegistrationNewProps) => {
         ? manualUserIdRef.current
         : user!.uid;
       const formData = new FormData(event.currentTarget);
-      const firstName = manualNames.firstName.trim();
-      const lastName = manualNames.lastName.trim();
 
-      if (isManualEntry && (!firstName || !lastName)) {
-        setSubmitError("First name and last name are required.");
+      if (isManualEntry && !manualFullName) {
+        setSubmitError("Participant name is required.");
         return;
       }
 
@@ -544,18 +543,13 @@ const RegistrationNew = ({ manualEntry = false }: RegistrationNewProps) => {
       if (isManualEntry) {
         const usersDocRef = doc(db, "users", participantId);
         const usersDocSnap = await getDoc(usersDocRef);
-        const fullName = `${firstName} ${lastName}`.trim();
-        const manualEmailValue = manualEmail.trim().toLowerCase();
         await setDoc(
           usersDocRef,
           omitUndefined({
             ...basicInfo,
             userUid: participantId,
-            firstName,
-            lastName,
-            email: manualEmailValue || undefined,
-            name: fullName,
-            displayName: fullName,
+            name: manualFullName,
+            displayName: manualFullName,
             role: "participant",
             hasAuthAccount: false,
             isManualEntry: true,
@@ -608,41 +602,6 @@ const RegistrationNew = ({ manualEntry = false }: RegistrationNewProps) => {
   // once loaded, render the dynamic form
   return (
     <form id={styles.page} onSubmit={handleSubmit}>
-      {isManualEntry ? (
-        <div className={styles.section}>
-          <label className={styles.label}>
-            First Name
-            <input
-              type="text"
-              value={manualNames.firstName}
-              onChange={(event) =>
-                setManualNames((prev) => ({ ...prev, firstName: event.target.value }))
-              }
-              required
-            />
-          </label>
-          <label className={styles.label}>
-            Last Name
-            <input
-              type="text"
-              value={manualNames.lastName}
-              onChange={(event) =>
-                setManualNames((prev) => ({ ...prev, lastName: event.target.value }))
-              }
-              required
-            />
-          </label>
-          <label className={styles.label}>
-            Email (Optional)
-            <input
-              type="email"
-              value={manualEmail}
-              onChange={(event) => setManualEmail(event.target.value)}
-              placeholder="name@example.com"
-            />
-          </label>
-        </div>
-      ) : null}
       <FormRenderer form={form} isManualEntry={isManualEntry} />
       {submitError && (
         <p className={styles.errorText} role="alert">{submitError}</p>

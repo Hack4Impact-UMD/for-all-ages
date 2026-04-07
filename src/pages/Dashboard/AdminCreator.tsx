@@ -86,6 +86,7 @@ export default function AdminDashboard() {
   const [banner, setBanner] = useState<BannerState | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [promoteTarget, setPromoteTarget] = useState<AdminRecord | null>(null);
+  const [manualParticipantName, setManualParticipantName] = useState("");
 
   const handleModalClose = useCallback(() => {
     setIsModalOpen(false);
@@ -316,13 +317,36 @@ export default function AdminDashboard() {
           >
             Add New Admin
           </button>
-          <button
-            type="button"
-            className={styles.addButton}
-            onClick={() => navigate("/admin/add-participant", { state: { manualEntry: true } })}
-          >
-            Add Participant
-          </button>
+          <div className={styles.manualParticipantRow}>
+            <input
+              id="manual-participant-name"
+              type="text"
+              aria-label="Participant name"
+              placeholder="Participant name (first and last)"
+              className={`${styles.searchInput} ${styles.manualParticipantInput}`}
+              value={manualParticipantName}
+              onChange={(event) => setManualParticipantName(event.target.value)}
+            />
+            <button
+              type="button"
+              className={styles.addButton}
+              onClick={() => {
+                const name = manualParticipantName.trim();
+                if (!name) {
+                  setBanner({
+                    type: "error",
+                    message: "Enter the participant name before continuing.",
+                  });
+                  return;
+                }
+                navigate("/admin/add-participant", {
+                  state: { manualEntry: true, name },
+                });
+              }}
+            >
+              Add Participant
+            </button>
+          </div>
         </section>
 
         {banner ? (
