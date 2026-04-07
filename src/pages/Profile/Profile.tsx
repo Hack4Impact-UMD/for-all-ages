@@ -10,7 +10,8 @@ import {
   EmailAuthProvider,
   verifyBeforeUpdateEmail,
 } from "firebase/auth";
-import { auth, db } from "../../firebase";
+import { auth, db, functions } from "../../firebase";
+import { httpsCallable } from "firebase/functions";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 import { getMatchesByParticipant, getPartnerId } from "../../services/matches";
@@ -325,6 +326,19 @@ const Profile = () => {
         );
 
         await reauthenticateWithCredential(authUser, credential);
+
+        const checkFn = httpsCallable<{ email: string }, { available: boolean }>(
+          functions,
+          "checkEmailAvailable",
+        );
+        const { data: emailCheck } = await checkFn({ email: user.email });
+        if (!emailCheck.available) {
+          setEmailReauthError(
+            "This email is already associated with an account.",
+          );
+          setShowEmailReauthModal(true);
+          return false;
+        }
 
         // verify email before updating in firebase auth
         await verifyBeforeUpdateEmail(authUser, user.email);

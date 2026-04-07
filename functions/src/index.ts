@@ -152,6 +152,20 @@ export const computeMatchScore = onRequest(async (req, res) => {
   }
 });
 
+export const checkEmailAvailable = onCall(async (request) => {
+  const email = request.data?.email;
+  if (typeof email !== "string" || !email.trim()) {
+    throw new HttpsError("invalid-argument", "Missing email.");
+  }
+  try {
+    await admin.auth().getUserByEmail(email.trim());
+    return { available: false };
+  } catch (err: any) {
+    if (err.code === "auth/user-not-found") return { available: true };
+    throw new HttpsError("internal", "Could not check email availability.");
+  }
+});
+
 export const deleteUser = onCall(async (request) => {
   const callerUserId = request.auth?.uid;
   if (!callerUserId) {
