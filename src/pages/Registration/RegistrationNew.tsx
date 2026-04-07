@@ -178,14 +178,21 @@ function FormRenderer({ form, isManualEntry }: { form: Form; isManualEntry: bool
           className={styles.section}
           style={{ marginTop: sectionIndex > 0 ? "2.5rem" : 0 }}
         >
-          {section.questions.map((question, questionIndex) => (
-            <QuestionRenderer
-              key={questionIndex}
-              question={question}
-              name={`s${sectionIndex}_q${questionIndex}`} // unique field name
-              optionalForManualEntry={isManualEntry && question.title.toLowerCase().includes("email")}
-            />
-          ))}
+          {section.questions.map((question, questionIndex) => {
+            // Manual admin flow uses its own top-level email field for user creation.
+            if (isManualEntry && question.title.toLowerCase().includes("email")) {
+              return null;
+            }
+
+            return (
+              <QuestionRenderer
+                key={questionIndex}
+                question={question}
+                name={`s${sectionIndex}_q${questionIndex}`} // unique field name
+                optionalForManualEntry={false}
+              />
+            );
+          })}
         </div>
       ))}
     </>
@@ -236,6 +243,7 @@ const RegistrationNew = ({ manualEntry = false }: RegistrationNewProps) => {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [manualNames, setManualNames] = useState({ firstName: "", lastName: "" });
+  const [manualEmail, setManualEmail] = useState("");
 
   // on mount, pull the form schema from Firestore
   useEffect(() => {
@@ -360,6 +368,7 @@ const RegistrationNew = ({ manualEntry = false }: RegistrationNewProps) => {
   ): Partial<Participant> => {
     const basicByKey = getBasicInfoByKey(formData, formConfig);
     const formEmail = basicByKey[BASIC_FIELD_KEYS.email]?.trim().toLowerCase() || "";
+    const manualEmailValue = manualEmail.trim().toLowerCase();
     const manualDisplayName = `${manualNames.firstName.trim()} ${manualNames.lastName.trim()}`.trim();
     return {
       userUid: participantId,
@@ -367,7 +376,7 @@ const RegistrationNew = ({ manualEntry = false }: RegistrationNewProps) => {
         (isManualEntry ? manualDisplayName || undefined : user?.displayName) ||
         basicByKey[BASIC_FIELD_KEYS.displayName] ||
         undefined,
-      email: (isManualEntry ? formEmail : (user?.email || formEmail)) || undefined,
+      email: (isManualEntry ? manualEmailValue : (user?.email || formEmail)) || undefined,
       phoneNumber: basicByKey[BASIC_FIELD_KEYS.phoneNumber] || undefined,
       address: parseAddress(formData, formConfig),
       user_type: basicByKey[BASIC_FIELD_KEYS.userType] || "student",
@@ -536,6 +545,7 @@ const RegistrationNew = ({ manualEntry = false }: RegistrationNewProps) => {
         const usersDocRef = doc(db, "users", participantId);
         const usersDocSnap = await getDoc(usersDocRef);
         const fullName = `${firstName} ${lastName}`.trim();
+        const manualEmailValue = manualEmail.trim().toLowerCase();
         await setDoc(
           usersDocRef,
           omitUndefined({
@@ -543,6 +553,7 @@ const RegistrationNew = ({ manualEntry = false }: RegistrationNewProps) => {
             userUid: participantId,
             firstName,
             lastName,
+            email: manualEmailValue || undefined,
             name: fullName,
             displayName: fullName,
             role: "participant",
@@ -619,6 +630,15 @@ const RegistrationNew = ({ manualEntry = false }: RegistrationNewProps) => {
                 setManualNames((prev) => ({ ...prev, lastName: event.target.value }))
               }
               required
+            />
+          </label>
+          <label className={styles.label}>
+            Email (Optional)
+            <input
+              type="email"
+              value={manualEmail}
+              onChange={(event) => setManualEmail(event.target.value)}
+              placeholder="name@example.com"
             />
           </label>
         </div>
