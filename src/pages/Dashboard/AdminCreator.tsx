@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   collection,
   getDocs,
@@ -74,6 +75,7 @@ function composeDisplayName(doc: ParticipantDoc): string {
 
 // Main component for the Admin Dashboard page
 export default function AdminDashboard() {
+  const navigate = useNavigate();
   const [admins, setAdmins] = useState<AdminRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -313,6 +315,13 @@ export default function AdminDashboard() {
             onClick={() => setIsModalOpen(true)}
           >
             Add New Admin
+          </button>
+          <button
+            type="button"
+            className={styles.addButton}
+            onClick={() => navigate("/admin/add-participant", { state: { manualEntry: true } })}
+          >
+            Add Participant
           </button>
         </section>
 

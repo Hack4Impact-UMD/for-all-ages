@@ -192,6 +192,7 @@ function App() {
             <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="recap" element={<RecapPage />} />
             <Route path="creator" element={<AdminCreator />} />
+            <Route path="add-participant" element={<Registration manualEntry />} />
             <Route path="main" element={<PreProgram />} />
             <Route path="rematching" element={<Rematching />} />
             <Route path="form-builder" element={<FormBuilder />} />

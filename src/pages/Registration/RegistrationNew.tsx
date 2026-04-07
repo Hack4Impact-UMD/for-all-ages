@@ -1,7 +1,7 @@
 import styles from "./Registration.module.css";
 import { phoneNumberRegex } from "../../regex";
 import type { Form, Question, Section, FormResponse, Participant, Questions, RawAddress } from "../../types";
-import { useState, useEffect } from "react";
+import { useMemo, useRef, useState, useEffect } from "react";
 import ShortInput from "./Question Types/ShortInput";
 import MediumInput from "./MediumInput";
 import LongInput from "./Question Types/LongInput";
@@ -13,11 +13,10 @@ import PhoneNumberInput from "./PhoneNumberInput";
 import TextDisplay from "./Question Types/TextDisplay";
 import MultipleInput from "./Question Types/MultipleInput";
 import AddressInput from "./Question Types/AddressInput";
-import ProfilePictureEdit from "../Profile/components/ProfilePictureEdit/ProfilePictureEdit";
-import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { collection, doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { db, upsertUser } from "../../firebase";
 import { useAuth } from "../../auth/AuthProvider";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 
 // ---------------------------------------------------------------------------
@@ -28,9 +27,11 @@ import { useNavigate } from "react-router-dom";
 function QuestionRenderer({
   question,
   name,
+  optionalForManualEntry = false,
 }: {
   question: Question;
   name: string;
+  optionalForManualEntry?: boolean;
 }) {
   // destructure to simplify access below
   const { type, title, description, options, min, max, required } = question;
@@ -57,21 +58,21 @@ function QuestionRenderer({
       return (
         <label className={styles.label}>
           {labelContent}
-          <ShortInput name={name} required={required} />
+          <ShortInput name={name} required={!optionalForManualEntry && required} />
         </label>
       );
     case "medium_input":
       return (
         <label className={styles.label}>
           {labelContent}
-          <MediumInput name={name} required={required} />
+          <MediumInput name={name} required={!optionalForManualEntry && required} />
         </label>
       );
     case "long_input":
       return (
         <label className={styles.label}>
           {labelContent}
-          <LongInput name={name} required={required} id={styles.interests} />
+          <LongInput name={name} required={!optionalForManualEntry && required} id={styles.interests} />
         </label>
       );
     case "Dropdown":
@@ -81,7 +82,7 @@ function QuestionRenderer({
           <DropdownInput
             name={name}
             options={options ?? []}
-            required={required}
+            required={!optionalForManualEntry && required}
           />
         </label>
       );
@@ -93,7 +94,7 @@ function QuestionRenderer({
             name={name}
             min={min ?? 1}
             max={max ?? 5}
-            required={required}
+            required={!optionalForManualEntry && required}
           />
         </label>
       );
@@ -101,19 +102,19 @@ function QuestionRenderer({
       return (
         <label className={styles.label}>
           {labelContent}
-          <RadioInput name={name} options={options ?? []} required={required} />
+          <RadioInput name={name} options={options ?? []} required={!optionalForManualEntry && required} />
         </label>
       );
     case "Date":
       return (
         <label className={styles.label}>
           {labelContent}
-          <DateInput name={name} required={required} />
+          <DateInput name={name} required={!optionalForManualEntry && required} />
         </label>
       );
     case "phoneNumber":
       // phone input includes its own labels/descriptions internally
-      return <PhoneNumberInput name={name} required={required} />;
+      return <PhoneNumberInput name={name} required={!optionalForManualEntry && required} />;
     case "text":
       // purely informational text block
       return (
@@ -126,7 +127,7 @@ function QuestionRenderer({
           <MultipleInput
             name={name}
             options={options ?? []}
-            required={required}
+            required={!optionalForManualEntry && required}
           />
         </label>
       );
@@ -142,7 +143,7 @@ function QuestionRenderer({
             )}
             
           </div>
-          <AddressInput namePrefix={name} required={required} />
+          <AddressInput namePrefix={name} required={!optionalForManualEntry && required} />
         </>
       );
     case "profilePicture":
@@ -157,7 +158,7 @@ function QuestionRenderer({
       return (
         <label className={styles.label}>
           {labelContent}
-          <ShortInput name={name} required={required} />
+          <ShortInput name={name} required={!optionalForManualEntry && required} />
         </label>
       );
   }
@@ -168,7 +169,7 @@ function QuestionRenderer({
 // QuestionRenderer with a unique name identifier.
 // ---------------------------------------------------------------------------
 
-function FormRenderer({ form }: { form: Form }) {
+function FormRenderer({ form, isManualEntry }: { form: Form; isManualEntry: boolean }) {
   return (
     <>
       {form.sections.map((section: Section, sectionIndex) => (
@@ -182,6 +183,7 @@ function FormRenderer({ form }: { form: Form }) {
               key={questionIndex}
               question={question}
               name={`s${sectionIndex}_q${questionIndex}`} // unique field name
+              optionalForManualEntry={isManualEntry && question.title.toLowerCase().includes("email")}
             />
           ))}
         </div>
@@ -208,15 +210,32 @@ const BASIC_FIELD_KEYS = {
   userType: "user_type",
 } as const;
 
-const RegistrationNew = () => {
+const omitUndefined = <T extends Record<string, unknown>>(value: T): Partial<T> => {
+  return Object.fromEntries(
+    Object.entries(value).filter(([, entry]) => entry !== undefined),
+  ) as Partial<T>;
+};
+
+type RegistrationNewProps = {
+  manualEntry?: boolean;
+};
+
+const RegistrationNew = ({ manualEntry = false }: RegistrationNewProps) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, loading: authLoading } = useAuth();
+  const isManualEntry = useMemo(
+    () => manualEntry || Boolean((location.state as { manualEntry?: boolean } | null)?.manualEntry),
+    [location.state, manualEntry],
+  );
+  const manualUserIdRef = useRef<string>(doc(collection(db, "users")).id);
 
   // local state for the fetched configuration
   const [form, setForm] = useState<Form | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [manualNames, setManualNames] = useState({ firstName: "", lastName: "" });
 
   // on mount, pull the form schema from Firestore
   useEffect(() => {
@@ -334,20 +353,36 @@ const RegistrationNew = () => {
   };
 
   // Helper: Extract basic info for Participant document
-  const extractBasicInfo = (formData: FormData, formConfig: Form): Partial<Participant> => {
+  const extractBasicInfo = (
+    formData: FormData,
+    formConfig: Form,
+    participantId: string,
+  ): Partial<Participant> => {
     const basicByKey = getBasicInfoByKey(formData, formConfig);
+    const formEmail = basicByKey[BASIC_FIELD_KEYS.email]?.trim().toLowerCase() || "";
+    const manualDisplayName = `${manualNames.firstName.trim()} ${manualNames.lastName.trim()}`.trim();
     return {
-      userUid: user?.uid,
-      displayName: user?.displayName || basicByKey[BASIC_FIELD_KEYS.displayName] || undefined,
-      email: user?.email || basicByKey[BASIC_FIELD_KEYS.email] || undefined,
+      userUid: participantId,
+      displayName:
+        (isManualEntry ? manualDisplayName || undefined : user?.displayName) ||
+        basicByKey[BASIC_FIELD_KEYS.displayName] ||
+        undefined,
+      email: (isManualEntry ? formEmail : (user?.email || formEmail)) || undefined,
       phoneNumber: basicByKey[BASIC_FIELD_KEYS.phoneNumber] || undefined,
       address: parseAddress(formData, formConfig),
-      user_type: basicByKey[BASIC_FIELD_KEYS.userType] || "student"
+      user_type: basicByKey[BASIC_FIELD_KEYS.userType] || "student",
+      role: "participant",
+      hasAuthAccount: !isManualEntry,
+      isManualEntry,
     };
   };
 
   // Helper: Extract form responses for FormResponse document
-  const extractFormResponses = (formData: FormData, formConfig: Form): FormResponse => {
+  const extractFormResponses = (
+    formData: FormData,
+    formConfig: Form,
+    participantId: string,
+  ): FormResponse => {
     const questions: Questions[] = [];
 
     getQuestionEntries(formConfig).forEach(({ question, fieldName }) => {
@@ -376,7 +411,7 @@ const RegistrationNew = () => {
     });
 
     return {
-      uid: user?.uid || "",
+      uid: participantId,
       questions,
     };
   };
@@ -426,7 +461,7 @@ const RegistrationNew = () => {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!user) {
+    if (!isManualEntry && !user) {
       console.error("User not authenticated. Please log in first.");
       return;
     }
@@ -439,7 +474,17 @@ const RegistrationNew = () => {
     setSubmitting(true);
     setSubmitError(null);
     try {
+      const participantId = isManualEntry
+        ? manualUserIdRef.current
+        : user!.uid;
       const formData = new FormData(event.currentTarget);
+      const firstName = manualNames.firstName.trim();
+      const lastName = manualNames.lastName.trim();
+
+      if (isManualEntry && (!firstName || !lastName)) {
+        setSubmitError("First name and last name are required.");
+        return;
+      }
 
       // Validate phone number before proceeding
       const phoneEntry = getQuestionEntries(form).find(
@@ -459,18 +504,18 @@ const RegistrationNew = () => {
       }
 
       // Extract basic info for Participant
-      const basicInfo = extractBasicInfo(formData, form);
+      const basicInfo = extractBasicInfo(formData, form, participantId);
       const basicByKey = getBasicInfoByKey(formData, form);
 
       // Extract form responses for FormResponse collection
-      const formResponses = extractFormResponses(formData, form);
+      const formResponses = extractFormResponses(formData, form, participantId);
 
       // Extract matchable responses for Pinecone
       const { textResponses, numericResponses } = extractMatchableResponses(formData, form);
 
       // Check if documents exist to determine if we need to set createdAt
-      const participantDocRef = doc(db, "participants", user.uid);
-      const formResponseDocRef = doc(db, "FormResponse", user.uid);
+      const participantDocRef = doc(db, "participants", participantId);
+      const formResponseDocRef = doc(db, "FormResponse", participantId);
       
       const [participantSnap, formResponseSnap] = await Promise.all([
         getDoc(participantDocRef),
@@ -478,12 +523,38 @@ const RegistrationNew = () => {
       ]);
 
       // Create Participant document
-      const participantData: Participant = {
+      const participantData = omitUndefined({
         type: "Participant",
         ...basicInfo,
         updatedAt: serverTimestamp() as any,
         ...(!participantSnap.exists() && { createdAt: serverTimestamp() as any })
-      };
+      }) as Participant;
+
+      // Manual admin entries also get a "users" doc with the same id/schema
+      // so legacy/user-centric tooling can resolve the profile document.
+      if (isManualEntry) {
+        const usersDocRef = doc(db, "users", participantId);
+        const usersDocSnap = await getDoc(usersDocRef);
+        const fullName = `${firstName} ${lastName}`.trim();
+        await setDoc(
+          usersDocRef,
+          omitUndefined({
+            ...basicInfo,
+            userUid: participantId,
+            firstName,
+            lastName,
+            name: fullName,
+            displayName: fullName,
+            role: "participant",
+            hasAuthAccount: false,
+            isManualEntry: true,
+            type: "Participant",
+            ...(!usersDocSnap.exists() && { createdAt: serverTimestamp() as any }),
+            updatedAt: serverTimestamp() as any,
+          }),
+          { merge: true },
+        );
+      }
 
       await setDoc(participantDocRef, participantData, { merge: true });
       console.log("Participant created/updated successfully");
@@ -498,9 +569,9 @@ const RegistrationNew = () => {
       console.log("FormResponse created/updated successfully");
 
       // Call upsertUser to update Pinecone with matchable questions
-      if (textResponses.length > 0 || numericResponses.length > 0) {
+      if (!isManualEntry && (textResponses.length > 0 || numericResponses.length > 0)) {
         await upsertUser({
-          uid: user.uid,
+          uid: participantId,
           textResponses,
           numericResponses,
           user_type: basicByKey[BASIC_FIELD_KEYS.userType] || "student",
@@ -510,7 +581,7 @@ const RegistrationNew = () => {
       }
 
       // Navigate to dashboard
-      navigate("/user/dashboard", { replace: true });
+      navigate(isManualEntry ? "/admin/creator" : "/user/dashboard", { replace: true });
     } catch (err) {
       console.error("Form submission error:", err);
       setSubmitError("Something went wrong. Please try again.");
@@ -526,7 +597,33 @@ const RegistrationNew = () => {
   // once loaded, render the dynamic form
   return (
     <form id={styles.page} onSubmit={handleSubmit}>
-      <FormRenderer form={form} />
+      {isManualEntry ? (
+        <div className={styles.section}>
+          <label className={styles.label}>
+            First Name
+            <input
+              type="text"
+              value={manualNames.firstName}
+              onChange={(event) =>
+                setManualNames((prev) => ({ ...prev, firstName: event.target.value }))
+              }
+              required
+            />
+          </label>
+          <label className={styles.label}>
+            Last Name
+            <input
+              type="text"
+              value={manualNames.lastName}
+              onChange={(event) =>
+                setManualNames((prev) => ({ ...prev, lastName: event.target.value }))
+              }
+              required
+            />
+          </label>
+        </div>
+      ) : null}
+      <FormRenderer form={form} isManualEntry={isManualEntry} />
       {submitError && (
         <p className={styles.errorText} role="alert">{submitError}</p>
       )}
