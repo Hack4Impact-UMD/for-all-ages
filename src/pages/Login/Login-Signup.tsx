@@ -7,6 +7,7 @@ import { useAuth } from "../../auth/AuthProvider";
 import {
   friendlyAuthError,
   loginWithEmailPassword,
+  sendResetPasswordEmail,
   signupWithEmailPassword,
   resendVerificationEmail,
 } from "../../services/auth";
@@ -48,6 +49,7 @@ function LoginSignup() {
   const [loginLoading, setLoginLoading] = useState(false);
   const [signupLoading, setSignupLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
+  const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
   const {isAdmin} = useAuth()
 
   //verification panel if a user is signed in but not yet verified
@@ -158,6 +160,27 @@ function LoginSignup() {
     }
   };
 
+  const handleForgotPassword = async () => {
+    const email = loginForm.email.trim();
+    if (!email) {
+      setError("Enter your email address above to reset your password.");
+      setStatusMessage(null);
+      return;
+    }
+
+    setError(null);
+    setStatusMessage(null);
+    setForgotPasswordLoading(true);
+    try {
+      await sendResetPasswordEmail(email);
+      setStatusMessage("Password reset email sent. Please check your inbox.");
+    } catch (err) {
+      setError(friendlyAuthError(err));
+    } finally {
+      setForgotPasswordLoading(false);
+    }
+  };
+
   // Handles checking if the user has verified their email
   const handleCheckVerification = async () => {
     setError(null);
@@ -250,6 +273,15 @@ function LoginSignup() {
                     required
                   />
                 </div>
+
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  className={styles.forgotPasswordButton}
+                  disabled={forgotPasswordLoading || loginLoading}
+                >
+                  {forgotPasswordLoading ? "Sending reset email..." : "Forgot password?"}
+                </button>
 
                 <button
                   type="submit"
