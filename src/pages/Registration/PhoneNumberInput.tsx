@@ -21,7 +21,7 @@ export default function PhoneNumberInput({
   return (
     <div className={styles.fieldRow}>
       <div className={styles.fieldGroup}>
-        <span className={styles.fieldLabel}>Phone Number</span>
+        <span className={styles.fieldLabel}>Phone Number{required && <span className={styles.requiredStar}> *</span>}</span>
         <input
           className={styles.fieldInput}
           type="tel"
@@ -42,7 +42,7 @@ export default function PhoneNumberInput({
       </div>
 
       <div className={styles.fieldGroup}>
-        <span className={styles.fieldLabel}>Confirm Phone Number</span>
+        <span className={styles.fieldLabel}>Confirm Phone Number{required && <span className={styles.requiredStar}> *</span>}</span>
         <input
           className={styles.fieldInput}
           type="tel"

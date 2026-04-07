@@ -1,7 +1,7 @@
 import styles from "./Registration.module.css";
 import { phoneNumberRegex } from "../../regex";
 import type { Form, Question, Section, FormResponse, Participant, Questions, RawAddress } from "../../types";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import ShortInput from "./Question Types/ShortInput";
 import MediumInput from "./MediumInput";
 import LongInput from "./Question Types/LongInput";
@@ -32,7 +32,7 @@ function QuestionRenderer({
   name: string;
 }) {
   const { type, title, description, options, min, max, required } = question;
-  const requiredMark = "";
+  const requiredMark = required ? <span className={styles.requiredStar}> *</span> : null;
 
   const labelContent = (
     <>
@@ -176,6 +176,7 @@ function FormRenderer({
       {form.sections.map((section: Section, sectionIndex) => (
         <div
           key={sectionIndex}
+          data-step={sectionIndex}
           className={styles.card}
           style={{ display: sectionIndex === currentStep ? "block" : "none" }}
         >
@@ -218,6 +219,7 @@ const RegistrationNew = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
 
+  const formRef = useRef<HTMLFormElement>(null);
   const [form, setForm] = useState<Form | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -514,6 +516,18 @@ const RegistrationNew = () => {
   const isLastStep = currentStep === totalSteps - 1;
 
   const goNext = () => {
+    const formEl = formRef.current;
+    if (formEl) {
+      const currentFields = formEl.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(
+        `[data-step="${currentStep}"] [name]`
+      );
+      for (const field of currentFields) {
+        if (!field.checkValidity()) {
+          field.reportValidity();
+          return;
+        }
+      }
+    }
     setCurrentStep((s) => Math.min(s + 1, totalSteps - 1));
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -536,7 +550,7 @@ const RegistrationNew = () => {
   };
 
   return (
-    <form id={styles.page} onSubmit={handleSubmit}>
+    <form ref={formRef} id={styles.page} onSubmit={handleSubmit}>
       {/* Header */}
       <div className={styles.header}>
         <div className={styles.headerTitle}>Registration Form</div>
