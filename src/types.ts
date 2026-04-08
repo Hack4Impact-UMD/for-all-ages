@@ -212,6 +212,8 @@ export interface UI_Match {
 
 /** Registration form state */
 export interface RegistrationFormState {
+    firstName: string
+    lastName: string
     addressLine1: string
     addressLine2: string
     city: string
@@ -221,15 +223,22 @@ export interface RegistrationFormState {
     phone: string
     confirmPhone: string
     email: string
+    confirmEmail: string
     dateOfBirth: string
     pronouns: string
     heardAbout: string
     university: string
     user_type: string
+    language: string
     interests: string
     teaPreference: string
     preferredContactMethods: string[]
     preferenceScores: { q1: number; q2: number; q3: number }
+    isReturningParticipant: boolean
+    healthChallenge: string
+    healthChallengeAreas: string[]
+    healthOther: string
+    agreementName: string
 }
 
 /** Profile page display / form state */
