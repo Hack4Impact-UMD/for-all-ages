@@ -28,10 +28,7 @@
   background: var(--gray-100);
   width: 100%;
   font-family:
-    "Segoe UI",
-    system-ui,
-    -apple-system,
-    sans-serif;
+    "Merriweather", serif;
   color: var(--gray-900);
 }
 
@@ -587,6 +584,7 @@
   background: transparent;
   transition: border-color 0.15s;
   border-radius: 0px;
+  font-family: inherit;
 }
 .inlineTitleInput:focus {
   border-bottom-color: var(--blue);
@@ -606,6 +604,7 @@
   width: 260px;
   background: var(--gray-50);
   transition: border-color 0.15s;
+  font-family: inherit;
 }
 .inlineTypeInput:focus {
   border-color: var(--blue);
@@ -637,6 +636,7 @@
   background: var(--gray-50);
   color: var(--gray-700);
   transition: border-color 0.15s;
+  font-family: inherit;
 }
 .inlineOptionInput:focus {
   border-color: var(--blue);
@@ -691,9 +691,13 @@
   border-radius: var(--radius-sm);
   font-size: 13px;
   outline: none;
+  background: var(--gray-50);
+  color: var(--gray-700); 
+  font-family: inherit;
 }
 .inlineRangeInput:focus {
   border-color: var(--blue);
+  background: white;
 }
 
 /* Toggles */
@@ -820,10 +824,21 @@
 
 
 .questionSelect {
-  background-color: rgb(231, 231, 231);
   font-size: 15px;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  outline: none;
+  padding: 6px 10px;
+  color: var(--gray-600);
   width: fit-content;
-  height: fit-content;
+  background: var(--gray-50);
+  transition: border-color 0.15s;
+  cursor: pointer;
+  font-family: inherit;
+}
+.questionSelect:focus {
+  border-color: var(--blue);
+  background: white;
 }
 
 .qPreview input,
