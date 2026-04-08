@@ -210,7 +210,7 @@ export default function AdminDashboard() {
 
   // Fetch form responses when selectedUser changes
   useEffect(() => {
-    if (!selectedUser?.userUid) {
+    if (!selectedUser?.id) {
       setFormResponses(null);
       setFormLoading(false);
       setFormError(null);
@@ -220,7 +220,7 @@ export default function AdminDashboard() {
     setFormLoading(true);
     setFormError(null);
 
-    const q = query(collection(db, "FormResponse"), where("uid", "==", selectedUser.userUid));
+    const q = query(collection(db, "FormResponse"), where("uid", "==", selectedUser.id));
     getDocs(q)
       .then((snapshot) => {
         if (snapshot.empty) {
