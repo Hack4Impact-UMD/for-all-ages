@@ -8,10 +8,12 @@ export default function TextDisplay({
   description?: string;
 }) {
   return (
-    <div className={styles.infoBox}>
-      <span className={styles.infoBoxTitle}>{title}</span>
+    <div className={styles.label}>
+      <span className={styles.label}>{title}</span>
       {description && (
-        <p style={{ margin: "0.5rem 0 0" }}>{description}</p>
+        <span className={styles.helpText} style={{ marginTop: "0.25rem" }}>
+          {description}
+        </span>
       )}
     </div>
   );

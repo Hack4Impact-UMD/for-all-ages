@@ -1,4 +1,3 @@
-import { useState } from "react";
 import styles from "../Registration.module.css";
 
 export default function SliderInput({
@@ -6,33 +5,34 @@ export default function SliderInput({
   min,
   max,
   required,
+  className,
 }: {
   name: string;
   min: number;
   max: number;
   required: boolean;
+  className?: string;
 }) {
-  const lo = min ?? 1;
-  const hi = max ?? 5;
-  const [value, setValue] = useState<number | null>(null);
+  const lo = min ?? 0;
+  const hi = max ?? 100;
 
   return (
-    <>
-      <input type="hidden" name={name} value={value ?? ""} required={required} />
-      <div className={styles.ratingRow}>
-        <span className={styles.ratingEndLabel}>Strongly Dislike</span>
-        {Array.from({ length: hi - lo + 1 }, (_, i) => lo + i).map((n) => (
-          <button
-            key={n}
-            type="button"
-            className={`${styles.ratingButton}${value === n ? ` ${styles.ratingButtonActive}` : ""}`}
-            onClick={() => setValue(n)}
-          >
-            {n}
-          </button>
+    <div className={styles.sliderContainer}>
+      <input
+        type="range"
+        name={name}
+        min={lo}
+        max={hi}
+        step="1"
+        defaultValue={lo}
+        required={required}
+        className={`${styles.slider} ${className ?? ""}`}
+      />
+      <div className={styles.sliderLabels}>
+        {Array.from({ length: hi - lo + 1 }, (_, i) => (
+          <span key={i}>{lo + i}</span>
         ))}
-        <span className={styles.ratingEndLabel}>Strongly Like</span>
       </div>
-    </>
+    </div>
   );
 }

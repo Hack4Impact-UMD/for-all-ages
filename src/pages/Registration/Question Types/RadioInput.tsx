@@ -12,7 +12,7 @@ export default function RadioInput({
   return (
     <div className={styles.radioGroup}>
       {options.map((opt) => (
-        <label key={opt} className={styles.radioLabel}>
+        <label key={opt}>
           <input type="radio" name={name} value={opt} required={required} />
           {opt}
         </label>

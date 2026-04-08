@@ -17,8 +17,7 @@ export default function DateInput({
       name={name}
       max={today}
       required={required}
-      className={className ?? styles.fieldInput}
-      style={{ maxWidth: 250 }}
+      className={`${styles.dob} ${className ?? ""}`}
     />
   );
 }
