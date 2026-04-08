@@ -3,11 +3,11 @@ import styles from "./PreProgram.module.css";
 import { useNavigate } from "react-router-dom";
 import SearchIcon from "@mui/icons-material/Search";
 import FilterListIcon from "@mui/icons-material/FilterList";
-import SettingsIcon from '@mui/icons-material/Settings';
+import SettingsIcon from "@mui/icons-material/Settings";
 import AutorenewIcon from "@mui/icons-material/Autorenew";
 import SendIcon from "@mui/icons-material/Send";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
-import { db, getUser, matchAll } from "../../firebase";
+import { auth, db, getUser, matchAll } from "../../firebase";
 import {
   collection,
   deleteDoc,
@@ -31,12 +31,7 @@ const APPROVAL_THRESHOLD = 0.8; // 80%
 const DEV_MODE = true; // ← flip to false before deploying to production
 
 // Collections to wipe on End Program
-const COLLECTIONS_TO_CLEAR = [
-  "participants",
-  "matches",
-  "logs",
-  "weeks",
-];
+const COLLECTIONS_TO_CLEAR = ["participants", "matches", "logs", "weeks"];
 
 const PreProgram = () => {
   const [matches, setMatches] = useState<UI_Match[]>([]);
@@ -49,14 +44,16 @@ const PreProgram = () => {
   );
   const [startingProgram, setStartingProgram] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
-  const [confirmAction, setConfirmAction] = useState<"start" | "finalize" | "endProgram" | null>(null);
+  const [confirmAction, setConfirmAction] = useState<
+    "start" | "finalize" | "endProgram" | null
+  >(null);
 
   // End Program state
   const [endConfirmText, setEndConfirmText] = useState("");
   const [endingProgram, setEndingProgram] = useState(false);
   const [endProgramError, setEndProgramError] = useState<string | null>(null);
 
-  const [settingsPopup, setSettingsPopup] = useState(false)
+  const [settingsPopup, setSettingsPopup] = useState(false);
 
   const [statusFilterOpen, setStatusFilterOpen] = useState(false);
   const [selectedStatuses, setSelectedStatuses] = useState<MatchStatus[]>([]);
@@ -120,6 +117,7 @@ const PreProgram = () => {
           confidence: pct,
           status,
           score: m.scores.finalScore,
+          approvedBy: status === "Approved" ? "Auto-Approved" : "",
         };
       }),
     );
@@ -193,6 +191,8 @@ const PreProgram = () => {
                   : "No Match";
           }
 
+          const approvedBy = (data.approvedBy as string | undefined) ?? "";
+
           return {
             name1: u1.displayName,
             name2: u2.displayName,
@@ -202,6 +202,7 @@ const PreProgram = () => {
             status,
             score: similarity / 100,
             matchId: d.id,
+            approvedBy,
           };
         }),
       );
@@ -218,9 +219,9 @@ const PreProgram = () => {
     participantsSnap.forEach((pDoc) => {
       const data = pDoc.data() as any;
       const id = pDoc.id;
-      console.log("CHECKING: " + id)
+      console.log("CHECKING: " + id);
       if (matchedIds.has(id)) return;
-      console.log(id + " NOT FOUND IN MATCHIDS")
+      console.log(id + " NOT FOUND IN MATCHIDS");
       const displayName =
         data.displayName ?? data.name ?? data.fullName ?? "Unnamed participant";
       const userType = (data.user_type ?? data.userType) as
@@ -228,7 +229,7 @@ const PreProgram = () => {
         | "Adult"
         | "Senior"
         | undefined;
-      console.log(userType)
+      console.log(userType);
       if (userType === "Student") {
         unmatchedRows.push({
           name1: displayName,
@@ -288,6 +289,7 @@ const PreProgram = () => {
         participant2_id: m.participant2_id,
         similarity: m.confidence,
         status: m.status === "Approved" ? "approved" : "pending",
+        approvedBy: m.approvedBy ?? "",
       });
 
       withIds.push({ ...m, matchId: newDocRef.id });
@@ -362,12 +364,7 @@ const PreProgram = () => {
    */
   const handleExportData = async () => {
     try {
-      const exportCollections = [
-        "participants",
-        "matches",
-        "logs",
-        "weeks",
-      ];
+      const exportCollections = ["participants", "matches", "logs", "weeks"];
 
       for (const colName of exportCollections) {
         const snap = await getDocs(collection(db, colName));
@@ -377,12 +374,13 @@ const PreProgram = () => {
 
         // Collect all keys
         const allKeys = Array.from(
-          new Set(rows.flatMap((r) => Object.keys(r)))
+          new Set(rows.flatMap((r) => Object.keys(r))),
         );
 
         const escapeCell = (val: unknown): string => {
           if (val === null || val === undefined) return "";
-          const str = typeof val === "object" ? JSON.stringify(val) : String(val);
+          const str =
+            typeof val === "object" ? JSON.stringify(val) : String(val);
           // Wrap in quotes if contains comma, quote, or newline
           if (str.includes(",") || str.includes('"') || str.includes("\n")) {
             return `"${str.replace(/"/g, '""')}"`;
@@ -393,7 +391,7 @@ const PreProgram = () => {
         const csvLines = [
           allKeys.join(","),
           ...rows.map((r) =>
-            allKeys.map((k) => escapeCell((r as any)[k])).join(",")
+            allKeys.map((k) => escapeCell((r as any)[k])).join(","),
           ),
         ];
 
@@ -423,7 +421,10 @@ const PreProgram = () => {
 
       if (DEV_MODE) {
         // Simulate the operation without touching Firestore
-        console.log("[DEV_MODE] End Program triggered. Would have cleared:", COLLECTIONS_TO_CLEAR);
+        console.log(
+          "[DEV_MODE] End Program triggered. Would have cleared:",
+          COLLECTIONS_TO_CLEAR,
+        );
         console.log("[DEV_MODE] Would have reset config/programState to:", {
           matches_final: false,
           started: false,
@@ -478,9 +479,20 @@ const PreProgram = () => {
 
     if (match.status === "No Match") return;
 
-    // Handles the deletion of the match and update Firebase statuses
-    if (newStatus === "Separate") {
-      if (match.matchId) {
+    try {
+      let adminName = "Unknown Admin";
+
+      if (newStatus === "Approved") {
+        const currentUid = auth.currentUser?.uid;
+        if (currentUid) {
+          const adminUser = await getUser(currentUid);
+          adminName = adminUser.displayName ?? "Unknown Admin";
+        }
+      }
+
+      if (newStatus === "Separate") {
+        if (!match.matchId) return;
+
         const newUnmatchedStudent: UI_Match = {
           name1: match.name1,
           name2: "No match yet",
@@ -489,6 +501,7 @@ const PreProgram = () => {
           confidence: undefined,
           status: "No Match",
           score: 0,
+          approvedBy: "",
         };
 
         const newUnmatchedSenior: UI_Match = {
@@ -499,6 +512,7 @@ const PreProgram = () => {
           confidence: undefined,
           status: "No Match",
           score: 0,
+          approvedBy: "",
         };
 
         const newUpdated = updated.filter((m) => m.matchId !== match.matchId);
@@ -507,19 +521,27 @@ const PreProgram = () => {
 
         const deleteMatchRef = doc(db, "matches", match.matchId);
         await deleteDoc(deleteMatchRef);
+        return;
       }
 
-      return;
+      match.status = newStatus;
+      match.approvedBy = newStatus === "Approved" ? adminName : "";
+
+      setMatches(sortMatches(updated));
+
+      if (!match.matchId) return;
+
+      const matchRef = doc(db, "matches", match.matchId);
+      const firestoreStatus = newStatus === "Approved" ? "approved" : "pending";
+
+      await updateDoc(matchRef, {
+        status: firestoreStatus,
+        approvedBy: newStatus === "Approved" ? adminName : "",
+      });
+    } catch (err) {
+      console.error("Failed to update match status:", err);
+      await loadMatches();
     }
-
-    match.status = newStatus;
-    setMatches(sortMatches(updated));
-
-    if (!match.matchId) return;
-
-    const matchRef = doc(db, "matches", match.matchId);
-    const firestoreStatus = newStatus === "Approved" ? "approved" : "pending";
-    await updateDoc(matchRef, { status: firestoreStatus });
   };
 
   const filteredMatches = matches.filter((m) => {
@@ -619,10 +641,7 @@ const PreProgram = () => {
           >
             Manual Rematch
           </button>
-          <button
-            className={styles.exportBtn}
-            onClick={handleExportData}
-          >
+          <button className={styles.exportBtn} onClick={handleExportData}>
             Export Data
           </button>
           <button
@@ -645,7 +664,6 @@ const PreProgram = () => {
       {confirmAction && (
         <div className={styles.confirmOverlay}>
           <div className={styles.confirmCard}>
-
             {/* ── Start / Finalize dialogs (unchanged) ── */}
             {(confirmAction === "start" || confirmAction === "finalize") && (
               <>
@@ -694,7 +712,10 @@ const PreProgram = () => {
                 <p className={styles.confirmText}>
                   We recommend exporting your data first.
                 </p>
-                <div className={styles.confirmActions} style={{ marginBottom: 14 }}>
+                <div
+                  className={styles.confirmActions}
+                  style={{ marginBottom: 14 }}
+                >
                   <button
                     className={styles.exportBtn}
                     onClick={handleExportData}
@@ -717,7 +738,10 @@ const PreProgram = () => {
                 {endProgramError && (
                   <div className={styles.stateError}>{endProgramError}</div>
                 )}
-                <div className={styles.confirmActions} style={{ marginTop: 16 }}>
+                <div
+                  className={styles.confirmActions}
+                  style={{ marginTop: 16 }}
+                >
                   <button
                     className={styles.cancelButton}
                     onClick={() => {
@@ -742,7 +766,6 @@ const PreProgram = () => {
                 </div>
               </>
             )}
-
           </div>
         </div>
       )}
@@ -771,7 +794,7 @@ const PreProgram = () => {
                         setSelectedStatuses((prev) =>
                           prev.includes(status)
                             ? prev.filter((s) => s !== status)
-                            : [...prev, status]
+                            : [...prev, status],
                         )
                       }
                     />
@@ -790,7 +813,6 @@ const PreProgram = () => {
           )}
         </div>
 
-        
         <table className={styles.table}>
           <thead>
             <tr>
@@ -798,12 +820,13 @@ const PreProgram = () => {
               <th>Senior</th>
               <th>Final Score %</th>
               <th>Status</th>
+              <th>Approved By</th>
             </tr>
           </thead>
           <tbody>
             {filteredMatches.length === 0 ? (
               <tr>
-                <td colSpan={4} className={styles.empty}>
+                <td colSpan={5} className={styles.empty}>
                   No matches yet.
                 </td>
               </tr>
@@ -837,13 +860,21 @@ const PreProgram = () => {
                       </select>
                     )}
                   </td>
+                  <td>{m.approvedBy || "—"}</td>
                 </tr>
               ))
             )}
           </tbody>
         </table>
       </div>
-      <SettingsPopup isOpened={settingsPopup} close={()=>{setSettingsPopup(false)}} program={programState} setProgram = {setProgramState}></SettingsPopup>
+      <SettingsPopup
+        isOpened={settingsPopup}
+        close={() => {
+          setSettingsPopup(false);
+        }}
+        program={programState}
+        setProgram={setProgramState}
+      ></SettingsPopup>
     </div>
   );
 };
