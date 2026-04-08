@@ -553,3 +553,11 @@
   background-color: rgb(230, 230, 230);
   margin-top: 10px;
 }
+
+.nameButton {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+}
