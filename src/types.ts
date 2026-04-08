@@ -292,12 +292,15 @@ export interface Question {
   max?: number;
   required: boolean;
   matchable: boolean;
+  locked?: boolean;
+  lockedKey?: "pronouns" | "school" | "phone number" | "current address";
 }
 
 /** Section containing questions in a dynamic form */
 export interface Section {
   title?: string;
   questions: Question[];
+  locked?: boolean;
 }
 
 /** Root form definition for dynamic form rendering */
