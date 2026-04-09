@@ -146,6 +146,7 @@ export interface ProgramState {
     matches_final: boolean
     week: number
     maxParticipants: number
+    currentParticipants: number
     numWeeks: number
 }
 

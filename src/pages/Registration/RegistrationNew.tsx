@@ -13,7 +13,7 @@ import PhoneNumberInput from "./PhoneNumberInput";
 import TextDisplay from "./Question Types/TextDisplay";
 import MultipleInput from "./Question Types/MultipleInput";
 import AddressInput from "./Question Types/AddressInput";
-import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, serverTimestamp, runTransaction, increment } from "firebase/firestore";
 import { db, upsertUser } from "../../firebase";
 import { useAuth } from "../../auth/AuthProvider";
 import { useNavigate } from "react-router-dom";
@@ -488,17 +488,42 @@ const RegistrationNew = () => {
       };
       await setDoc(formResponseDocRef, formResponseData, { merge: true });
 
-      if (textResponses.length > 0 || numericResponses.length > 0) {
-        await upsertUser({
-          uid: user.uid,
-          textResponses,
-          numericResponses,
-          user_type: basicByKey[BASIC_FIELD_KEYS.userType] || "student",
-          pronouns: getPronouns(formData, form)
+      // Check waitlist: atomically read currentParticipants and decide.
+      // Skip the capacity check if the participant already existed (re-submission / profile update).
+      const programStateRef = doc(db, "config", "programState");
+      let shouldWaitlist = false;
+
+      if (!participantSnap.exists()) {
+        shouldWaitlist = await runTransaction(db, async (transaction) => {
+          const programSnap = await transaction.get(programStateRef);
+          const programData = programSnap.data();
+          const current = programData?.currentParticipants ?? 0;
+          const max = programData?.maxParticipants ?? Infinity;
+
+          if (current >= max) {
+            return true;
+          }
+          transaction.set(programStateRef, { currentParticipants: increment(1) }, { merge: true });
+          return false;
         });
       }
 
-      navigate("/user/dashboard", { replace: true });
+      if (shouldWaitlist) {
+        const waitlistRef = doc(db, "waitlist", user.uid);
+        await setDoc(waitlistRef, { uid: user.uid, createdAt: serverTimestamp() });
+        navigate("/waiting", { replace: true });
+      } else {
+        if (textResponses.length > 0 || numericResponses.length > 0) {
+          await upsertUser({
+            uid: user.uid,
+            textResponses,
+            numericResponses,
+            user_type: basicByKey[BASIC_FIELD_KEYS.userType] || "student",
+            pronouns: getPronouns(formData, form)
+          });
+        }
+        navigate("/user/dashboard", { replace: true });
+      }
     } catch (err) {
       console.error("Form submission error:", err);
       setSubmitError("Something went wrong. Please try again.");

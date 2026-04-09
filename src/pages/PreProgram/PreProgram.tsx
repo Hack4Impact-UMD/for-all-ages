@@ -36,6 +36,7 @@ const COLLECTIONS_TO_CLEAR = [
   "matches",
   "logs",
   "weeks",
+  "waitlist",
 ];
 
 const PreProgram = () => {
@@ -213,14 +214,17 @@ const PreProgram = () => {
     const participantsRef = collection(db, "participants");
     const participantsSnap = await getDocs(participantsRef);
 
+    // Fetch waitlisted IDs to exclude from unmatched rows
+    const waitlistSnap = await getDocs(collection(db, "waitlist"));
+    const waitlistedIds = new Set(waitlistSnap.docs.map((d) => d.id));
+
     const unmatchedRows: UI_Match[] = [];
 
     participantsSnap.forEach((pDoc) => {
       const data = pDoc.data() as any;
       const id = pDoc.id;
-      console.log("CHECKING: " + id)
       if (matchedIds.has(id)) return;
-      console.log(id + " NOT FOUND IN MATCHIDS")
+      if (waitlistedIds.has(id)) return;
       const displayName =
         data.displayName ?? data.name ?? data.fullName ?? "Unnamed participant";
       const userType = (data.user_type ?? data.userType) as
@@ -228,7 +232,6 @@ const PreProgram = () => {
         | "Adult"
         | "Senior"
         | undefined;
-      console.log(userType)
       if (userType === "Student") {
         unmatchedRows.push({
           name1: displayName,
@@ -452,7 +455,8 @@ const PreProgram = () => {
         started: false,
         updatedAt: serverTimestamp(),
         week: 0,
-      });
+        currentParticipants: 0,
+      }, { merge: true });
 
       // Clear local state
       setMatches([]);

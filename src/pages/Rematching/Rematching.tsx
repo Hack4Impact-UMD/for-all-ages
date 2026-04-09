@@ -172,12 +172,20 @@ export default function Rematching() {
 
       const participantsRef = collection(db, "participants");
       const participantsSnap = await getDocs(participantsRef);
+
+      // Fetch waitlisted IDs to exclude from matching
+      const waitlistSnap = await getDocs(collection(db, "waitlist"));
+      const waitlistedIds = new Set(waitlistSnap.docs.map((d) => d.id));
+
       const studentsList: RematchingParticipant[] = [];
       const adultsList: RematchingParticipant[] = [];
 
       participantsSnap.forEach((pDoc) => {
         const data = pDoc.data() as any;
         const id = pDoc.id;
+
+        if (waitlistedIds.has(id)) return;
+
         const rawRole = (data.user_type ?? data.userType ?? data.role ?? "") as string;
         const userType = normalizeRole(rawRole);
         const userUid = (data.userUid ?? id) as string;

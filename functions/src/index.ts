@@ -207,9 +207,48 @@ export const deleteUser = onCall(async (request) => {
     }
   }
 
+  // Check if user is on waitlist before deleting
+  let isOnWaitlist = false;
+  let waitlistLookupFailed = false;
+  try {
+    const waitlistDocRef = db.collection("waitlist").doc(trimmedTargetId);
+    const waitlistSnap = await waitlistDocRef.get();
+    isOnWaitlist = waitlistSnap.exists;
+    if (isOnWaitlist) {
+      await waitlistDocRef.delete();
+    }
+  } catch (err) {
+    console.error("Error deleteUser (waitlist):", err);
+    errors.push(`Waitlist: ${err}`);
+    waitlistLookupFailed = true;
+  }
+
   try {
     const targetDocRef = db.collection(PARTICIPANTS).doc(trimmedTargetId);
+    const targetSnap = await targetDocRef.get();
+    const targetData = targetSnap.data();
+    const targetRole = (
+      targetData && typeof targetData.role === "string" ? targetData.role : ""
+    ).toLowerCase();
+    const isParticipant = !targetRole || targetRole === "participant" || targetRole === "";
+
     await targetDocRef.delete();
+
+    // Decrement currentParticipants if they were a counted participant (not waitlisted, not admin).
+    // Skip decrement if waitlist lookup failed to avoid corrupting the count.
+    // Use a transaction to guard against going below 0.
+    if (!waitlistLookupFailed && !isOnWaitlist && isParticipant && targetSnap.exists) {
+      const configRef = db.doc("config/programState");
+      await db.runTransaction(async (txn) => {
+        const configSnap = await txn.get(configRef);
+        const current = (configSnap.data()?.currentParticipants ?? 0) as number;
+        if (current > 0) {
+          txn.update(configRef, {
+            currentParticipants: admin.firestore.FieldValue.increment(-1),
+          });
+        }
+      });
+    }
   } catch (err) {
     console.error("Error deleteUser (firestore):", err);
     errors.push(`Firestore: ${err}`);

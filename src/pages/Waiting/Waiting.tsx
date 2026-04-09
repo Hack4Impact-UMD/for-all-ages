@@ -51,6 +51,8 @@ export default function Waiting() {
     participantLoading,
     programState,
     programStateLoading,
+    isWaitlisted,
+    waitlistLoading,
   } = useAuth();
 
   const navigate = useNavigate();
@@ -80,19 +82,20 @@ export default function Waiting() {
     window.location.href = mailto;
   };
 
-  const isLoading = loading || participantLoading || programStateLoading;
+  const isLoading = loading || participantLoading || programStateLoading || waitlistLoading;
 
   useEffect(() => {
     if (!programState || isLoading) return;
+    if (isWaitlisted) return;
 
     if (programState.matches_final && programState.started) {
       navigate("/user/dashboard", { replace: true });
     }
-  }, [programState, isLoading, navigate]);
+  }, [programState, isLoading, isWaitlisted, navigate]);
 
   useEffect(() => {
     async function loadMatchData() {
-      if (!user?.uid || isLoading || !programState?.matches_final) return;
+      if (!user?.uid || isLoading || !programState?.matches_final || isWaitlisted) return;
 
       try {
         setMatchLoading(true);
@@ -138,7 +141,7 @@ export default function Waiting() {
     }
 
     loadMatchData();
-  }, [user, isLoading, programState?.matches_final]);
+  }, [user, isLoading, programState?.matches_final, isWaitlisted]);
 
   const [updatingDay, setUpdatingDay] = useState(false);
 
@@ -164,7 +167,11 @@ export default function Waiting() {
   let statusTitle = "";
   let statusBody = "";
 
-  if (programState) {
+  if (isWaitlisted) {
+    statusTitle = "You’re on the waitlist";
+    statusBody =
+      "Thank you for filling out the registration form! The program is currently at capacity. You’ve been placed on the waitlist and will be notified when a spot opens up.";
+  } else if (programState) {
     const { matches_final, started } = programState;
 
     if (!matches_final && !started) {
@@ -200,7 +207,7 @@ export default function Waiting() {
               <h1 className={styles.welcomeLink}>Welcome, {greetingName}!</h1>
             </div>
 
-            {programState?.matches_final && !programState?.started && (
+            {!isWaitlisted && programState?.matches_final && !programState?.started && (
               <>
                 {matchLoading ? (
                   <div className={styles.loadingMessage}>
