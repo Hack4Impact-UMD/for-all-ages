@@ -25,31 +25,28 @@ export default function AddressInput({
   );
 
   return (
-    <div id={styles.addr_container}>
-      <div id={styles.addr_street}>
-        {streetFields.map((f) => (
-          <label key={f.key} className={styles.sublabel}>
+    <div>
+      {streetFields.map((f) => (
+        <div key={f.key} className={styles.fieldGroup}>
+          <span className={styles.fieldLabel}>{f.label}</span>
+          <input
+            className={styles.fieldInput}
+            type="text"
+            name={`${namePrefix}.${f.key}`}
+            required={f.key === "line1" ? required : false}
+          />
+        </div>
+      ))}
+      <div className={styles.addressSubRow}>
+        {detailFields.map((f) => (
+          <div key={f.key} className={styles.fieldGroup}>
+            <span className={styles.fieldLabel}>{f.label}</span>
             <input
+              className={styles.fieldInput}
               type="text"
               name={`${namePrefix}.${f.key}`}
-              required={f.key === "line1" ? required : false}
+              required={required}
             />
-            {f.label}
-          </label>
-        ))}
-      </div>
-
-      <div id={styles.addr_details}>
-        {detailFields.map((f) => (
-          <div key={f.key}>
-            <label className={styles.sublabel}>
-              <input
-                type="text"
-                name={`${namePrefix}.${f.key}`}
-                required={required}
-              />
-              {f.label}
-            </label>
           </div>
         ))}
       </div>
