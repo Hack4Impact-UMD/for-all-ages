@@ -209,6 +209,7 @@ export const deleteUser = onCall(async (request) => {
 
   // Check if user is on waitlist before deleting
   let isOnWaitlist = false;
+  let waitlistLookupFailed = false;
   try {
     const waitlistDocRef = db.collection("waitlist").doc(trimmedTargetId);
     const waitlistSnap = await waitlistDocRef.get();
@@ -219,6 +220,7 @@ export const deleteUser = onCall(async (request) => {
   } catch (err) {
     console.error("Error deleteUser (waitlist):", err);
     errors.push(`Waitlist: ${err}`);
+    waitlistLookupFailed = true;
   }
 
   try {
@@ -233,8 +235,9 @@ export const deleteUser = onCall(async (request) => {
     await targetDocRef.delete();
 
     // Decrement currentParticipants if they were a counted participant (not waitlisted, not admin).
+    // Skip decrement if waitlist lookup failed to avoid corrupting the count.
     // Use a transaction to guard against going below 0.
-    if (!isOnWaitlist && isParticipant && targetSnap.exists) {
+    if (!waitlistLookupFailed && !isOnWaitlist && isParticipant && targetSnap.exists) {
       const configRef = db.doc("config/programState");
       await db.runTransaction(async (txn) => {
         const configSnap = await txn.get(configRef);
