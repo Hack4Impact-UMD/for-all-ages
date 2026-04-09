@@ -456,7 +456,7 @@ const PreProgram = () => {
         updatedAt: serverTimestamp(),
         week: 0,
         currentParticipants: 0,
-      });
+      }, { merge: true });
 
       // Clear local state
       setMatches([]);
