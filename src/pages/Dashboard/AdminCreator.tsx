@@ -25,7 +25,9 @@ import type {
   RawAddress,
   AdminRecord,
   BannerState,
+  FormResponse,
 } from "../../types";
+import ParticipantInfoPopup from "./components/ParticipantInfoPopup/ParticipantInfoPopup";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 type RoleFilter = "All" | Role | "Participant";
@@ -84,6 +86,10 @@ export default function AdminDashboard() {
   const [banner, setBanner] = useState<BannerState | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [promoteTarget, setPromoteTarget] = useState<AdminRecord | null>(null);
+  const [selectedUser, setSelectedUser] = useState<AdminRecord | null>(null);
+  const [formResponses, setFormResponses] = useState<FormResponse | null>(null);
+  const [formLoading, setFormLoading] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const handleModalClose = useCallback(() => {
     setIsModalOpen(false);
@@ -125,6 +131,7 @@ export default function AdminDashboard() {
               address: formatAddress(data.address ?? null),
               user_type: normaliseUserType(data.user_type ?? null),
               university: data.university ?? null,
+              userUid: data.userUid ?? null,
             };
           });
 
@@ -200,6 +207,36 @@ export default function AdminDashboard() {
       setGroupFilter("All");
     }
   }, [roleFilter]);
+
+  // Fetch form responses when selectedUser changes
+  useEffect(() => {
+    if (!selectedUser?.id) {
+      setFormResponses(null);
+      setFormLoading(false);
+      setFormError(null);
+      return;
+    }
+
+    setFormLoading(true);
+    setFormError(null);
+
+    const q = query(collection(db, "FormResponse"), where("uid", "==", selectedUser.id));
+    getDocs(q)
+      .then((snapshot) => {
+        if (snapshot.empty) {
+          setFormResponses(null);
+        } else {
+          const doc = snapshot.docs[0].data() as FormResponse;
+          setFormResponses(doc);
+        }
+        setFormLoading(false);
+      })
+      .catch((err) => {
+        console.error("Failed to load form responses", err);
+        setFormError("Could not load form responses.");
+        setFormLoading(false);
+      });
+  }, [selectedUser]);
 
   // Handles the Contact All button and allows admins to contact all participants and subadmins
   const handleContactAll = () => {
@@ -376,7 +413,14 @@ export default function AdminDashboard() {
                     filteredAdmins.map((admin) => (
                       <tr key={admin.id}>
                         <td data-label="Name" className={styles.colName}>
-                          {admin.name}
+                          <button
+                            type="button"
+                            onClick={() => setSelectedUser(admin)}
+                            aria-label={`View form response details for ${admin.name}`}
+                            className={styles.nameButton}
+                          >
+                            {admin.name}
+                          </button>
                         </td>
                         <td data-label="Role" className={styles.colRole}>
                           {admin.role === "Admin"
@@ -468,6 +512,16 @@ export default function AdminDashboard() {
             participant={promoteTarget}
             onClose={() => setPromoteTarget(null)}
             onSuccess={handlePromoteSuccess}
+          />
+        ) : null}
+
+        {selectedUser ? (
+          <ParticipantInfoPopup
+            userName={selectedUser.name}
+            onClose={() => setSelectedUser(null)}
+            formResponses={formResponses}
+            loading={formLoading}
+            error={formError}
           />
         ) : null}
       </div>

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import styles from "./PreProgram.module.css";
 import { useNavigate } from "react-router-dom";
 import SearchIcon from "@mui/icons-material/Search";
@@ -13,9 +13,11 @@ import {
   deleteDoc,
   doc,
   getDocs,
+  query,
   serverTimestamp,
   setDoc,
   updateDoc,
+  where,
   writeBatch,
 } from "firebase/firestore";
 import {
@@ -24,8 +26,14 @@ import {
   subscribeToProgramState,
   type ProgramState,
 } from "../../services/programState";
-import type { BackendMatch, UI_Match, MatchStatus } from "../../types";
+import type {
+  BackendMatch,
+  UI_Match,
+  MatchStatus,
+  FormResponse,
+} from "../../types";
 import SettingsPopup from "./SettingsPopup";
+import ParticipantInfoPopup from "../Dashboard/components/ParticipantInfoPopup/ParticipantInfoPopup";
 
 const APPROVAL_THRESHOLD = 0.8; // 80%
 const DEV_MODE = true; // ← flip to false before deploying to production
@@ -64,11 +72,49 @@ const PreProgram = () => {
 
   const statusFilterRef = useRef<HTMLDivElement | null>(null);
 
+  const [selectedUser, setSelectedUser] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [formResponses, setFormResponses] = useState<FormResponse | null>(null);
+  const [formLoading, setFormLoading] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
   const navigate = useNavigate();
 
   useEffect(() => {
-    loadMatches();
-  }, []);
+    if (!selectedUser?.id) {
+      setFormResponses(null);
+      setFormLoading(false);
+      setFormError(null);
+      return;
+    }
+
+    setFormLoading(true);
+    setFormError(null);
+
+    const q = query(
+      collection(db, "FormResponse"),
+      where("uid", "==", selectedUser.id),
+    );
+
+    getDocs(q)
+      .then((snapshot) => {
+        if (snapshot.empty) {
+          setFormResponses(null);
+        } else {
+          const doc = snapshot.docs[0].data() as FormResponse;
+          setFormResponses(doc);
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load form responses", err);
+        setFormError("Could not load form responses.");
+      })
+      .finally(() => {
+        setFormLoading(false);
+      });
+  }, [selectedUser]);
 
   const sortMatches = (list: UI_Match[]) => {
     const order: Record<MatchStatus, number> = {
@@ -158,7 +204,7 @@ const PreProgram = () => {
     return [...pairRows, ...unmatchedStudentRows, ...unmatchedSeniorRows];
   };
 
-  const loadMatches = async () => {
+  const loadMatches = useCallback(async () => {
     const matchesRef = collection(db, "matches");
     const snap = await getDocs(matchesRef);
 
@@ -168,9 +214,14 @@ const PreProgram = () => {
     if (!snap.empty) {
       const pairRows: UI_Match[] = await Promise.all(
         snap.docs.map(async (d) => {
-          const data = d.data() as any;
-          const p1 = data.participant1_id as string;
-          const p2 = data.participant2_id as string;
+          const data = d.data() as {
+            participant1_id?: string;
+            participant2_id?: string;
+            similarity?: number;
+            status?: string;
+          };
+          const p1 = data.participant1_id ?? "";
+          const p2 = data.participant2_id ?? "";
           const similarity = data.similarity ?? 0;
 
           matchedIds.add(p1);
@@ -221,7 +272,13 @@ const PreProgram = () => {
     const unmatchedRows: UI_Match[] = [];
 
     participantsSnap.forEach((pDoc) => {
-      const data = pDoc.data() as any;
+      const data = pDoc.data() as {
+        displayName?: string | null;
+        name?: string | null;
+        fullName?: string | null;
+        user_type?: string | null;
+        userType?: string | null;
+      };
       const id = pDoc.id;
       if (matchedIds.has(id)) return;
       if (waitlistedIds.has(id)) return;
@@ -263,7 +320,11 @@ const PreProgram = () => {
 
     const sorted = sortMatches(combined);
     setMatches(sorted);
-  };
+  }, []);
+
+  useEffect(() => {
+    loadMatches();
+  }, [loadMatches]);
 
   const storeMatches = async (list: UI_Match[]): Promise<UI_Match[]> => {
     const colRef = collection(db, "matches");
@@ -376,7 +437,7 @@ const PreProgram = () => {
         const snap = await getDocs(collection(db, colName));
         if (snap.empty) continue;
 
-        const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const rows: Array<Record<string, unknown>> = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
         // Collect all keys
         const allKeys = Array.from(
@@ -396,7 +457,7 @@ const PreProgram = () => {
         const csvLines = [
           allKeys.join(","),
           ...rows.map((r) =>
-            allKeys.map((k) => escapeCell((r as any)[k])).join(",")
+            allKeys.map((k) => escapeCell(r[k])).join(",")
           ),
         ];
 
@@ -814,8 +875,36 @@ const PreProgram = () => {
             ) : (
               filteredMatches.map((m, i) => (
                 <tr key={i}>
-                  <td>{m.name1}</td>
-                  <td>{m.name2}</td>
+                  <td>
+                    {m.participant1_id ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSelectedUser({ id: m.participant1_id!, name: m.name1 })
+                        }
+                        className={styles.nameButton}
+                      >
+                        {m.name1}
+                      </button>
+                    ) : (
+                      m.name1
+                    )}
+                  </td>
+                  <td>
+                    {m.participant2_id ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSelectedUser({ id: m.participant2_id!, name: m.name2 })
+                        }
+                        className={styles.nameButton}
+                      >
+                        {m.name2}
+                      </button>
+                    ) : (
+                      m.name2
+                    )}
+                  </td>
                   <td>{m.confidence != null ? `${m.confidence}%` : "—"}</td>
                   <td>
                     {m.status === "No Match" ? (
@@ -848,6 +937,16 @@ const PreProgram = () => {
         </table>
       </div>
       <SettingsPopup isOpened={settingsPopup} close={()=>{setSettingsPopup(false)}} program={programState} setProgram = {setProgramState}></SettingsPopup>
+
+      {selectedUser ? (
+        <ParticipantInfoPopup
+          userName={selectedUser.name}
+          onClose={() => setSelectedUser(null)}
+          formResponses={formResponses}
+          loading={formLoading}
+          error={formError}
+        />
+      ) : null}
     </div>
   );
 };
