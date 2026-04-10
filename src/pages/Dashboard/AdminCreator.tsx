@@ -386,8 +386,8 @@ export default function AdminDashboard() {
                     <th scope="col" className={styles.colPhone}>Phone Number</th>
                     <th scope="col" className={styles.colAddress}>Address</th>
                     <th scope="col" className={styles.colGroup}>Group</th>
-                    <th scope="col" className={styles.colDelete} aria-label="Delete user" />
                     <th scope="col" className={styles.colPromote} aria-label="Promote user" />
+                    <th scope="col" className={styles.colDelete} aria-label="Delete user" />
                   </tr>
                 </thead>
                 <tbody>
@@ -458,21 +458,6 @@ export default function AdminDashboard() {
                           )}
                         </td>
                         <td
-                          data-label="Delete"
-                          className={`${styles.deleteCell} ${styles.colDelete}`}
-                        >
-                          <button
-                            type="button"
-                            className={styles.deleteButton}
-                            onClick={() => handleDeleteUser(admin)}
-                            disabled={deletingId === admin.id}
-                            aria-label={`Delete ${admin.name}`}
-                            title="Delete user"
-                          >
-                            <FaTrash aria-hidden />
-                          </button>
-                        </td>
-                        <td
                           data-label="Promote"
                           className={`${styles.deleteCell} ${styles.colPromote}`}
                         >
@@ -490,6 +475,21 @@ export default function AdminDashboard() {
                           ) : (
                             <span>—</span>
                           )}
+                        </td>
+                        <td
+                          data-label="Delete"
+                          className={`${styles.deleteCell} ${styles.colDelete}`}
+                        >
+                          <button
+                            type="button"
+                            className={styles.deleteButton}
+                            onClick={() => handleDeleteUser(admin)}
+                            disabled={deletingId === admin.id}
+                            aria-label={`Delete ${admin.name}`}
+                            title="Delete user"
+                          >
+                            <FaTrash aria-hidden />
+                          </button>
                         </td>
                       </tr>
                     ))
