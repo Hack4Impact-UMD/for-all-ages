@@ -254,9 +254,9 @@ export default function AdminDashboard() {
     const emailList = list.map((u) => u.email).filter(Boolean);
 
     // Admin's email goes in "to:", participant/subadmin emails go in "bcc:"
-    const bccList = emailList.join(",");
-    const adminEmail = user?.email ?? "";
-    const mailto = `mailto:${adminEmail}?bcc=${bccList}`;
+    const bccList = emailList.map((e) => encodeURIComponent(e)).join(",");
+    const adminEmail = encodeURIComponent(user?.email ?? "");
+    const mailto = `mailto:${adminEmail}?bcc=${encodeURIComponent(bccList)}`;
     window.location.href = mailto;
   };
 
