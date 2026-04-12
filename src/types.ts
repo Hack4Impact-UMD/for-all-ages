@@ -267,7 +267,7 @@ export interface UserProfile {
 
 /** Validation error fields (Profile and similar forms) */
 export interface ErrorState {
-    email?: string;
+    name?: string;
     phone?: string;
     birthday?: string;
     addressLine1?: string;
@@ -324,5 +324,4 @@ export interface PartnerInfo {
     phone_number: string
     user_type: string
 }
-
 

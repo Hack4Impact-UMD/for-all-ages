@@ -1,6 +1,6 @@
 import styles from "./Profile.module.css";
 import { useState, useEffect } from "react";
-import { phoneNumberRegex, emailRegex, dateRegex } from "../../regex";
+import { phoneNumberRegex, dateRegex } from "../../regex";
 import EditIcon from "@mui/icons-material/Edit";
 import {
   signOut,
@@ -8,14 +8,12 @@ import {
   updatePassword,
   reauthenticateWithCredential,
   EmailAuthProvider,
-  verifyBeforeUpdateEmail,
 } from "firebase/auth";
 import { auth, db } from "../../firebase";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 import { getMatchesByParticipant, getPartnerId } from "../../services/matches";
-import type { ErrorState, UserProfile } from "../../types";
-import EmailReauthModal from "./components/EmailReauthModal/EmailReauthModal";
+import type { ErrorState, ParticipantDoc, UserProfile } from "../../types";
 import MatchInterestsModal from "./components/MatchInterestsModal/MatchInterestsModal";
 import ProfilePictureEdit from "./components/ProfilePictureEdit/ProfilePictureEdit";
 
@@ -57,6 +55,27 @@ const toStorageBirthday = (raw: string | undefined | null): string => {
   return raw;
 };
 
+const getErrorMessage = (error: unknown, fallback: string): string => {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return fallback;
+};
+
+const getFirebaseErrorCode = (error: unknown): string | undefined => {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    typeof error.code === "string"
+  ) {
+    return error.code;
+  }
+
+  return undefined;
+};
+
 const Profile = () => {
   const navigate = useNavigate();
 
@@ -78,12 +97,6 @@ const Profile = () => {
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
-
-  // email reauth modal
-  const [showEmailReauthModal, setShowEmailReauthModal] = useState(false);
-  const [emailReauthPassword, setEmailReauthPassword] = useState("");
-  const [emailReauthError, setEmailReauthError] = useState<string | null>(null);
-  const [isEmailReauthing, setIsEmailReauthing] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
@@ -123,7 +136,7 @@ const Profile = () => {
           return;
         }
 
-        const data: any = snap.data();
+        const data = snap.data() as ParticipantDoc;
         const addr = data.address ?? {};
         const status = data.type ?? "Participant";
         const isAdmin = String(status).toLowerCase() === "admin";
@@ -141,7 +154,10 @@ const Profile = () => {
               const partnerRef = doc(db, "participants", partnerId);
               const partnerSnap = await getDoc(partnerRef);
               if (partnerSnap.exists()) {
-                const partnerData: any = partnerSnap.data();
+                const partnerData = partnerSnap.data() as ParticipantDoc & {
+                  name?: string | null;
+                  freeResponse?: string | null;
+                };
                 matchName =
                   partnerData.displayName ??
                   partnerData.name ??
@@ -246,10 +262,6 @@ const Profile = () => {
       newErrors.name = "Name cannot be empty";
     }
 
-    if (!emailRegex.test(user.email)) {
-      newErrors.email = "Invalid email format";
-    }
-
     if (!isAdmin) {
       if (!phoneNumberRegex.test(user.phone)) {
         newErrors.phone = "Invalid phone format";
@@ -280,9 +292,7 @@ const Profile = () => {
     return { hasErrors, newErrors };
   };
 
-  const performProfileUpdate = async (
-    passwordForEmail?: string,
-  ): Promise<boolean> => {
+  const performProfileUpdate = async (): Promise<boolean> => {
     if (!user) return false;
 
     const authUser = auth.currentUser;
@@ -291,8 +301,6 @@ const Profile = () => {
       return false;
     }
 
-    const emailChanged = authUser.email !== user.email;
-
     const displayBirthday = toDisplayBirthday(user.birthday);
     const normalizedBirthday = toStorageBirthday(displayBirthday);
 
@@ -300,47 +308,11 @@ const Profile = () => {
       setUser({ ...user, birthday: displayBirthday });
     }
 
-    if (emailChanged && !passwordForEmail) {
-      setEmailReauthError(null);
-      setEmailReauthPassword("");
-      setShowEmailReauthModal(true);
-      return false;
-    }
-
     try {
-      let emailNotice = "";
-      if (emailChanged && passwordForEmail) {
-        if (!authUser.email) {
-          setEmailReauthError(
-            "Your account is missing an email address. Please sign out and sign back in.",
-          );
-          setShowEmailReauthModal(true);
-          return false;
-        }
-
-        setIsEmailReauthing(true);
-        const credential = EmailAuthProvider.credential(
-          authUser.email,
-          passwordForEmail,
-        );
-
-        await reauthenticateWithCredential(authUser, credential);
-
-        // verify email before updating in firebase auth
-        await verifyBeforeUpdateEmail(authUser, user.email);
-
-        setShowEmailReauthModal(false);
-        setEmailReauthPassword("");
-        setEmailReauthError(null);
-
-        emailNotice = `We’ve emailed a verification link to ${user.email}. Please confirm it to finish updating your login email.`;
-      }
-
       const userRef = doc(db, "participants", user.uid);
 
       const baseUpdate = {
         displayName: user.name,
-        email: user.email,
       };
 
       const participantUpdate = isAdmin
@@ -364,69 +336,25 @@ const Profile = () => {
         ...participantUpdate,
       });
 
-      window.alert(
-        emailChanged
-          ? `Profile saved. ${emailNotice}`
-          : "Profile updated successfully.",
-      );
+      window.alert("Profile updated successfully.");
       return true;
-    } catch (err: any) {
-      console.error("Error updating profile (email/profile):", err);
+    } catch (err: unknown) {
+      console.error("Error updating profile:", err);
 
-      const code = err?.code as string | undefined;
-      const msg = err?.message as string | undefined;
+      const code = getFirebaseErrorCode(err);
+      const msg = getErrorMessage(
+        err,
+        "Unexpected error updating profile. Please try again.",
+      );
 
-      if (emailChanged) {
-        if (code === "auth/wrong-password") {
-          setEmailReauthError("Current password is incorrect.");
-          setShowEmailReauthModal(true);
-        } else if (code === "auth/requires-recent-login") {
-          setEmailReauthError(
-            "For security reasons, please sign out and sign back in, then try again.",
-          );
-          setShowEmailReauthModal(true);
-        } else if (code === "auth/email-already-in-use") {
-          setEmailReauthError(
-            "That email is already associated with another account.",
-          );
-          setShowEmailReauthModal(true);
-        } else if (code === "auth/invalid-email") {
-          setEmailReauthError("Please enter a valid email address.");
-          setShowEmailReauthModal(true);
-        } else if (code === "auth/operation-not-allowed") {
-          setEmailReauthError(
-            "Email changes are currently disabled for this project. Please contact an administrator.",
-          );
-          setShowEmailReauthModal(true);
-        } else if (code === "permission-denied") {
-          setEmailReauthError(
-            "You do not have permission to update this profile. Please contact an admin.",
-          );
-          setShowEmailReauthModal(true);
-        } else {
-          setEmailReauthError(
-            msg || "Unexpected error updating profile. Please try again.",
-          );
-          if (passwordForEmail) {
-            setShowEmailReauthModal(true);
-          }
-        }
+      if (code === "permission-denied") {
+        setProfileSaveError(
+          "You do not have permission to update this profile. Please contact an admin.",
+        );
       } else {
-        if (code === "permission-denied") {
-          setProfileSaveError(
-            "You do not have permission to update this profile. Please contact an admin.",
-          );
-        } else {
-          setProfileSaveError(
-            msg || "Unexpected error updating profile. Please try again.",
-          );
-        }
+        setProfileSaveError(msg);
       }
       return false;
-    } finally {
-      if (passwordForEmail) {
-        setIsEmailReauthing(false);
-      }
     }
   };
 
@@ -509,19 +437,20 @@ const Profile = () => {
       setPasswordCurrent("");
       setNewPassword("");
       setConfirmNewPassword("");
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error updating password:", err);
 
-      if (err?.code === "auth/wrong-password") {
+      const code = getFirebaseErrorCode(err);
+      if (code === "auth/wrong-password") {
         setPasswordError("Current password is incorrect.");
-      } else if (err?.code === "auth/too-many-requests") {
+      } else if (code === "auth/too-many-requests") {
         setPasswordError("Too many attempts. Please wait a bit and try again.");
-      } else if (err?.code === "auth/requires-recent-login") {
+      } else if (code === "auth/requires-recent-login") {
         setPasswordError(
           "Please sign out and sign back in, then try changing your password again.",
         );
       } else {
-        setPasswordError(err?.message || "Error updating password.");
+        setPasswordError(getErrorMessage(err, "Error updating password."));
       }
     } finally {
       setIsUpdatingPassword(false);
@@ -550,36 +479,39 @@ const Profile = () => {
 
   const personalFields = isAdmin
     ? [
-        { label: "Name", name: "name", value: user.name },
-        { label: "E-mail", name: "email", value: user.email },
+        { label: "Name", name: "name", value: user.name, editable: true },
+        { label: "E-mail", name: "email", value: user.email, editable: false },
       ]
     : [
-        { label: "Name", name: "name", value: user.name },
-        { label: "E-mail", name: "email", value: user.email },
-        { label: "Pronouns", name: "pronouns", value: user.pronouns },
-        { label: "Phone Number", name: "phone", value: user.phone },
-        { label: "Birthday", name: "birthday", value: user.birthday },
+        { label: "Name", name: "name", value: user.name, editable: true },
+        { label: "E-mail", name: "email", value: user.email, editable: false },
+        { label: "Pronouns", name: "pronouns", value: user.pronouns, editable: true },
+        { label: "Phone Number", name: "phone", value: user.phone, editable: true },
+        { label: "Birthday", name: "birthday", value: user.birthday, editable: true },
         {
           label: "Street Address",
           name: "addressLine1",
           value: user.addressLine1,
+          editable: true,
         },
-        { label: "City", name: "addressCity", value: user.addressCity },
-        { label: "State", name: "addressState", value: user.addressState },
+        { label: "City", name: "addressCity", value: user.addressCity, editable: true },
+        { label: "State", name: "addressState", value: user.addressState, editable: true },
         {
           label: "Postal Code",
           name: "addressPostalCode",
           value: user.addressPostalCode,
+          editable: true,
         },
         {
           label: "Country",
           name: "addressCountry",
           value: user.addressCountry,
+          editable: true,
         },
       ];
 
   const isEditingPersonalField =
-    isEditing && personalFields.some((f) => f.name === editingField);
+    isEditing && personalFields.some((f) => f.name === editingField && f.editable);
 
   return (
     <div className={styles.page}>
@@ -664,14 +596,16 @@ const Profile = () => {
                     <div className={styles.boxContent}>
                       <div className={styles.boxHeader}>
                         <span className={styles.boxLabel}>{field.label}</span>
-                        <EditIcon
-                          className={styles.editIcon}
-                          onClick={() => {
-                            setProfileSaveError(null);
-                            setEditingField(field.name);
-                            setIsEditing(true);
-                          }}
-                        />
+                        {field.editable && (
+                          <EditIcon
+                            className={styles.editIcon}
+                            onClick={() => {
+                              setProfileSaveError(null);
+                              setEditingField(field.name);
+                              setIsEditing(true);
+                            }}
+                          />
+                        )}
                       </div>
                       <span className={styles.boxValue}>{field.value}</span>
                     </div>
@@ -796,34 +730,6 @@ const Profile = () => {
           onClose={() => setShowInterestsModal(false)}
         />
       )}
-
-      <EmailReauthModal
-        open={showEmailReauthModal}
-        loading={isEmailReauthing}
-        error={emailReauthError}
-        password={emailReauthPassword}
-        onPasswordChange={setEmailReauthPassword}
-        onCancel={() => {
-          if (!isEmailReauthing) {
-            setShowEmailReauthModal(false);
-            setEmailReauthPassword("");
-            setEmailReauthError(null);
-          }
-        }}
-        onConfirm={async () => {
-          if (!emailReauthPassword) {
-            setEmailReauthError("Please enter your password.");
-            return;
-          }
-          setEmailReauthError(null);
-          const saved = await performProfileUpdate(emailReauthPassword);
-          if (saved) {
-            setProfileSaveError(null);
-            setEditingField(null);
-            setIsEditing(false);
-          }
-        }}
-      />
     </div>
   );
 };
