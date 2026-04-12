@@ -1,17 +1,18 @@
 import React from "react";
 import styles from "../../Profile.module.css";
+import type { Questions } from "../../../../types";
 
 interface MatchInterestsModalProps {
   open: boolean;
   matchName?: string;
-  matchInterests?: string;
+  matchInterests?: Questions[];
   onClose: () => void;
 }
 
 const MatchInterestsModal: React.FC<MatchInterestsModalProps> = ({
   open,
   matchName,
-  matchInterests,
+  matchInterests = [],
   onClose,
 }) => {
   if (!open) return null;
@@ -27,10 +28,14 @@ const MatchInterestsModal: React.FC<MatchInterestsModalProps> = ({
   const displayName =
     matchName && matchName.trim().length > 0 ? matchName : "Your match";
 
-  const displayInterests =
-    matchInterests && matchInterests.trim().length > 0
-      ? matchInterests
-      : "No interests response available.";
+  const displayInterests = matchInterests.filter(
+    (item) =>
+      item &&
+      item.title &&
+      item.answer !== null &&
+      item.answer !== undefined &&
+      item.answer !== "",
+  );
 
   return (
     <div className={styles.modalBackdrop} onClick={handleBackdropClick}>
@@ -47,7 +52,26 @@ const MatchInterestsModal: React.FC<MatchInterestsModalProps> = ({
         </div>
 
         <div className={styles.modalBody}>
-          <p>{displayInterests}</p>
+          {displayInterests.length === 0 ? (
+            <p>No interests response available.</p>
+          ) : (
+            <div className={styles.interestsList}>
+              {displayInterests.map((item, index) => (
+                <div key={`${item.title}-${index}`} className={styles.fieldBox}>
+                  <div className={styles.boxContent}>
+                    <div className={styles.boxHeader}>
+                      <span className={styles.boxLabel}>{item.title}</span>
+                    </div>
+                    <span className={styles.boxValue}>
+                      {typeof item.answer === "number"
+                        ? item.answer.toString()
+                        : item.answer}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

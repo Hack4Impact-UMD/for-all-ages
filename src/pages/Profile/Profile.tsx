@@ -14,7 +14,12 @@ import { auth, db } from "../../firebase";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 import { getMatchesByParticipant, getPartnerId } from "../../services/matches";
-import type { ErrorState, UserProfile } from "../../types";
+import type {
+  ErrorState,
+  UserProfile,
+  Questions,
+  FormResponse,
+} from "../../types";
 import EmailReauthModal from "./components/EmailReauthModal/EmailReauthModal";
 import MatchInterestsModal from "./components/MatchInterestsModal/MatchInterestsModal";
 import ProfilePictureEdit from "./components/ProfilePictureEdit/ProfilePictureEdit";
@@ -46,7 +51,6 @@ const toStorageBirthday = (raw: string | undefined | null): string => {
     return raw;
   }
 
-  // normalize birthday to MM/DD/YYYY for profile display/edit
   const display = toDisplayBirthday(raw);
   const m = display.match(/^(0[1-9]|1[0-2])\/(0[1-9]|[12]\d|3[01])\/(\d{4})$/);
   if (m) {
@@ -55,6 +59,17 @@ const toStorageBirthday = (raw: string | undefined | null): string => {
   }
 
   return raw;
+};
+
+const getAnsweredInterestItems = (items: Questions[] = []) => {
+  return items.filter(
+    (item) =>
+      item &&
+      item.title &&
+      item.answer !== null &&
+      item.answer !== undefined &&
+      item.answer !== "",
+  );
 };
 
 const Profile = () => {
@@ -71,7 +86,6 @@ const Profile = () => {
 
   const [showInterestsModal, setShowInterestsModal] = useState(false);
 
-  // password change
   const [passwordCurrent, setPasswordCurrent] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
@@ -79,7 +93,6 @@ const Profile = () => {
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
-  // email reauth modal
   const [showEmailReauthModal, setShowEmailReauthModal] = useState(false);
   const [emailReauthPassword, setEmailReauthPassword] = useState("");
   const [emailReauthError, setEmailReauthError] = useState<string | null>(null);
@@ -111,12 +124,12 @@ const Profile = () => {
             addressState: "",
             addressPostalCode: "",
             addressCountry: "",
-            interests: "",
+            interests: [],
             startDate: "",
             endDate: "",
             status: "Participant",
             matchName: "",
-            matchInterests: "",
+            matchInterests: [],
           };
           setUser(fallback);
           setLoading(false);
@@ -128,8 +141,14 @@ const Profile = () => {
         const status = data.type ?? "Participant";
         const isAdmin = String(status).toLowerCase() === "admin";
 
+        const userFormRef = doc(db, "FormResponse", fbUser.uid);
+        const userFormSnap = await getDoc(userFormRef);
+        const userQuestions = userFormSnap.exists()
+          ? ((userFormSnap.data() as FormResponse).questions ?? [])
+          : [];
+
         let matchName = "";
-        let matchInterests = "";
+        let matchInterests: Questions[] = [];
 
         if (!isAdmin) {
           try {
@@ -148,8 +167,13 @@ const Profile = () => {
                   [partnerData.firstName, partnerData.lastName]
                     .filter(Boolean)
                     .join(" ");
-                matchInterests =
-                  partnerData.interests ?? partnerData.freeResponse ?? "";
+
+                const partnerFormRef = doc(db, "FormResponse", partnerId);
+                const partnerFormSnap = await getDoc(partnerFormRef);
+
+                matchInterests = partnerFormSnap.exists()
+                  ? ((partnerFormSnap.data() as FormResponse).questions ?? [])
+                  : [];
               }
             }
           } catch (matchErr) {
@@ -169,7 +193,7 @@ const Profile = () => {
           addressState: addr.state ?? "",
           addressPostalCode: addr.postalCode ?? "",
           addressCountry: addr.country ?? "",
-          interests: data.interests ?? "",
+          interests: userQuestions,
           startDate: data.startDate ?? "",
           endDate: data.endDate ?? "",
           status,
@@ -192,12 +216,12 @@ const Profile = () => {
           addressState: "",
           addressPostalCode: "",
           addressCountry: "",
-          interests: "",
+          interests: [],
           startDate: "",
           endDate: "",
           status: "Participant",
           matchName: "",
-          matchInterests: "",
+          matchInterests: [],
         };
         setUser(fallback);
       } finally {
@@ -208,7 +232,6 @@ const Profile = () => {
     return () => unsubscribe();
   }, []);
 
-  // live password mismatch validation
   useEffect(() => {
     if (!newPassword && !confirmNewPassword) {
       setPasswordError(null);
@@ -222,6 +245,7 @@ const Profile = () => {
   }, [newPassword, confirmNewPassword]);
 
   const isAdmin = user?.status?.toLowerCase() === "admin";
+  const userInterestItems = getAnsweredInterestItems(user?.interests ?? []);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -325,8 +349,6 @@ const Profile = () => {
         );
 
         await reauthenticateWithCredential(authUser, credential);
-
-        // verify email before updating in firebase auth
         await verifyBeforeUpdateEmail(authUser, user.email);
 
         setShowEmailReauthModal(false);
@@ -349,7 +371,6 @@ const Profile = () => {
             pronouns: user.pronouns,
             phoneNumber: user.phone,
             dateOfBirth: normalizedBirthday,
-            interests: user.interests,
             address: {
               line1: user.addressLine1,
               city: user.addressCity,
@@ -700,15 +721,35 @@ const Profile = () => {
 
           {!isAdmin && (
             <div className={styles.infoSection}>
-              <h3 className={styles.sectionTitle}>About Me</h3>
-              <div className={styles.fieldBox}>
-                <div className={styles.boxContent}>
-                  <div className={styles.boxHeader}>
-                    <span className={styles.boxLabel}>Interests</span>
+              <h3 className={styles.sectionTitle}>Your Interests</h3>
+
+              {userInterestItems.length === 0 ? (
+                <div className={styles.fieldBox}>
+                  <div className={styles.boxContent}>
+                    <span className={styles.boxValue}>
+                      No interests available.
+                    </span>
                   </div>
-                  <span className={styles.boxValue}>{user.interests}</span>
                 </div>
-              </div>
+              ) : (
+                userInterestItems.map((item, index) => (
+                  <div
+                    key={`${item.title}-${index}`}
+                    className={styles.fieldBox}
+                  >
+                    <div className={styles.boxContent}>
+                      <div className={styles.boxHeader}>
+                        <span className={styles.boxLabel}>{item.title}</span>
+                      </div>
+                      <span className={styles.boxValue}>
+                        {typeof item.answer === "number"
+                          ? item.answer.toString()
+                          : item.answer}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           )}
 
