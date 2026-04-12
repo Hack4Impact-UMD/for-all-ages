@@ -1,3 +1,5 @@
+import type { Timestamp } from "firebase/firestore";
+
 export type Role = "Admin" | "Subadmin";
 
 export type UserType = "student" | "adult";
@@ -25,7 +27,7 @@ export interface PreferenceScores {
     q3?: number
 }
 
-/** Participant document shape (Firestore-friendly; all fields optional) */
+/** Participant document shape - stores only basic info (Firestore-friendly; all fields optional) */
 export interface Participant {
     id?: string
     type?: "Participant"
@@ -47,6 +49,8 @@ export interface Participant {
     preferenceScores?: PreferenceScores | null
     status?: string | null
     role?: Role | null
+    createdAt?: Timestamp | null
+    updatedAt?: Timestamp | null
 }
 
 export type ParticipantDoc = Partial<Participant>;
@@ -55,6 +59,21 @@ export type ParticipantProfile = Pick<
     Participant,
     "displayName" | "firstName" | "lastName"
 >;
+
+/** Question response for FormResponse collection */
+export interface Questions {
+	title: string
+	type: QuestionType
+	answer: string | number
+}
+
+/** FormResponse document - stores all non-basic questions */
+export interface FormResponse {
+    uid: string  // user uid
+    questions: Questions[]
+    createdAt?: Timestamp | null
+    updatedAt?: Timestamp | null
+}
 
 /** Participant view for rematching page (participants-test2 collection) */
 export interface RematchingParticipant {
@@ -65,6 +84,8 @@ export interface RematchingParticipant {
     interestsText: string
     school?: string
     preferenceScores?: PreferenceScores
+    pronouns?: string | null
+    matchableAnswers?: Record<string, string | number>
 }
 
 export interface SurveyResponse {
@@ -125,6 +146,7 @@ export interface ProgramState {
     matches_final: boolean
     week: number
     maxParticipants: number
+    currentParticipants: number
     numWeeks: number
 }
 
@@ -141,6 +163,7 @@ export type PersonTagVariant = "rose" | "green" | "gold"
 export interface PersonAssignment {
     names: string[]
     variant?: PersonTagVariant
+    matchId?: string
 }
 
 /** Params for inviting a new admin account */
@@ -190,6 +213,8 @@ export interface UI_Match {
 
 /** Registration form state */
 export interface RegistrationFormState {
+    firstName: string
+    lastName: string
     addressLine1: string
     addressLine2: string
     city: string
@@ -199,15 +224,22 @@ export interface RegistrationFormState {
     phone: string
     confirmPhone: string
     email: string
+    confirmEmail: string
     dateOfBirth: string
     pronouns: string
     heardAbout: string
     university: string
     user_type: string
+    language: string
     interests: string
     teaPreference: string
     preferredContactMethods: string[]
     preferenceScores: { q1: number; q2: number; q3: number }
+    isReturningParticipant: boolean
+    healthChallenge: string
+    healthChallengeAreas: string[]
+    healthOther: string
+    agreementName: string
 }
 
 /** Profile page display / form state */
@@ -235,7 +267,7 @@ export interface UserProfile {
 
 /** Validation error fields (Profile and similar forms) */
 export interface ErrorState {
-    email?: string;
+    name?: string;
     phone?: string;
     birthday?: string;
     addressLine1?: string;
@@ -292,5 +324,4 @@ export interface PartnerInfo {
     phone_number: string
     user_type: string
 }
-
 

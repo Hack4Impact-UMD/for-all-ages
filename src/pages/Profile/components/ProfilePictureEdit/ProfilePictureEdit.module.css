@@ -1,0 +1,69 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.pictureWrapper {
+  position: relative;
+  width: 190px;
+  height: 190px;
+  display: inline-block;
+}
+
+.editButton {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  width: 48px;
+  height: 48px;
+  border: none;
+  border-radius: 50%;
+  background: #2b7fc1;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+  z-index: 2;
+}
+
+.popupMenu {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+  background: white;
+  border-radius: 14px;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+  padding: 8px;
+
+  z-index: 3;
+  width: 130px;
+}
+
+.popupMenu button {
+  border: none;
+  background: transparent;
+  padding: 10px 12px;
+  text-align: center;
+  cursor: pointer;
+  font-size: 14px;
+  border-radius: 8px;
+  color: #2b7fc1;
+  font-weight: 500;
+}
+
+.popupMenu button:hover {
+  background: #f2f6fb;
+}
+
+.uploadingText {
+  margin-top: 10px;
+}

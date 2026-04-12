@@ -1,6 +1,7 @@
 export interface ParticipantWithEmbedding {
   id: string;
   user_type: 'student' | 'adult' | string;
+  pronouns?: string;
   embedding: number[];
   q1?: number;
   q2?: number;

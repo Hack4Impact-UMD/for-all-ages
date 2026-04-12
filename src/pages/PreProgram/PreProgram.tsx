@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import styles from "./PreProgram.module.css";
 import { useNavigate } from "react-router-dom";
 import SearchIcon from "@mui/icons-material/Search";
-import SettingsIcon from "@mui/icons-material/Settings";
+import FilterListIcon from "@mui/icons-material/FilterList";
+import SettingsIcon from '@mui/icons-material/Settings';
 import AutorenewIcon from "@mui/icons-material/Autorenew";
 import SendIcon from "@mui/icons-material/Send";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
@@ -12,9 +13,11 @@ import {
   deleteDoc,
   doc,
   getDocs,
+  query,
   serverTimestamp,
   setDoc,
   updateDoc,
+  where,
   writeBatch,
 } from "firebase/firestore";
 import {
@@ -23,14 +26,26 @@ import {
   subscribeToProgramState,
   type ProgramState,
 } from "../../services/programState";
-import type { BackendMatch, UI_Match, MatchStatus } from "../../types";
+import type {
+  BackendMatch,
+  UI_Match,
+  MatchStatus,
+  FormResponse,
+} from "../../types";
 import SettingsPopup from "./SettingsPopup";
+import ParticipantInfoPopup from "../Dashboard/components/ParticipantInfoPopup/ParticipantInfoPopup";
 
 const APPROVAL_THRESHOLD = 0.8; // 80%
 const DEV_MODE = true; // ← flip to false before deploying to production
 
 // Collections to wipe on End Program
-const COLLECTIONS_TO_CLEAR = ["participants", "matches", "logs", "weeks"];
+const COLLECTIONS_TO_CLEAR = [
+  "participants",
+  "matches",
+  "logs",
+  "weeks",
+  "waitlist",
+];
 
 const PreProgram = () => {
   const [matches, setMatches] = useState<UI_Match[]>([]);
@@ -54,11 +69,54 @@ const PreProgram = () => {
 
   const [settingsPopup, setSettingsPopup] = useState(false);
 
+  const [statusFilterOpen, setStatusFilterOpen] = useState(false);
+  const [selectedStatuses, setSelectedStatuses] = useState<MatchStatus[]>([]);
+
+  const statusFilterRef = useRef<HTMLDivElement | null>(null);
+
+  const [selectedUser, setSelectedUser] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [formResponses, setFormResponses] = useState<FormResponse | null>(null);
+  const [formLoading, setFormLoading] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
   const navigate = useNavigate();
 
   useEffect(() => {
-    loadMatches();
-  }, []);
+    if (!selectedUser?.id) {
+      setFormResponses(null);
+      setFormLoading(false);
+      setFormError(null);
+      return;
+    }
+
+    setFormLoading(true);
+    setFormError(null);
+
+    const q = query(
+      collection(db, "FormResponse"),
+      where("uid", "==", selectedUser.id),
+    );
+
+    getDocs(q)
+      .then((snapshot) => {
+        if (snapshot.empty) {
+          setFormResponses(null);
+        } else {
+          const doc = snapshot.docs[0].data() as FormResponse;
+          setFormResponses(doc);
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load form responses", err);
+        setFormError("Could not load form responses.");
+      })
+      .finally(() => {
+        setFormLoading(false);
+      });
+  }, [selectedUser]);
 
   const sortMatches = (list: UI_Match[]) => {
     const order: Record<MatchStatus, number> = {
@@ -148,7 +206,7 @@ const PreProgram = () => {
     return [...pairRows, ...unmatchedStudentRows, ...unmatchedSeniorRows];
   };
 
-  const loadMatches = async () => {
+  const loadMatches = useCallback(async () => {
     const matchesRef = collection(db, "matches");
     const snap = await getDocs(matchesRef);
 
@@ -158,9 +216,14 @@ const PreProgram = () => {
     if (!snap.empty) {
       const pairRows: UI_Match[] = await Promise.all(
         snap.docs.map(async (d) => {
-          const data = d.data() as any;
-          const p1 = data.participant1_id as string;
-          const p2 = data.participant2_id as string;
+          const data = d.data() as {
+            participant1_id?: string;
+            participant2_id?: string;
+            similarity?: number;
+            status?: string;
+          };
+          const p1 = data.participant1_id ?? "";
+          const p2 = data.participant2_id ?? "";
           const similarity = data.similarity ?? 0;
 
           matchedIds.add(p1);
@@ -204,23 +267,31 @@ const PreProgram = () => {
     const participantsRef = collection(db, "participants");
     const participantsSnap = await getDocs(participantsRef);
 
+    // Fetch waitlisted IDs to exclude from unmatched rows
+    const waitlistSnap = await getDocs(collection(db, "waitlist"));
+    const waitlistedIds = new Set(waitlistSnap.docs.map((d) => d.id));
+
     const unmatchedRows: UI_Match[] = [];
 
     participantsSnap.forEach((pDoc) => {
-      const data = pDoc.data() as any;
+      const data = pDoc.data() as {
+        displayName?: string | null;
+        name?: string | null;
+        fullName?: string | null;
+        user_type?: string | null;
+        userType?: string | null;
+      };
       const id = pDoc.id;
-
       if (matchedIds.has(id)) return;
-
+      if (waitlistedIds.has(id)) return;
       const displayName =
         data.displayName ?? data.name ?? data.fullName ?? "Unnamed participant";
       const userType = (data.user_type ?? data.userType) as
-        | "student"
-        | "adult"
-        | "senior"
+        | "Student"
+        | "Adult"
+        | "Senior"
         | undefined;
-
-      if (userType === "student") {
+      if (userType === "Student") {
         unmatchedRows.push({
           name1: displayName,
           name2: "No match yet",
@@ -230,7 +301,7 @@ const PreProgram = () => {
           status: "No Match",
           score: 0,
         });
-      } else if (userType === "adult" || userType === "senior") {
+      } else if (userType === "Adult" || userType === "Senior") {
         unmatchedRows.push({
           name1: "No match yet",
           name2: displayName,
@@ -251,7 +322,11 @@ const PreProgram = () => {
 
     const sorted = sortMatches(combined);
     setMatches(sorted);
-  };
+  }, []);
+
+  useEffect(() => {
+    loadMatches();
+  }, [loadMatches]);
 
   const [banner, setBanner] = useState<{
     message: string;
@@ -371,7 +446,7 @@ const PreProgram = () => {
         const snap = await getDocs(collection(db, colName));
         if (snap.empty) continue;
 
-        const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const rows: Array<Record<string, unknown>> = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
         // Collect all keys
         const allKeys = Array.from(
@@ -392,7 +467,7 @@ const PreProgram = () => {
         const csvLines = [
           allKeys.join(","),
           ...rows.map((r) =>
-            allKeys.map((k) => escapeCell((r as any)[k])).join(","),
+            allKeys.map((k) => escapeCell(r[k])).join(",")
           ),
         ];
 
@@ -454,7 +529,8 @@ const PreProgram = () => {
         started: false,
         updatedAt: serverTimestamp(),
         week: 0,
-      });
+        currentParticipants: 0,
+      }, { merge: true });
 
       // Clear local state
       setMatches([]);
@@ -469,9 +545,12 @@ const PreProgram = () => {
   };
 
   const handleStatusChange = async (
-    index: number,
+    matchId: string | undefined,
     newStatus: MatchStatus | "Separate",
   ) => {
+    const index = matches.findIndex((m) => m.matchId === matchId);
+    if (index === -1) return;
+
     const updated = [...matches];
     const match = updated[index];
 
@@ -542,11 +621,36 @@ const PreProgram = () => {
     }
   };
 
-  const filteredMatches = matches.filter(
-    (m) =>
-      m.name1.toLowerCase().includes(search.toLowerCase()) ||
-      m.name2.toLowerCase().includes(search.toLowerCase()),
-  );
+  const filteredMatches = matches.filter((m) => {
+    const searchValue = search.toLowerCase();
+    const matchesSearch =
+      m.name1.toLowerCase().includes(searchValue) ||
+      m.name2.toLowerCase().includes(searchValue);
+
+    const matchesStatus =
+      selectedStatuses.length === 0 || selectedStatuses.includes(m.status);
+
+    return matchesSearch && matchesStatus;
+  });
+
+  useEffect(() => {
+    if (!statusFilterOpen) return;
+
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      if (!statusFilterRef.current) return;
+      if (!statusFilterRef.current.contains(event.target as Node)) {
+        setStatusFilterOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
+  }, [statusFilterOpen]);
 
   // global bools for program state
   const programStarted = programState?.started ?? false;
@@ -751,11 +855,53 @@ const PreProgram = () => {
 
       {/* ── Match Table ── */}
       <div className={styles.container}>
+        <div className={styles.filterBar} ref={statusFilterRef}>
+          <button
+            type="button"
+            className={styles.filterButton}
+            onClick={() => setStatusFilterOpen((open) => !open)}
+          >
+            <FilterListIcon className={styles.filterIcon} />
+            <span>Filter by pair status</span>
+          </button>
+
+          {statusFilterOpen && (
+            <div className={styles.filterPopover}>
+              {(["No Match", "Pending", "Approved"] as MatchStatus[]).map(
+                (status) => (
+                  <label key={status} className={styles.filterOption}>
+                    <input
+                      type="checkbox"
+                      checked={selectedStatuses.includes(status)}
+                      onChange={() =>
+                        setSelectedStatuses((prev) =>
+                          prev.includes(status)
+                            ? prev.filter((s) => s !== status)
+                            : [...prev, status]
+                        )
+                      }
+                    />
+                    <span>{status}</span>
+                  </label>
+                ),
+              )}
+              <button
+                type="button"
+                className={styles.clearFilterButton}
+                onClick={() => setSelectedStatuses([])}
+              >
+                Clear filters
+              </button>
+            </div>
+          )}
+        </div>
+
+        
         <table className={styles.table}>
           <thead>
             <tr>
               <th>Student</th>
-              <th>Senior</th>
+              <th>Older Adult</th>
               <th>Final Score %</th>
               <th>Status</th>
             </tr>
@@ -770,8 +916,36 @@ const PreProgram = () => {
             ) : (
               filteredMatches.map((m, i) => (
                 <tr key={i}>
-                  <td>{m.name1}</td>
-                  <td>{m.name2}</td>
+                  <td>
+                    {m.participant1_id ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSelectedUser({ id: m.participant1_id!, name: m.name1 })
+                        }
+                        className={styles.nameButton}
+                      >
+                        {m.name1}
+                      </button>
+                    ) : (
+                      m.name1
+                    )}
+                  </td>
+                  <td>
+                    {m.participant2_id ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSelectedUser({ id: m.participant2_id!, name: m.name2 })
+                        }
+                        className={styles.nameButton}
+                      >
+                        {m.name2}
+                      </button>
+                    ) : (
+                      m.name2
+                    )}
+                  </td>
                   <td>
                     {m.confidence != null ? (
                       <span
@@ -802,8 +976,8 @@ const PreProgram = () => {
                         value={m.status}
                         onChange={(e) =>
                           handleStatusChange(
-                            i,
-                            e.target.value as MatchStatus | "Separate",
+                            m.matchId,
+                            e.target.value as MatchStatus | "Separate"
                           )
                         }
                         className={`${styles.status} ${
@@ -824,14 +998,17 @@ const PreProgram = () => {
           </tbody>
         </table>
       </div>
-      <SettingsPopup
-        isOpened={settingsPopup}
-        close={() => {
-          setSettingsPopup(false);
-        }}
-        program={programState}
-        setProgram={setProgramState}
-      ></SettingsPopup>
+      <SettingsPopup isOpened={settingsPopup} close={()=>{setSettingsPopup(false)}} program={programState} setProgram = {setProgramState}></SettingsPopup>
+
+      {selectedUser ? (
+        <ParticipantInfoPopup
+          userName={selectedUser.name}
+          onClose={() => setSelectedUser(null)}
+          formResponses={formResponses}
+          loading={formLoading}
+          error={formError}
+        />
+      ) : null}
     </div>
   );
 };

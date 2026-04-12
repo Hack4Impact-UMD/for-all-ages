@@ -13,11 +13,12 @@ import AdminDashboard from "./pages/Dashboard/AdminDashboard";
 import AdminCreator from "./pages/Dashboard/AdminCreator";
 import MatchedDashboard from "./pages/Dashboard/MatchedDashboard";
 import LoginSignup from "./pages/Login/Login-Signup";
-import Registration from "./pages/Registration/Registration";
+import Registration from "./pages/Registration/RegistrationNew";
 import Profile from "./pages/Profile/Profile";
 import RecapPage from "./pages/Recap/RecapPage";
 import Rematching from "./pages/Rematching/Rematching";
 import PreProgram from "./pages/PreProgram/PreProgram";
+import FormBuilder from "./pages/FormBuilder/FormBuilder";
 import Waiting from "./pages/Waiting/Waiting";
 import MainLayout from "./components/MainLayout";
 
@@ -26,14 +27,20 @@ function RouteLoader() {
 }
 
 function ProgramGate({ children }: { children: React.ReactNode }) {
-  const { programState, programStateLoading } = useAuth() as {
+  const { programState, programStateLoading, isWaitlisted, waitlistLoading } = useAuth() as {
     programState: { matches_final: boolean; started: boolean } | null;
     programStateLoading: boolean;
+    isWaitlisted: boolean;
+    waitlistLoading: boolean;
   };
   const location = useLocation();
 
-  if (programStateLoading) {
+  if (programStateLoading || waitlistLoading) {
     return <RouteLoader />;
+  }
+
+  if (isWaitlisted) {
+    return <Navigate to="/waiting" replace state={{ from: location }} />;
   }
 
   if (!programState) {
@@ -153,7 +160,6 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<LoginSignup />} />
-
         {/* Routes with navbar */}
         <Route element={<MainLayout />}>
           <Route path="/registration" element={<RegistrationGate />} />
@@ -194,10 +200,11 @@ function App() {
             <Route path="creator" element={<AdminCreator />} />
             <Route path="main" element={<PreProgram />} />
             <Route path="rematching" element={<Rematching />} />
+            <Route path="form-builder" element={<FormBuilder />} />
           </Route>
         </Route>
 
-        {/* <Route path={"/user/dashboard"} element={<Dashboard></Dashboard>}></Route>
+          {/* <Route path={"/user/dashboard"} element={<Dashboard></Dashboard>}></Route>
           <Route path={"/admin/dashboard"} element={<Dashboard></Dashboard>}></Route> */}
       </Routes>
     </BrowserRouter>

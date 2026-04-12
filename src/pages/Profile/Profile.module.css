@@ -34,6 +34,7 @@
   padding: 20px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
   text-align: center;
+  justify-items: center;
   color: #127bbe;
 }
 
@@ -63,8 +64,8 @@
 }
 
 .matchCircle {
-  width: 80px;
-  height: 80px;
+  width: 100px;
+  height: 100px;
   border-radius: 50%;
   background-color: #d9d9d9;
   margin: 12px auto;

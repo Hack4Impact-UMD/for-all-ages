@@ -49,11 +49,6 @@
     margin-bottom: 1rem;
 }
 
-.actionError {
-    color: #c0392b;
-    font-size: 0.9rem;
-}
-
 /* Statistic sections */
 
 .statistics {
@@ -196,53 +191,6 @@
     margin: 0.5rem 0;
 }
 
-.interestsContainer {
-  margin-top: 1.5rem;
-  padding: 1rem 1.25rem;
-  border-radius: 0.9rem;
-  background: rgba(15, 107, 177, 0.03);
-  border: 1px solid rgba(15, 107, 177, 0.12);
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.interestsTitle {
-  font-weight: 600;
-  font-size: 0.95rem;
-  color: #0f406b;
-}
-
-.interestsBlock {
-  padding: 0.25rem 0;
-}
-
-.interestsRoleLabel {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: #0f6bb1;
-  margin-bottom: 0.25rem;
-}
-
-.interestsDivider {
-  height: 1px;
-  background: rgba(15, 107, 177, 0.12);
-  margin: 0.25rem 0;
-}
-
-.interestsText {
-  font-size: 0.9rem;
-  line-height: 1.4;
-  white-space: pre-wrap;
-  margin: 0;
-}
-
-.emptyInterests {
-    color: #999;
-    font-style: italic;
-    padding: 0.5rem 0;
-}
-
 .matchSummary {
   margin-top: 0.5rem;
   margin-bottom: 1.25rem;
@@ -334,6 +282,68 @@
   font-weight: 500;
 }
 
+.frqContainer {
+  margin-top: 1.5rem;
+  border-radius: 0.9rem;
+  padding: 1rem 1.25rem;
+  background: rgba(15, 107, 177, 0.03);
+  border: 1px solid rgba(15, 107, 177, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.frqQuestion {
+  border-radius: 0.6rem;
+  overflow: hidden;
+  border: 1px solid rgba(15, 107, 177, 0.15);
+}
+
+.frqQuestionTitle {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: #0f406b;
+  padding: 0.6rem 0.75rem;
+  background: rgba(15, 107, 177, 0.06);
+  border-bottom: 1px solid rgba(15, 107, 177, 0.12);
+  line-height: 1.4;
+}
+
+.frqTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+  table-layout: fixed;
+}
+
+.frqHeader {
+  width: 50%;
+  padding: 0.45rem 0.75rem;
+  text-align: left;
+  font-weight: 600;
+  color: #0f6bb1;
+  background: rgba(15, 107, 177, 0.04);
+  border-bottom: 1px solid rgba(15, 107, 177, 0.1);
+}
+
+.frqHeader + .frqHeader {
+  border-left: 1px solid rgba(15, 107, 177, 0.1);
+}
+
+.frqCell {
+  width: 50%;
+  padding: 0.6rem 0.75rem;
+  vertical-align: top;
+  line-height: 1.5;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  color: #335972;
+}
+
+.frqCell + .frqCell {
+  border-left: 1px solid rgba(15, 107, 177, 0.08);
+}
+
 .buttonContainer {
     display: flex;
     gap: 1rem;
@@ -379,6 +389,40 @@
     background: #757575;
     box-shadow: 0 4px 16px rgba(158, 158, 158, 0.3);
     transform: translateY(-2px);
+}
+
+.warningModalBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.warningModal {
+  width: min(520px, calc(100vw - 2rem));
+  background: #ffffff;
+  border-radius: 1rem;
+  padding: 1.25rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.warningTitle {
+  margin: 0 0 0.5rem 0;
+  color: #0f406b;
+}
+
+.warningText {
+  margin: 0;
+  color: #335972;
+}
+
+.warningActions {
+  margin-top: 1rem;
+  display: flex;
+  gap: 0.75rem;
 }
 
 /* responsize design */

@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import busboy from "busboy";
 // import * as functions from "firebase-functions";
 import { onRequest, onCall, HttpsError } from "firebase-functions/v2/https";
 import { onSchedule } from "firebase-functions/v2/scheduler";
@@ -6,9 +7,11 @@ import { onSchedule } from "firebase-functions/v2/scheduler";
 import { MatchingConfig } from "./types";
 import { MatchingService } from "./matching/src/services/matchingService";
 
-import { upsertFreeResponse } from './matching/src/services/upsertUser.js';
-import computeMatchScoreService from './matching/src/services/calculateMatchScore.js';
-import { deleteUserFromPinecone } from './matching/src/services/deleteUser.js';
+import { upsertFreeResponse } from "./matching/src/services/upsertUser.js";
+import computeMatchScoreService from "./matching/src/services/calculateMatchScore.js";
+import { deleteUserFromPinecone } from "./matching/src/services/deleteUser.js";
+
+import { Readable } from "stream";
 
 admin.initializeApp();
 
@@ -21,28 +24,27 @@ type ProgramState = {
   week: number;
 };
 
-
 export const matchAll = onRequest(async (req, res) => {
   // CORS headers
   res.set("Access-Control-Allow-Origin", CORS_ORIGIN);
   res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.set("Access-Control-Allow-Headers", "Content-Type");
-  
+
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
     res.status(204).send("");
     return;
   }
-  
+
   let frqWeight = 0.7;
   let quantWeight = 0.3;
-  
+
   const config: Partial<MatchingConfig> = { frqWeight, quantWeight };
   const service = new MatchingService(config);
   const result = await service.runMatching();
-  
+
   res.status(200).json({
-    result: result
+    result: result,
   });
 });
 
@@ -64,34 +66,40 @@ export const upsertUser = onRequest(async (req, res) => {
   }
 
   try {
-    const { uid, freeResponse, q1, q2, q3, user_type } = req.body;
+    const { uid, textResponses, numericResponses, user_type, pronouns } = req.body;
 
-    if (!uid || !freeResponse || !user_type) {
-      res.status(400).json({ error: "Missing required fields: uid, freeResponse, user_type" });
+    // If there are no matchable responses, just return success
+    if ((!textResponses || textResponses.length === 0) && 
+        (!numericResponses || numericResponses.length === 0)) {
+      res.status(200).json({ message: "No responses to upsert." });
       return;
     }
 
-    await upsertFreeResponse(uid, freeResponse, q1, q2, q3, user_type);
+    await upsertFreeResponse(
+      uid,
+      textResponses || [],
+      numericResponses || [],
+      user_type,
+      pronouns
+    );
 
-    res.status(200).json({ message: "Free response upserted successfully." });
-  } catch (err) {res.status(500).json({ error: String(err) });
+    res.status(200).json({ message: "Responses upserted successfully." });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
   }
 });
-
 
 // run to deply to cloud --> firebase deploy --only functions:incrementProgramWeek
 // Cron job to run matching every day at midnight
 export const incrementProgramWeek = onSchedule(
   // Saturday at 11:59 PM Eastern Time "59 23 * * 6"
-  // FOR TESTING PURPOSES ONLY: runs every 1 min "*/1 * * * *" 
+  // FOR TESTING PURPOSES ONLY: runs every 1 min "*/1 * * * *"
   { schedule: "59 23 * * 6", timeZone: "America/New_York" },
   async () => {
-
     console.log("HERE*****");
     const ref = admin.firestore().doc("config/programState");
 
     await admin.firestore().runTransaction(async (tx) => {
-
       const snap = await tx.get(ref);
       if (!snap.exists) return;
 
@@ -107,24 +115,23 @@ export const incrementProgramWeek = onSchedule(
         week: nextWeek,
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
-      
     });
-  }
+  },
 );
 
 export const computeMatchScore = onRequest(async (req, res) => {
   // CORS headers
-  res.set('Access-Control-Allow-Origin', CORS_ORIGIN);
-  res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type');
+  res.set("Access-Control-Allow-Origin", CORS_ORIGIN);
+  res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type");
 
-  if (req.method === 'OPTIONS') {
-    res.status(204).send('');
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
     return;
   }
 
-  if (req.method !== 'POST') {
-    res.status(405).json({ error: 'Method not allowed. Use POST.' });
+  if (req.method !== "POST") {
+    res.status(405).json({ error: "Method not allowed. Use POST." });
     return;
   }
 
@@ -132,7 +139,7 @@ export const computeMatchScore = onRequest(async (req, res) => {
     const { uid1, uid2 } = req.body;
 
     if (!uid1 || !uid2) {
-      res.status(400).json({ error: 'Missing required fields: uid1, uid2' });
+      res.status(400).json({ error: "Missing required fields: uid1, uid2" });
       return;
     }
 
@@ -140,7 +147,7 @@ export const computeMatchScore = onRequest(async (req, res) => {
 
     res.status(200).json(result);
   } catch (err) {
-    console.error('Error computing match score:', err);
+    console.error("Error computing match score:", err);
     res.status(500).json({ error: String(err) });
   }
 });
@@ -155,16 +162,13 @@ export const deleteUser = onCall(async (request) => {
   if (typeof targetUserId !== "string" || targetUserId.trim() === "") {
     throw new HttpsError(
       "invalid-argument",
-      "Missing required field: targetUserId."
+      "Missing required field: targetUserId.",
     );
   }
 
   const trimmedTargetId = targetUserId.trim();
   if (callerUserId === trimmedTargetId) {
-    throw new HttpsError(
-      "invalid-argument",
-      "Cannot delete your own account."
-    );
+    throw new HttpsError("invalid-argument", "Cannot delete your own account.");
   }
 
   const db = admin.firestore();
@@ -176,11 +180,9 @@ export const deleteUser = onCall(async (request) => {
   }
 
   const callerData = callerDoc.data();
-  const callerRole =
-    (callerData && typeof callerData.role === "string"
-      ? callerData.role
-      : ""
-    ).toLowerCase();
+  const callerRole = (
+    callerData && typeof callerData.role === "string" ? callerData.role : ""
+  ).toLowerCase();
 
   const isAdmin =
     callerRole === "admin" ||
@@ -205,9 +207,48 @@ export const deleteUser = onCall(async (request) => {
     }
   }
 
+  // Check if user is on waitlist before deleting
+  let isOnWaitlist = false;
+  let waitlistLookupFailed = false;
+  try {
+    const waitlistDocRef = db.collection("waitlist").doc(trimmedTargetId);
+    const waitlistSnap = await waitlistDocRef.get();
+    isOnWaitlist = waitlistSnap.exists;
+    if (isOnWaitlist) {
+      await waitlistDocRef.delete();
+    }
+  } catch (err) {
+    console.error("Error deleteUser (waitlist):", err);
+    errors.push(`Waitlist: ${err}`);
+    waitlistLookupFailed = true;
+  }
+
   try {
     const targetDocRef = db.collection(PARTICIPANTS).doc(trimmedTargetId);
+    const targetSnap = await targetDocRef.get();
+    const targetData = targetSnap.data();
+    const targetRole = (
+      targetData && typeof targetData.role === "string" ? targetData.role : ""
+    ).toLowerCase();
+    const isParticipant = !targetRole || targetRole === "participant" || targetRole === "";
+
     await targetDocRef.delete();
+
+    // Decrement currentParticipants if they were a counted participant (not waitlisted, not admin).
+    // Skip decrement if waitlist lookup failed to avoid corrupting the count.
+    // Use a transaction to guard against going below 0.
+    if (!waitlistLookupFailed && !isOnWaitlist && isParticipant && targetSnap.exists) {
+      const configRef = db.doc("config/programState");
+      await db.runTransaction(async (txn) => {
+        const configSnap = await txn.get(configRef);
+        const current = (configSnap.data()?.currentParticipants ?? 0) as number;
+        if (current > 0) {
+          txn.update(configRef, {
+            currentParticipants: admin.firestore.FieldValue.increment(-1),
+          });
+        }
+      });
+    }
   } catch (err) {
     console.error("Error deleteUser (firestore):", err);
     errors.push(`Firestore: ${err}`);
@@ -232,7 +273,6 @@ export const deleteUser = onCall(async (request) => {
     if (!snapshot.empty) {
       await snapshot.docs[0].ref.delete();
     }
-
   } catch (err) {
     console.error("Error deleteUser (matches):", err);
     errors.push(`Matches: ${err}`);
@@ -246,8 +286,141 @@ export const deleteUser = onCall(async (request) => {
   }
 
   if (errors.length > 0) {
-    throw new HttpsError("internal", `Partial deletion failure: ${errors.join("; ")}`);
+    throw new HttpsError(
+      "internal",
+      `Partial deletion failure: ${errors.join("; ")}`,
+    );
   }
 
   return { success: true };
+});
+
+export const removeProfilePicture = onRequest(async (req, res) => {
+  res.set("Access-Control-Allow-Origin", CORS_ORIGIN);
+  res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+
+  if (req.method !== "POST") {
+    res.status(405).send("Method Not Allowed");
+    return;
+  }
+
+  try {
+    console.log("removeProfilePicture body:", req.body);
+
+    const { uid } = req.body;
+
+    if (!uid) {
+      res.status(400).send("Missing uid");
+      return;
+    }
+
+    const bucket = admin.storage().bucket("for-all-ages-cdn");
+    const filePath = `profile-pictures/${uid}`;
+    const file = bucket.file(filePath);
+
+    const [exists] = await file.exists();
+    console.log("exists:", exists, "path:", filePath);
+
+    if (!exists) {
+      res.status(404).send("Profile picture not found");
+      return;
+    }
+
+    await file.delete();
+
+    res.status(200).json({ message: "Profile picture removed" });
+  } catch (err) {
+    console.error("Remove error:", err);
+    res.status(500).send(`Remove failed: ${err}`);
+  }
+});
+
+export const uploadProfilePicture = onRequest(async (req, res) => {
+  res.set("Access-Control-Allow-Origin", CORS_ORIGIN);
+  res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+
+  if (req.method !== "POST") {
+    res.status(405).send("Method Not Allowed");
+    return;
+  }
+
+  const bb = busboy({ headers: req.headers });
+  let uid: string | null = null;
+  let fileBuffer: Buffer | null = null;
+  let fileMimeType = "image/jpeg";
+
+  bb.on("field", (name: any, value: any) => {
+    if (name === "uid") uid = value;
+  });
+
+  bb.on("file", (_: any, file: any, info: any) => {
+    fileMimeType = info.mimeType;
+    const chunks: Buffer[] = [];
+    file.on("data", (chunk: any) => chunks.push(chunk));
+    file.on("end", () => {
+      fileBuffer = Buffer.concat(chunks);
+    });
+  });
+
+  bb.on("finish", async () => {
+    console.log(
+      "busboy finished, uid=",
+      uid,
+      "buffer length=",
+      fileBuffer?.length,
+    );
+    if (!uid || !fileBuffer) {
+      console.warn("missing uid or fileBuffer", { uid, fileBuffer });
+      res.status(400).send("Missing uid or file.");
+      return;
+    }
+
+    try {
+      const bucket = admin.storage().bucket("for-all-ages-cdn");
+      const file = bucket.file(`profile-pictures/${uid}`);
+
+      // uniform bucket-level access is enabled for this bucket, which
+      // prohibits setting per-object ACLs (the `public: true` flag you
+      // were previously using).
+      //
+      // Instead, ensure that the bucket's IAM policy grants
+      // `roles/storage.objectViewer` to `allUsers` (or whatever principal
+      // you need) so that objects are publicly readable. If you want to
+      // make a single object public programmatically you can still call
+      // `await file.makePublic();` after saving, but it may be unnecessary
+      // if the bucket is already globally readable.
+      await file.save(fileBuffer, {
+        metadata: { contentType: fileMimeType },
+        // no `public: true` option when uniform access is on
+      });
+      // if you do need to ensure the specific object is publicly readable,
+      // uncomment the next line. it will succeed under uniform access.
+      // await file.makePublic();
+
+      res.status(200).json({
+        url: `https://storage.googleapis.com/for-all-ages-cdn/profile-pictures/${uid}`,
+      });
+    } catch (err) {
+      console.error("Upload error:", err);
+      // send the full error message back so the client can inspect it
+      res.status(500).send(`Upload failed: ${err}`);
+    }
+  });
+
+  const readable = new Readable();
+  readable.push(req.rawBody);
+  readable.push(null);
+  readable.pipe(bb);
 });
