@@ -628,7 +628,7 @@ const Profile = () => {
                   className={styles.viewInterestsButton}
                   onClick={() => setShowInterestsModal(true)}
                 >
-                  View their interests
+                  About Match
                 </button>
               )}
             </div>
@@ -721,7 +721,7 @@ const Profile = () => {
 
           {!isAdmin && (
             <div className={styles.infoSection}>
-              <h3 className={styles.sectionTitle}>Your Interests</h3>
+              <h3 className={styles.sectionTitle}>About Me</h3>
 
               {userInterestItems.length === 0 ? (
                 <div className={styles.fieldBox}>
