@@ -132,6 +132,23 @@
     font-family: 'Merriweather', serif;
 }
 
+.forgotPasswordButton {
+    border: none;
+    background: none;
+    color: #127BBE;
+    font-size: 0.9rem;
+    text-decoration: underline;
+    cursor: pointer;
+    align-self: flex-end;
+    padding: 0;
+    font-family: 'Merriweather', serif;
+}
+
+.forgotPasswordButton:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
 .submitButton:hover:not(.disabled) {
     background: #0E6CAE;
 }

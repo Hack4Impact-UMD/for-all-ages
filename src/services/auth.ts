@@ -1,6 +1,7 @@
 import { auth } from "../firebase";
 import {
   createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
   sendEmailVerification,
   signInWithEmailAndPassword,
   updateProfile,
@@ -34,6 +35,11 @@ export async function signupWithEmailPassword(params: {
 
 export async function resendVerificationEmail(user: User) {
   return sendEmailVerification(user);
+}
+
+export async function sendResetPasswordEmail(email: string) {
+  const normalizedEmail = email.trim().toLowerCase();
+  return sendPasswordResetEmail(auth, normalizedEmail);
 }
 
 export async function refreshCurrentUser() {
