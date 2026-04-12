@@ -28,6 +28,7 @@ import type {
   FormResponse,
 } from "../../types";
 import ParticipantInfoPopup from "./components/ParticipantInfoPopup/ParticipantInfoPopup";
+import { useAuth } from "../../auth/AuthProvider";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 type RoleFilter = "All" | Role | "Participant";
@@ -76,6 +77,7 @@ function composeDisplayName(doc: ParticipantDoc): string {
 
 // Main component for the Admin Dashboard page
 export default function AdminDashboard() {
+  const { user } = useAuth();
   const [admins, setAdmins] = useState<AdminRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -243,22 +245,18 @@ export default function AdminDashboard() {
     if (typeof window === "undefined") return;
 
     // Filters only participants and subadmins
-    const list = admins.filter((user) => {
-      const r = normaliseRole(user.role);
+    const list = admins.filter((u) => {
+      const r = normaliseRole(u.role);
       return r === "Participant" || r === "Subadmin";
     });
 
     // Holds all of the emails of the new list, filtering falsy emails
-    const emailList = list
-      .map((user) => {
-        return user.email;
-      })
-      .filter(Boolean);
+    const emailList = list.map((u) => u.email).filter(Boolean);
 
-    // Format the email list to be one string
-    const mailToEmailList = emailList.join(",");
-
-    const mailto = `mailto:${mailToEmailList}`;
+    // Admin's email goes in "to:", participant/subadmin emails go in "bcc:"
+    const bccList = emailList.join(",");
+    const adminEmail = user?.email ?? "";
+    const mailto = `mailto:${adminEmail}?bcc=${bccList}`;
     window.location.href = mailto;
   };
 
