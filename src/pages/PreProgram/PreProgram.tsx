@@ -860,7 +860,7 @@ const PreProgram = () => {
           <thead>
             <tr>
               <th>Student</th>
-              <th>Senior</th>
+              <th>Older Adult</th>
               <th>Final Score %</th>
               <th>Status</th>
             </tr>
