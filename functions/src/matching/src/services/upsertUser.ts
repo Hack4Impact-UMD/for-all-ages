@@ -4,7 +4,7 @@ import { logger } from "../utils/logger.js";
 export async function upsertFreeResponse(
   uid: string,
   textResponses: string[],
-  numericResponses: number[],
+  numericResponses: Record<string, number>,
   user_type: string,
   pronouns?: string
 ): Promise<void> {
@@ -18,7 +18,7 @@ export async function upsertFreeResponse(
     throw new Error("Invalid textResponses provided to upsertFreeResponse");
   }
 
-  if (!Array.isArray(numericResponses)) {
+  if (!numericResponses || typeof numericResponses !== "object") {
     throw new Error("Invalid numericResponses provided to upsertFreeResponse");
   }
 
@@ -31,25 +31,22 @@ export async function upsertFreeResponse(
   const index = client.index(indexName);
 
   try {
-    // Build metadata object with dynamic responses
     const metadata: Record<string, any> = {
       user_type,
     };
 
-    // Add numeric responses with naming convention: numeric1, numeric2, etc.
-    numericResponses.forEach((value, index) => {
-      metadata[`numeric${index + 1}`] = value;
-    });
+    // Store numeric responses keyed by stable question ID directly into metadata
+    for (const [key, value] of Object.entries(numericResponses)) {
+      metadata[key] = value;
+    }
 
-    // Combine all text responses for embedding. If none are provided, use a
-    // deterministic fallback so numeric-only responses are still upserted.
-    const allTextResponses = textResponses.join(" ");
+    // Combine text responses for embedding
+    const combinedText = textResponses.join("\n\n");
     const embeddingInput =
-      allTextResponses.trim().length > 0
-        ? allTextResponses
+      combinedText.trim().length > 0
+        ? combinedText
         : `uid:${uid} user_type:${user_type}`;
 
-    // Generate embedding for combined text responses
     const embedResult = await client.inference.embed(
       "llama-text-embed-v2",
       [embeddingInput],
@@ -65,10 +62,7 @@ export async function upsertFreeResponse(
       throw new Error("Failed to generate embedding from Pinecone inference");
     }
 
-    // Add individual text responses with naming convention: text1, text2, etc.
-    textResponses.forEach((response, index) => {
-      metadata[`text${index + 1}`] = response.substring(0, 1000);
-    });
+    metadata.full_text_length = combinedText.length;
     
     if (pronouns) {
       metadata.pronouns = pronouns;
