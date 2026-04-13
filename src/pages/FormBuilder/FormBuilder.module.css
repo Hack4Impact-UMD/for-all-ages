@@ -848,3 +848,7 @@
   opacity: 70%;
 }
 
+.lockedWarning {
+  color: red;
+  font-size: 12px;
+}

@@ -19,18 +19,6 @@ import {
 import type { EditorQuestion, EditorSection, FormEditorState } from "./useFormEditor";
 import { useFormEditor } from "./useFormEditor";
 import styles from "./FormBuilder.module.css";
-import Logo from "../../assets/for-all-ages-logo.svg";
-import ShortInput from "../Registration/Question Types/ShortInput";
-import MediumInput from "../Registration/MediumInput";
-import LongInput from "../Registration/Question Types/LongInput";
-import TextDisplay from "../Registration/Question Types/TextDisplay";
-import DropdownInput from "../Registration/Question Types/DropdownInput";
-import MultipleInput from "../Registration/Question Types/MultipleInput";
-import RadioInput from "../Registration/Question Types/RadioInput";
-import SliderInput from "../Registration/Question Types/SliderInput";
-import DateInput from "../Registration/Question Types/DateInput";
-import PhoneNumberInput from "../Registration/PhoneNumberInput";
-import AddressInput from "../Registration/Question Types/AddressInput";
 
 // labels for the selection
 
@@ -336,6 +324,8 @@ function InlineEditor({
             Matchable
           </label>
         </div>
+
+        <p className={styles.lockedWarning}>{question.locked ? "This question is required for the program and cannot be removed." : ""}</p>
       </div>
     </div>
   );
