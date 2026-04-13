@@ -24,6 +24,39 @@ type ProgramState = {
   week: number;
 };
 
+// Helper to fetch dynamic score ranges from the creator's form config
+async function getDynamicMatchingConfig(): Promise<Partial<MatchingConfig>> {
+  const formSnap = await admin.firestore().doc("config/registrationForm").get();
+  const scoreRanges: Record<string, { min: number; max: number }> = {};
+  
+  if (formSnap.exists) {
+    const form = formSnap.data();
+    if (form && Array.isArray(form.sections)) {
+      form.sections.forEach((section: any) => {
+        if (Array.isArray(section.questions)) {
+          section.questions.forEach((q: any) => {
+            // Find matchable slider/numeric questions
+            if (q.matchable && (q.type === "Slider" || q.type === "Number" || typeof q.min === "number")) {
+              // Key by title or id based on what your frontend uses as the stable identifier
+              const key = q.id || q.title; 
+              scoreRanges[key] = {
+                min: q.min ?? 1, // Uses form creator's limit, falls back to 1 if empty
+                max: q.max ?? 5  // Uses form creator's limit, falls back to 5 if empty
+              };
+            }
+          });
+        }
+      });
+    }
+  }
+
+  return {
+    frqWeight: 0.7,
+    quantWeight: 0.3,
+    scoreRanges
+  };
+}
+
 export const matchAll = onRequest(async (req, res) => {
   // CORS headers
   res.set("Access-Control-Allow-Origin", CORS_ORIGIN);
@@ -36,11 +69,9 @@ export const matchAll = onRequest(async (req, res) => {
     return;
   }
 
-  let frqWeight = 0.7;
-  let quantWeight = 0.3;
-
-  const config: Partial<MatchingConfig> = { frqWeight, quantWeight };
-  const service = new MatchingService(config);
+  // Fetch the dynamically constructed config with the creator's min/max ranges
+  const config = await getDynamicMatchingConfig();
+  const service = new MatchingService(config as MatchingConfig);
   const result = await service.runMatching();
 
   res.status(200).json({
@@ -68,9 +99,12 @@ export const upsertUser = onRequest(async (req, res) => {
   try {
     const { uid, textResponses, numericResponses, user_type, pronouns } = req.body;
 
+    // Validate using Object.keys since numericResponses is now a Record/Object
+    const hasText = textResponses && textResponses.length > 0;
+    const hasNumeric = numericResponses && Object.keys(numericResponses).length > 0;
+
     // If there are no matchable responses, just return success
-    if ((!textResponses || textResponses.length === 0) && 
-        (!numericResponses || numericResponses.length === 0)) {
+    if (!hasText && !hasNumeric) {
       res.status(200).json({ message: "No responses to upsert." });
       return;
     }
@@ -78,7 +112,7 @@ export const upsertUser = onRequest(async (req, res) => {
     await upsertFreeResponse(
       uid,
       textResponses || [],
-      numericResponses || [],
+      numericResponses || {},
       user_type,
       pronouns
     );
@@ -143,7 +177,9 @@ export const computeMatchScore = onRequest(async (req, res) => {
       return;
     }
 
-    const result = await computeMatchScoreService(uid1, uid2);
+    // Fetch the dynamically constructed config with the creator's min/max ranges
+    const config = await getDynamicMatchingConfig();
+    const result = await computeMatchScoreService(uid1, uid2, config); // Pass config dynamically
 
     res.status(200).json(result);
   } catch (err) {
