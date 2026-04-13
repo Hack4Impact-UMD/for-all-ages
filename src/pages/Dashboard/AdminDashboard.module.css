@@ -5,7 +5,6 @@
 
 .scheduleCard {
     background: #ffffff;
-    /* border: 4px solid #0f6bb1; */
     border-radius: 1.75rem;
     box-shadow: 0 16px 36px rgba(15, 107, 177, 0.18);
     padding: clamp(1.5rem, 4vw, 2rem);
@@ -14,155 +13,7 @@
     overflow-x: auto;
 }
 
-.scheduleInner {
-    min-width: 720px;
-}
-
-.filterBar {
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    margin-bottom: 0.75rem;
-    position: relative;
-}
-
-.filterButton {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
-    border-radius: 9999px;
-    border: 1px solid #0f4f86;
-    background-color: #ffffff;
-    color: #0f4f86;
-    font-size: 0.85rem;
-    font-weight: 600;
-    cursor: pointer;
-}
-
-.filterButton:hover {
-    background-color: #e6eef8;
-}
-
-.filterIcon {
-    font-size: 18px !important;
-}
-
-.filterPopover {
-  position: absolute;
-  top: 40px;
-  right: 0;
-  background-color: #ffffff;
-  border-radius: 8px;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15);
-  padding: 10px 12px;
-  min-width: 200px;
-  z-index: 10;
-  display: flex;
-  flex-direction: column;
-  align-items: start;
-}
-
-.filterOption {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  font-size: 14px;
-  padding: 6px 4px;
-  width: 100%;
-  cursor: pointer;
-}
-
-.filterOption input {
-  width: 16px;
-  height: 16px;
-  cursor: pointer;
-}
-
-.filterOption span {
-  flex: 1;
-}
-
-.clearFilterButton {
-    margin-top: 8px;
-    width: 100%;
-    border: none;
-    border-radius: 9999px;
-    padding: 6px 10px;
-    font-size: 0.8rem;
-    font-weight: 500;
-    cursor: pointer;
-    background-color: #f3f6fb;
-    color: #0f4f86;
-}
-
-.clearFilterButton:hover {
-    background-color: #e0ebfa;
-}
-
-.dayGrid {
-    display: grid;
-    grid-template-columns: repeat(7, minmax(0, 1fr));
-    border: 1px solid rgba(15, 107, 177, 0.12);
-    border-radius: 1.4rem;
-    overflow: hidden;
-    background: linear-gradient(180deg, rgba(15, 107, 177, 0.08) 0%, rgba(255, 255, 255, 0.08) 100%);
-}
-
-.dayColumn {
-    display: flex;
-    flex-direction: column;
-    padding: 1.1rem 0.9rem 1.9rem;
-    
-    border-left: 1px solid rgba(15, 107, 177, 0.12);
-    min-height: 420px;
-    gap: 0.75rem;
-    /* background: rgba(251, 251, 251, 0.92); */
-    background: white;
-    /* backdrop-filter: blur(4px); */
-}
-
-.dayColumn:first-child {
-    border-left: none;
-}
-
-.dayHeader {
-    font-size: 1.05rem;
-    font-weight: 700;
-    color: #0f4f86;
-    text-align: center;
-    margin-bottom: 0.4rem;
-}
-
-.peopleList {
-    display: flex;
-    flex-direction: column;
-    gap: 0.65rem;
-    flex: 1;
-}
-
-.pendingCard {
-    background: #ffffff;
-    border-radius: 1rem;
-    box-shadow: 0 8px 24px rgba(15, 107, 177, 0.1);
-    overflow: hidden;
-}
-
-.pendingList {
-    max-height: 200px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 0.65rem;
-    padding: 1rem;
-}
-
-@media (max-width: 860px) {
-    .scheduleCard {
-        padding: 1.25rem;
-    }
-}
+/* ── Header ─────────────────────────────────────────── */
 
 .scheduleHeader {
     display: grid;
@@ -209,37 +60,101 @@
     color: rgba(15, 107, 177, 0.5);
 }
 
-.noResults {
+/* ── Week header ─────────────────────────────────────── */
+
+.weekHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.25rem;
+}
+
+.weekTitle {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 700;
     color: #0f4f86;
-    font-size: 0.95rem;
-    opacity: 0.7;
-    padding: 0.25rem 0;
 }
 
-.emptyDay {
-    color: rgba(15, 79, 134, 0.4);
-    font-size: 0.85rem;
-    text-align: center;
-    padding: 0.5rem 0;
-}
-
-.errorBox {
-    background: #fff0f0;
-    border: 1px solid #ffb3b3;
-    border-radius: 0.5rem;
-    color: #cc0000;
+.weekBadge {
+    padding: 8px 20px;
+    border-radius: 10px;
     font-size: 0.9rem;
-    padding: 0.75rem 1rem;
-    margin-bottom: 0.75rem;
+    font-weight: 600;
 }
 
-.loading {
-    color: #0f4f86;
-    font-size: 0.95rem;
-    opacity: 0.7;
-    padding: 1rem 0;
-    text-align: center;
+.badgeCompleted {
+    background-color: #2E8B57;
+    color: #FFFFFF;
 }
+
+.badgeOngoing {
+    background-color: #C5F3C0;
+    color: #1A5C1A;
+}
+
+.badgeUpcoming {
+    background-color: #f3f4f6;
+    color: #6b7280;
+}
+
+
+/* ── Stats row ───────────────────────────────────────── */
+
+.statsRow {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+}
+
+.statBox {
+    flex: 1;
+    background: #FFFFFF;
+    border-radius: 0.75rem;
+    border: 1px solid #E8ECF2;
+    padding: 1.5rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.2rem;
+}
+
+.statValue {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #080E16;
+    line-height: 1;
+
+}
+
+.statValueGreen {
+    color: #2E8B57;
+}
+
+.statValueGold {
+    color: #B8860B;
+}
+.statValueRed {
+    color: #ef4444;
+}
+
+.statHeader {
+    font-size: 0.72rem;
+    font-weight: 800;
+    color: #555555;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 0.25rem;
+}
+
+.statUnit {
+    font-size: 0.85rem;
+    font-weight: 400;
+    color: #555555;
+    margin-left: 0.5rem;
+}
+
+/* ── Filter bar ──────────────────────────────────────── */
 
 .filterBar {
     position: relative;
@@ -277,9 +192,8 @@
     position: absolute;
     top: 100%;
     left: 0;
-    right: auto;
     margin-top: 0.4rem;
-    background: `#ffffff`;
+    background: #ffffff;
     border: 1px solid rgba(15, 107, 177, 0.15);
     border-radius: 0.75rem;
     box-shadow: 0 8px 24px rgba(15, 107, 177, 0.12);
@@ -317,6 +231,144 @@
 
 .clearFilterButton:hover {
     text-decoration: underline;
+}
+
+/* ── Match table ─────────────────────────────────────── */
+
+.matchTable {
+    width: 100%;
+    min-width: 640px;
+}
+
+.tableHeader {
+    display: grid;
+    grid-template-columns: 0.7fr 0.7fr 200px 1fr;
+    padding: 0.5rem 1rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #5A6A7B;
+    background: #F9F9F9;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    border-bottom: 1px solid rgba(15, 107, 177, 0.12);
+    text-align: left;
+}
+
+.tableRow {
+    display: grid;
+    grid-template-columns: 0.7fr 0.7fr 200px 1fr;
+    align-items: center;
+    padding: 0.8rem 1rem;
+    border-bottom: 1px solid rgba(15, 107, 177, 0.06);
+    transition: background-color 0.15s ease;
+}
+
+.tableRow:last-child {
+    border-bottom: none;
+}
+
+.tableRow:hover {
+    background-color: rgba(15, 107, 177, 0.03);
+}
+
+.participantCell {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.88rem;
+    color: #080E16;
+}
+
+.avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #D9D9D9;
+    color: #555555;
+    font-size: 0.6rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+/* ── Progress blocks ─────────────────────────────────── */
+
+.progressBlocks {
+    display: flex;
+    gap: 3px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.block {
+    width: 13px;
+    height: 13px;
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+
+.blockGreen {
+    background-color: #2E8B57;
+}
+
+.blockRed {
+    background-color: #ef4444;
+}
+
+.blockFuture {
+    background-color: #e2e8f0;
+}
+
+.blockCurrent {
+    outline: 2px solid #0E6BAE;
+    outline-offset: 1px;
+}
+
+/* ── Misc ────────────────────────────────────────────── */
+
+.noResults {
+    color: #0f4f86;
+    font-size: 0.95rem;
+    opacity: 0.7;
+    padding: 0.25rem 0;
+}
+
+.statusCell {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+}
+
+.noStatus {
+    color: rgba(15, 79, 134, 0.35);
+    font-size: 0.95rem;
+}
+
+.emptyTable {
+    padding: 2rem;
+    text-align: center;
+    color: rgba(15, 79, 134, 0.4);
+    font-size: 0.9rem;
+}
+
+.errorBox {
+    background: #fff0f0;
+    border: 1px solid #ffb3b3;
+    border-radius: 0.5rem;
+    color: #cc0000;
+    font-size: 0.9rem;
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.loading {
+    color: #0f4f86;
+    font-size: 0.95rem;
+    opacity: 0.7;
+    padding: 1rem 0;
+    text-align: center;
 }
 
 @media (max-width: 768px) {

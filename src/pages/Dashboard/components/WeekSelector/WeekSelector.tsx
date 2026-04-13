@@ -41,14 +41,15 @@ export default function WeekSelector ({
                 disabled={startIndex === 0}
                 aria-label="Previous 5 weeks"
             >
-                &lt;
+                &#8249;
             </button>
             <div className={styles.weekList} role="tablist" aria-label="Select week">
                 {visibleWeeks.map((week, index) => {
                     const actualIndex = startIndex + index;
                     const isActive = actualIndex === selectedWeekIndex
                     const status = statuses[actualIndex] || 'future';
-                    
+                    const isCompleted = status === 'completed'
+
                     return (
                         <button
                             key={week}
@@ -58,7 +59,10 @@ export default function WeekSelector ({
                             className={`${styles.weekButton} ${isActive ? styles.activeWeek : ''} ${styles[status]}`.trim()}
                             onClick={() => onSelect(actualIndex)}
                         >
-                            {week}
+                            <span className={styles.weekLabel}>{week}</span>
+                            {isCompleted && (
+                                <span className={styles.checkmark} aria-hidden="true">✓</span>
+                            )}
                         </button>
                     )
                 })}
@@ -70,7 +74,7 @@ export default function WeekSelector ({
                 disabled={startIndex + weekRange >= weeks.length}
                 aria-label="Next 5 weeks"
             >
-                &gt;
+                &#8250;
             </button>
         </div>
     )

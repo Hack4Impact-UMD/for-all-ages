@@ -96,17 +96,15 @@ export default function RecapPage() {
 
     const checkInData = useMemo(() => {
         if (!todayWeekday || !matches.length) return [];
-        let checkedIn = 0, missed = 0, pending = 0;
+        let checkedIn = 0, notSubmitted = 0;
         matches.forEach(m => {
             const hasLog = participantsWithLogs.has(m.participant1_id) || participantsWithLogs.has(m.participant2_id);
             if (hasLog) checkedIn++;
-            else if (m.day_of_call > todayWeekday) pending++;
-            else missed++;
+            else notSubmitted++;
         });
         return [
             { name: 'Checked In', count: checkedIn, value: (checkedIn / matches.length) * 100, color: '#7FBC41' },
-            { name: 'Missed', count: missed, value: (missed / matches.length) * 100, color: '#F76D6D' },
-            { name: 'Pending', count: pending, value: (pending / matches.length) * 100, color: '#EAB419' }
+            { name: 'Not Submitted', count: notSubmitted, value: (notSubmitted / matches.length) * 100, color: '#F76D6D' },
         ];
     }, [matches, todayWeekday, participantsWithLogs]);
 

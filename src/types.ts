@@ -101,7 +101,6 @@ export interface Survey {
 export interface Match {
     participant1_id: string
     participant2_id: string
-    day_of_call: number // 1-7 (Monday-Sunday), or -1 if not yet set
     similarity: number
 }
 
@@ -153,8 +152,6 @@ export interface ProgramState {
 /** PreProgram match row status */
 export type MatchStatus = "Pending" | "Approved" | "No Match"
 
-/** Day labels for schedule (AdminDashboard) */
-export type DayKey = "Sun" | "Mon" | "Tue" | "Wed" | "Thurs" | "Fri" | "Sat"
 
 /** Tag variant for person/assignment display */
 export type PersonTagVariant = "rose" | "green" | "gold"
