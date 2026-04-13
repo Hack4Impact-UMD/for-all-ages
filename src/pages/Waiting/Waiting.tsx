@@ -48,7 +48,7 @@ export default function Waiting() {
 
   const navigate = useNavigate();
 
-  const [match, setMatch] = useState<(Match & { id: string }) | null>(null)
+  const [match, setMatch] = useState<(Match & { id: string }) | null>(null);
   const [partner, setPartner] = useState<PartnerInfo | null>(null);
   const [matchLoading, setMatchLoading] = useState(false);
 
