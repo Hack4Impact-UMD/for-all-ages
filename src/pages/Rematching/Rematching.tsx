@@ -6,6 +6,7 @@ import layoutStyles from "../Dashboard/Dashboard.module.css";
 import ParticipantCard from "./components/ParticipantCard/ParticipantCard";
 import SelectedParticipantCard from "./components/SelectedParticipantCard/SelectedParticipantCard";
 import MatchConfidenceCircle from "./components/MatchConfidenceCircle/MatchConfidenceCircle";
+import Toggle from "./components/Toggle/Toggle";
 import { collection, doc, getDoc, getDocs, writeBatch } from "firebase/firestore";
 import { db, computeMatchScore } from "../../firebase";
 import type { Form, Question, RematchingParticipant } from "../../types";
@@ -101,6 +102,11 @@ export default function Rematching() {
     Record<string, number | null>
   >({});
 
+  const [waitlistedStudents, setWaitlistedStudents] = useState<RematchingParticipant[]>([]);
+  const [waitlistedAdults, setWaitlistedAdults] = useState<RematchingParticipant[]>([]);
+  const [showWaitlistedStudents, setShowWaitlistedStudents] = useState(false);
+  const [showWaitlistedAdults, setShowWaitlistedAdults] = useState(false);
+
   const [studentSearch, setStudentSearch] = useState("");
   const [adultSearch, setAdultSearch] = useState("");
   const [loading, setLoading] = useState(false);
@@ -172,13 +178,27 @@ export default function Rematching() {
 
       const participantsRef = collection(db, "participants");
       const participantsSnap = await getDocs(participantsRef);
+      const participantsMap = new Map<string, any>();
+      participantsSnap.forEach((pDoc) => {
+        participantsMap.set(pDoc.id, { ...pDoc.data(), id: pDoc.id });
+      });
 
-      // Fetch waitlisted IDs to exclude from matching
+      // Fetch waitlisted participants
       const waitlistSnap = await getDocs(collection(db, "waitlist"));
       const waitlistedIds = new Set(waitlistSnap.docs.map((d) => d.id));
+      const waitlistedByUid = new Map<string, any>();
+      waitlistSnap.forEach((wDoc) => {
+        const data = wDoc.data() as any;
+        const uid = data.uid as string | undefined;
+        if (uid) {
+          waitlistedByUid.set(uid, data);
+        }
+      });
 
       const studentsList: RematchingParticipant[] = [];
       const adultsList: RematchingParticipant[] = [];
+      const waitlistedStudentsList: RematchingParticipant[] = [];
+      const waitlistedAdultsList: RematchingParticipant[] = [];
 
       participantsSnap.forEach((pDoc) => {
         const data = pDoc.data() as any;
@@ -231,6 +251,55 @@ export default function Rematching() {
 
       setStudents(studentsList);
       setAdults(adultsList);
+
+      // Process waitlisted participants
+      const responsesByUidMap = new Map(responsesByUid);
+      waitlistedByUid.forEach((waitlistData, uid) => {
+        const participantDoc = participantsMap.get(uid);
+        if (!participantDoc) return;
+
+        const rawRole = (participantDoc.user_type ?? participantDoc.userType ?? participantDoc.role ?? "") as string;
+        const userType = normalizeRole(rawRole);
+        if (!userType) return;
+
+        const responseAnswers = responsesByUidMap.get(uid) ?? {};
+        const preferenceScores = participantDoc.preferenceScores ?? {};
+        const sliderQuestions = nextMatchableQuestions.filter((q) => q.type === "Slider");
+
+        const q1Title = sliderQuestions[0]?.title;
+        const q2Title = sliderQuestions[1]?.title;
+        const q3Title = sliderQuestions[2]?.title;
+        if (q1Title && responseAnswers[q1Title] == null && preferenceScores.q1 != null) {
+          responseAnswers[q1Title] = preferenceScores.q1;
+        }
+        if (q2Title && responseAnswers[q2Title] == null && preferenceScores.q2 != null) {
+          responseAnswers[q2Title] = preferenceScores.q2;
+        }
+        if (q3Title && responseAnswers[q3Title] == null && preferenceScores.q3 != null) {
+          responseAnswers[q3Title] = preferenceScores.q3;
+        }
+
+        const waitlistedParticipant: RematchingParticipant = {
+          id: uid,
+          userUid: uid,
+          type: userType,
+          name: participantDoc.displayName ?? "Unnamed participant",
+          interestsText: participantDoc.interests ?? "",
+          school: participantDoc.university,
+          preferenceScores,
+          pronouns: participantDoc.pronouns ?? null,
+          matchableAnswers: responseAnswers,
+        };
+
+        if (userType === "student") {
+          waitlistedStudentsList.push(waitlistedParticipant);
+        } else {
+          waitlistedAdultsList.push(waitlistedParticipant);
+        }
+      });
+
+      setWaitlistedStudents(waitlistedStudentsList);
+      setWaitlistedAdults(waitlistedAdultsList);
     } catch (err) {
       console.error("Error loading rematching data:", err);
       setLoadError("Failed to load matching data.");
@@ -340,12 +409,22 @@ export default function Rematching() {
   }, [selectedAdult, students]);
 
   const filteredStudents = useMemo(
-    () => filterParticipants(students, studentSearch),
-    [students, studentSearch]
+    () => {
+      const participantsToFilter = showWaitlistedStudents
+        ? [...students, ...waitlistedStudents]
+        : students;
+      return filterParticipants(participantsToFilter, studentSearch);
+    },
+    [students, waitlistedStudents, showWaitlistedStudents, studentSearch]
   );
   const filteredAdults = useMemo(
-    () => filterParticipants(adults, adultSearch),
-    [adults, adultSearch]
+    () => {
+      const participantsToFilter = showWaitlistedAdults
+        ? [...adults, ...waitlistedAdults]
+        : adults;
+      return filterParticipants(participantsToFilter, adultSearch);
+    },
+    [adults, waitlistedAdults, showWaitlistedAdults, adultSearch]
   );
 
   const handleStudentClick = (student: RematchingParticipant) => {
@@ -391,6 +470,11 @@ export default function Rematching() {
         day_of_call: -1,
         similarity: matchPercentage != null ? Math.round(matchPercentage) : null,
       });
+
+      // Remove waitlisted participants from the waitlist collection
+      const waitlistRef = collection(db, "waitlist");
+      batch.delete(doc(waitlistRef, selectedStudent.id));
+      batch.delete(doc(waitlistRef, selectedAdult.id));
 
       await batch.commit();
       setSelectedStudent(null);
@@ -464,6 +548,8 @@ export default function Rematching() {
             onParticipantClick={handleStudentClick}
             isStudentColumn={true}
             compatibilityScores={studentCompatibilityScores}
+            showWaitlisted={showWaitlistedStudents}
+            onToggleWaitlisted={setShowWaitlistedStudents}
           />
 
           <MatchDetailsColumn
@@ -491,6 +577,8 @@ export default function Rematching() {
             onParticipantClick={handleAdultClick}
             isStudentColumn={false}
             compatibilityScores={adultCompatibilityScores}
+            showWaitlisted={showWaitlistedAdults}
+            onToggleWaitlisted={setShowWaitlistedAdults}
           />
         </div>
       </div>
@@ -539,6 +627,8 @@ interface ParticipantColumnProps {
   onParticipantClick: (participant: RematchingParticipant) => void;
   isStudentColumn: boolean;
   compatibilityScores?: Record<string, number | null>;
+  showWaitlisted: boolean;
+  onToggleWaitlisted: (show: boolean) => void;
 }
 
 function ParticipantColumn({
@@ -551,6 +641,8 @@ function ParticipantColumn({
   onParticipantClick,
   isStudentColumn,
   compatibilityScores,
+  showWaitlisted,
+  onToggleWaitlisted,
 }: ParticipantColumnProps) {
   return (
     <div className={styles.column}>
@@ -567,6 +659,15 @@ function ParticipantColumn({
             onChange={(e) => onSearchChange(e.target.value)}
           />
         </div>
+
+        <div className={styles.toggle}>
+          <Toggle 
+            checked={showWaitlisted}
+            onChange={(e) => onToggleWaitlisted(e.target.checked)}
+          />
+        </div>
+        
+
       </div>
       <div className={styles.participantsList}>
         {participants.map((participant) => {
