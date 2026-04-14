@@ -1,10 +1,35 @@
 /**
  * Service for retrieving participant data from Pinecone
  */
+import * as admin from 'firebase-admin';
 import { getPineconeClient, getIndexName } from '../config/pinecone.config.js';
 import { logger } from '../utils/logger.js';
 import { isValidEmbedding } from '../utils/similarity.js';
 import type { ParticipantWithEmbedding } from '../types/matching.types.js';
+
+/**
+ * Fetch waitlisted participant IDs from Firebase
+ * 
+ * @returns Set of waitlisted participant IDs
+ */
+async function getWaitlistedIds(): Promise<Set<string>> {
+  try {
+    const db = admin.firestore();
+    const waitlistSnap = await db.collection('waitlist').get();
+    const waitlistedIds = new Set<string>();
+    
+    waitlistSnap.forEach((doc) => {
+      waitlistedIds.add(doc.id);
+    });
+    
+    logger.info(`Fetched ${waitlistedIds.size} waitlisted participant IDs from Firebase`);
+    return waitlistedIds;
+  } catch (error) {
+    logger.error('Error fetching waitlisted IDs:', error);
+    // Return empty set if fetch fails, to allow matching to continue
+    return new Set();
+  }
+}
 
 /**
  * Fetch all participants from Pinecone index
@@ -49,9 +74,22 @@ export async function fetchAllParticipants(): Promise<{
     
     logger.info(`Retrieved ${queryResults.matches.length} vectors from query`);
     
+    // Fetch waitlisted IDs to exclude from matching
+    const waitlistedIds = await getWaitlistedIds();
+    
     // Process each match
     for (const match of queryResults.matches) {
       try {
+        // Skip waitlisted participants
+        if (waitlistedIds.has(match.id)) {
+          logger.info(`Skipping waitlisted participant ${match.id}`);
+          excluded.push({
+            id: match.id,
+            reason: 'Participant is on the waitlist',
+          });
+          continue;
+        }
+        
         const participant = parseParticipantFromMatch(match);
         
         // Validate embedding
@@ -75,9 +113,6 @@ export async function fetchAllParticipants(): Promise<{
     }
     
     // Separate into students and seniors
-    allParticipants.forEach((p)=>{
-      console.log(p)
-    })
     const students = allParticipants.filter(p => 
       p.user_type === 'Student'
     );
