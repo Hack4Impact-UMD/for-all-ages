@@ -169,17 +169,18 @@ export default function AdminDashboard() {
 
   // Fetch waitlisted participant IDs
   useEffect(() => {
-    const fetchWaitlist = async () => {
-      try {
-        const waitlistSnap = await getDocs(collection(db, "waitlist"));
-        const waitlistedSet = new Set(waitlistSnap.docs.map((doc) => doc.id));
+    const unsubscribe = onSnapshot(
+      collection(db, "waitlist"),
+      (snapshot) => {
+        const waitlistedSet = new Set(snapshot.docs.map((doc) => doc.id));
         setWaitlistedIds(waitlistedSet);
-      } catch (err) {
+      },
+      (err) => {
         console.error("Failed to load waitlist", err);
-      }
-    };
+      },
+    );
 
-    fetchWaitlist();
+    return () => unsubscribe();
   }, []);
 
   // Recomputes only when admins or searchTerm change
