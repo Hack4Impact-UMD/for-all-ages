@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import type { Form, Question, QuestionType } from "../../types";
+import type { BannerState, Form, Question, QuestionType } from "../../types";
 import { db } from "../../firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import EditIcon from '@mui/icons-material/Edit';
@@ -19,18 +19,6 @@ import {
 import type { EditorQuestion, EditorSection, FormEditorState } from "./useFormEditor";
 import { useFormEditor } from "./useFormEditor";
 import styles from "./FormBuilder.module.css";
-import Logo from "../../assets/for-all-ages-logo.svg";
-import ShortInput from "../Registration/Question Types/ShortInput";
-import MediumInput from "../Registration/MediumInput";
-import LongInput from "../Registration/Question Types/LongInput";
-import TextDisplay from "../Registration/Question Types/TextDisplay";
-import DropdownInput from "../Registration/Question Types/DropdownInput";
-import MultipleInput from "../Registration/Question Types/MultipleInput";
-import RadioInput from "../Registration/Question Types/RadioInput";
-import SliderInput from "../Registration/Question Types/SliderInput";
-import DateInput from "../Registration/Question Types/DateInput";
-import PhoneNumberInput from "../Registration/PhoneNumberInput";
-import AddressInput from "../Registration/Question Types/AddressInput";
 
 // labels for the selection
 
@@ -156,7 +144,6 @@ function QuestionPreview({ question }: { question: Question }) {
   );
 }
 
-// question editors
 
 type InlineEditorProps = {
   question: EditorQuestion;
@@ -168,8 +155,6 @@ type InlineEditorProps = {
   onMoveUp: () => void;
   onMoveDown: () => void;
   onDone: () => void;
-  onUndo: () => void;
-  canUndo: boolean;
 };
 
 function InlineEditor({
@@ -181,34 +166,12 @@ function InlineEditor({
   onMoveUp,
   onMoveDown,
   onDone,
-  onUndo,
-  canUndo,
 }: InlineEditorProps) {
-  const [typeOpen, setTypeOpen] = useState(false);
-  const typeSelectorRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdown on outside click
-  useEffect(() => {
-    if (!typeOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (!typeSelectorRef.current?.contains(e.target as Node)) {
-        setTypeOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [typeOpen]);
 
   return (
-    <div
-      className={styles.inlineEditorWrapper}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" && e.target === e.currentTarget) {
-          onDone();
-        }
-      }}
-    >
-      {/* Floating toolbar — compact icons aligned right */}
+    <div className={styles.inlineEditorWrapper}>
+      {/* Floating toolbar — compact icons aligned right, hides delete button if locked question */}
       <div className={styles.inlineToolbar}>
         <div className={styles.inlineToolbarActions}>
           <button
@@ -229,23 +192,25 @@ function InlineEditor({
           >
             ∨
           </button>
-          <button
+          {!question.locked && <button
             type="button"
             className={`${styles.tbBtn} ${styles.tbBtnDelete}`}
             onClick={onDelete}
             title="Delete question"
           >
             ❌
-          </button>
+          </button>}
         </div>
       </div>
 
       {/* Blue-bordered editing card */}
-      <div className={styles.inlineEditorCard}>
+      <div className={styles.inlineEditorCard}
+      onKeyDown={(e) => { if (e.key === "Enter") onDone(); }}>
         <input
           className={styles.inlineTitleInput}
           value={question.title ?? ""}
           placeholder="Question Title"
+          disabled={question.locked}
           onChange={(e) => e.target.value.length < 100 ? onUpdate({ title: e.target.value }): null}
           autoFocus
         />
@@ -255,10 +220,13 @@ function InlineEditor({
             className={styles.inlineTypeInput}
             value={question.description ?? ""}
             placeholder="Question Description"
-            onChange={(e) => {e.target.value.length < 50 ? onUpdate({ description: e.target.value }): null}}
+            onChange={(e) => e.target.value.length < 50 ? onUpdate({ description: e.target.value }) : null}
           />
 
-          <select  className = {styles.questionSelect} onChange={(e) => {onUpdate({ type: e.target.value as QuestionType })}}>
+          <select  className = {styles.questionSelect}  
+          disabled={question.locked}
+          value={question.type}
+          onChange={(e) => {onUpdate({ type: e.target.value as QuestionType })}}>
             <option value={""}>Select a question Type</option>
             {(
               Object.entries(QUESTION_TYPE_LABELS) as [QuestionType, string][]
@@ -276,7 +244,7 @@ function InlineEditor({
           question.type === "multiple") && (
           <div className={styles.inlineOptionsBlock}>
             {(question.options ?? []).map((opt, i) => (
-              <div key={`${opt}-${i}`}className={styles.inlineOptionRow}>
+              <div key={i}className={styles.inlineOptionRow}>
                 <input
                   className={styles.inlineOptionInput}
                   value={opt}
@@ -356,6 +324,8 @@ function InlineEditor({
             Matchable
           </label>
         </div>
+
+        <p className={styles.lockedWarning}>{question.locked ? "This question is required for the program and cannot be removed." : ""}</p>
       </div>
     </div>
   );
@@ -417,7 +387,6 @@ const FormBuilder: React.FC = () => {
 
   const {
     sections,
-    canUndo,
     addSection,
     deleteSection,
     updateSectionTitle,
@@ -426,7 +395,6 @@ const FormBuilder: React.FC = () => {
     updateQuestion,
     deleteQuestion,
     reorderQuestions,
-    undo,
     loadForm,
     getForm,
   } = useFormEditor();
@@ -434,10 +402,7 @@ const FormBuilder: React.FC = () => {
   const [activeSectionIndex, setActiveSectionIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [banner, setBanner] = useState<{
-    type: "success" | "error";
-    message: string;
-  } | null>(null);
+  const [banner, setBanner] = useState<BannerState | null>(null);
 
   // Which question id is currently being edited inline (null = none)
   const [editingQuestionId, setEditingQuestionId] = useState<string | null>(
@@ -479,7 +444,7 @@ const FormBuilder: React.FC = () => {
     fetchForm();
   }, [loadForm]);
 
-  // drag and drop functionality to reorder sections
+  // Drag and drop functionality to reorder sections
   const handleSectionDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
@@ -488,6 +453,7 @@ const FormBuilder: React.FC = () => {
     if (from !== -1 && to !== -1) reorderSections(from, to);
   };
 
+  // Checks to see if each section is valid 
   const validateForm = (formToSave: Form) => {
     let valid = true
 
@@ -511,6 +477,7 @@ const FormBuilder: React.FC = () => {
     return valid;
   }
 
+  // Function to save to FireBase
   const handleSave = async () => {
     try {
       setSaving(true);
@@ -582,31 +549,30 @@ const FormBuilder: React.FC = () => {
   return (
     <div className={styles.page}>
 
-
-
-
-      {/* Success/error banner */}
-      {banner && (
-        <div
-          className={`${styles.banner} ${
-            banner.type === "success"
-              ? styles.bannerSuccess
-              : styles.bannerError
-          }`}
-        >
-          {banner.message}
-          <button
-            type="button"
-            className={styles.bannerClose}
-            onClick={() => setBanner(null)}
-          >
-            ✕
-          </button>
-        </div>
-      )}
-
       {/* Top wrapper for sections  */}
       <div className={styles.blueWrap}>
+
+        {/* Success/error banner */}
+        {banner && (
+          <div
+            className={`${styles.banner} ${
+              banner.type === "success"
+                ? styles.bannerSuccess
+                : styles.bannerError
+            }`}
+            role="status"
+          >
+            <span>{banner.message}</span>
+            <button
+              type="button"
+              className={styles.bannerClose}
+              onClick={() => setBanner(null)}
+              aria-label="Dismiss notification"
+            >
+              ×
+            </button>
+          </div>
+        )}
           <div className={styles.topBarActions}>
             <button
               type="button"
@@ -710,6 +676,7 @@ const FormBuilder: React.FC = () => {
               {/* Section title */}
               <SectionTitleEditor
                 section={activeSection}
+                locked={!!activeSection.locked}
                 onRename={(title) =>
                   updateSectionTitle(activeSection.id, title)
                 }
@@ -753,8 +720,6 @@ const FormBuilder: React.FC = () => {
                           }
                         }}
                         onDone={() => setEditingQuestionId(null)}
-                        onUndo={undo}
-                        canUndo={canUndo}
                       />
                     );
                   }
@@ -825,14 +790,16 @@ const FormBuilder: React.FC = () => {
   );
 };
 
-// Section title editor
+// Section title editor and delete section button
 
 function SectionTitleEditor({
   section,
+  locked,
   onRename,
   onDelete,
 }: {
   section: EditorSection;
+  locked?: boolean;
   onRename: (title: string) => void;
   onDelete: () => void;
 }) {
@@ -885,6 +852,7 @@ function SectionTitleEditor({
         <button
           type="button"
           className={`${styles.sectionActionBtn} ${styles.sectionDeleteBtn}`}
+          disabled={locked}
           onClick={onDelete}
           title="Delete section"
         >
