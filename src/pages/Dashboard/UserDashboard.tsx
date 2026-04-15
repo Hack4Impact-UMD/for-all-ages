@@ -1,17 +1,28 @@
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import styles from "./Dashboard.module.css";
 import WeekSelector from "./components/WeekSelector/WeekSelector";
 import LogCallForm from "./components/LogCallForm/LogCallForm";
-const WEEKS = 20;
+import { useAuth } from "../../auth/AuthProvider";
+
 export default function UserDashboard() {
+  const { programState } = useAuth();
+  const numWeeks = Math.max(1, programState?.numWeeks ?? 20);
+  const weekLabels = useMemo(
+    () => Array.from({ length: numWeeks }, (_, i) => `Week ${i + 1}`),
+    [numWeeks]
+  );
   const [selectedWeek, setSelectedWeek] = useState(2);
+
+  useEffect(() => {
+    setSelectedWeek((prev) => Math.min(prev, numWeeks - 1));
+  }, [numWeeks]);
 
   return (
     <div className={styles.page}>
       <div className={styles.surface}>
         <section className={styles.selectorSection}>
           <WeekSelector
-            weeks={Array.from({ length: WEEKS }, (_, i) => `Week ${i + 1}`)}
+            weeks={weekLabels}
             selectedWeekIndex={selectedWeek}
             onSelect={setSelectedWeek}
           />

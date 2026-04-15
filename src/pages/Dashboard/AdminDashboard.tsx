@@ -25,8 +25,6 @@ const DAY_LABELS: DayKey[] = [
   "Sat",
 ];
 
-const WEEKS = 20;
-
 export default function AdminDashboard() {
    const [selectedWeek, setSelectedWeek] = useState(0) // 0-indexed (Week 1)
    const [allMatches, setAllMatches] = useState<(Match & { id: string })[]>([])
@@ -65,6 +63,16 @@ export default function AdminDashboard() {
            hasInitializedWeek.current = true; // Mark as initialized so user selection isn't overridden
        }
    }, [programState?.week])
+
+   const numWeeks = Math.max(1, programState?.numWeeks ?? 20)
+   const weekLabels = useMemo(
+     () => Array.from({ length: numWeeks }, (_, i) => `Week ${i + 1}`),
+     [numWeeks]
+   )
+
+   useEffect(() => {
+     setSelectedWeek((prev) => Math.min(prev, numWeeks - 1))
+   }, [numWeeks])
 
    // Fetch all matches once on mount
    useEffect(() => {
@@ -213,7 +221,7 @@ export default function AdminDashboard() {
       <div className={layoutStyles.surface}>
         <section className={layoutStyles.selectorSection}>
           <WeekSelector
-            weeks={Array.from({ length: WEEKS }, (_, i) => `Week ${i + 1}`)}
+            weeks={weekLabels}
             selectedWeekIndex={selectedWeek}
             onSelect={setSelectedWeek}
           />
