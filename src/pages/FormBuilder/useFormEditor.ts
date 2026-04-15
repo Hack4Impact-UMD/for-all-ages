@@ -14,16 +14,6 @@ export const LOCKED_QUESTIONS : Question[] = [
     lockedKey: "current address",
   },
   {
-    type: "Radio",
-    title: "What are your pronouns?",
-    options: ["He/Him", "She/Her", "They/Them", "Other"],
-    required: true,
-    matchable: true,
-    locked: true,
-    lockedKey: "pronouns",
-  },
-  
-  {
     type: "phoneNumber",
     title: "What is your phone number?",
     required: true,
@@ -32,11 +22,29 @@ export const LOCKED_QUESTIONS : Question[] = [
     lockedKey: "phone number",
   },
   {
+    type: "Radio",
+    title: "What are your pronouns?",
+    options: ["He/Him", "She/Her", "They/Them", "Other"],
+    required: true,
+    matchable: false,
+    locked: true,
+    lockedKey: "pronouns",
+  },
+  {
+    type: "Radio",
+    title: "Are you registering as a student or older adult?",
+    options: ["Student", "Adult"],
+    required: true,
+    matchable: false,
+    locked: true,
+    lockedKey: "user type",
+  },
+  {
     type: "Dropdown",
     title: "If you are a student, what school do you attend?",
     options: ["University of Maryland", "Other"],
     required: false,
-    matchable: true,
+    matchable: false,
     locked: true,
     lockedKey: "school",
   }
@@ -57,6 +65,61 @@ let idCounter = 0;
 const createId = (prefix: string) => {
   idCounter += 1;
   return `${prefix}-${Date.now()}-${idCounter}`;
+};
+
+const LOCKED_QUESTION_ORDER = LOCKED_QUESTIONS.map((question) => question.lockedKey);
+
+const NUMERIC_KEY_PATTERN = /^numeric(\d+)$/;
+
+const assignNumericKeysToSections = (
+  sections: Array<{ questions: Question[] }>
+): Array<{ questions: Question[] }> => {
+  const usedNumericKeys = new Set<string>();
+  let nextNumericIndex = 1;
+
+  const getNextNumericKey = (): string => {
+    while (usedNumericKeys.has(`numeric${nextNumericIndex}`)) {
+      nextNumericIndex += 1;
+    }
+    const key = `numeric${nextNumericIndex}`;
+    usedNumericKeys.add(key);
+    nextNumericIndex += 1;
+    return key;
+  };
+
+  return sections.map((section) => ({
+    ...section,
+    questions: section.questions
+      .map((question) => {
+        if (!question.numericKey) {
+          return question;
+        }
+
+        if (!usedNumericKeys.has(question.numericKey)) {
+          usedNumericKeys.add(question.numericKey);
+          const match = question.numericKey.match(NUMERIC_KEY_PATTERN);
+          if (match) {
+            nextNumericIndex = Math.max(nextNumericIndex, Number(match[1]) + 1);
+          }
+          return question;
+        }
+
+        return {
+          ...question,
+          numericKey: getNextNumericKey(),
+        };
+      })
+      .map((question) => {
+        if (question.type === "Slider" && question.matchable) {
+          return {
+            ...question,
+            numericKey: question.numericKey ?? getNextNumericKey(),
+          };
+        }
+
+        return question;
+      }),
+  }));
 };
 
 // Converts the Firestore form version into an editor state, adding runtime IDs and potential missing locked questions
@@ -96,6 +159,16 @@ const formToState = (form?: Form | null): FormEditorState => {
     lockedSection.questions.push(
       ...missingLocked.map((lq) => ({ ...lq, id: createId("question") }))
     );
+
+    lockedSection.questions.sort((a, b) => {
+      const aIndex = a.lockedKey ? LOCKED_QUESTION_ORDER.indexOf(a.lockedKey) : -1;
+      const bIndex = b.lockedKey ? LOCKED_QUESTION_ORDER.indexOf(b.lockedKey) : -1;
+
+      if (aIndex === -1 && bIndex === -1) return 0;
+      if (aIndex === -1) return 1;
+      if (bIndex === -1) return -1;
+      return aIndex - bIndex;
+    });
   }
 
   return state;
@@ -125,6 +198,10 @@ const cleanQuestion = (q: EditorQuestion): Question => {
     cleaned.max = typeof rest.max === "number" ? rest.max : 5;
   }
 
+  if (rest.numericKey) {
+    cleaned.numericKey = rest.numericKey;
+  }
+
   if (rest.locked) {                                                                                                                                      
     cleaned.locked = rest.locked;
   }                                                                                                                                                       
@@ -135,13 +212,17 @@ const cleanQuestion = (q: EditorQuestion): Question => {
 };
 
 // Converts editor state back to a form state before saving to Firestore
-const stateToForm = (state: FormEditorState): Form => ({
-  sections: state.sections.map((section) => ({
+const stateToForm = (state: FormEditorState): Form => {
+  const cleanedSections = state.sections.map((section) => ({
     ...(section.title ? { title: section.title } : {}),
     ...(section.locked ? { locked: section.locked } : {}),
     questions: section.questions.map(cleanQuestion),
-  })),
-});
+  }));
+
+  return {
+    sections: assignNumericKeysToSections(cleanedSections),
+  };
+};
 
 // React hook that manages all the editor state for the form builder
 export const useFormEditor = (initialForm?: Form | null) => {

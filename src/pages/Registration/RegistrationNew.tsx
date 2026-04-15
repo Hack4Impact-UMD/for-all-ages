@@ -276,6 +276,9 @@ const RegistrationNew = () => {
   };
 
   const isUserTypeQuestion = (question: Question): boolean => {
+    if (question.lockedKey === "user type") {
+      return true;
+    }
     const title = question.title.toLowerCase();
     return title.includes("student") && title.includes("adult");
   };
@@ -284,10 +287,52 @@ const RegistrationNew = () => {
     if (question.type === "address" || question.type === "phoneNumber") {
       return true;
     }
-    if (isDisplayNameQuestion(question) || isEmailQuestion(question)) {
+    if (
+      isDisplayNameQuestion(question) ||
+      isEmailQuestion(question) ||
+      isUserTypeQuestion(question)
+    ) {
       return true;
     }
     return false;
+  };
+
+  const normalizeUserType = (value?: string): "student" | "adult" => {
+    const normalized = value?.trim().toLowerCase();
+    return normalized === "adult" ? "adult" : "student";
+  };
+
+  const getNumericQuestionKeys = (formConfig: Form): Map<string, string> => {
+    const keys = new Map<string, string>();
+    const usedKeys = new Set<string>();
+    let nextNumericIndex = 1;
+
+    const getNextNumericKey = (): string => {
+      while (usedKeys.has(`numeric${nextNumericIndex}`)) {
+        nextNumericIndex += 1;
+      }
+      const key = `numeric${nextNumericIndex}`;
+      usedKeys.add(key);
+      nextNumericIndex += 1;
+      return key;
+    };
+
+    getQuestionEntries(formConfig).forEach(({ question, fieldName }) => {
+      if (question.type !== "Slider" || !question.matchable) {
+        return;
+      }
+
+      const existingKey = question.numericKey?.trim();
+      if (existingKey && !usedKeys.has(existingKey)) {
+        usedKeys.add(existingKey);
+        keys.set(fieldName, existingKey);
+        return;
+      }
+
+      keys.set(fieldName, getNextNumericKey());
+    });
+
+    return keys;
   };
 
   const getBasicInfoByKey = (formData: FormData, formConfig: Form): Record<string, string> => {
@@ -352,7 +397,7 @@ const RegistrationNew = () => {
       email: user?.email || basicByKey[BASIC_FIELD_KEYS.email] || undefined,
       phoneNumber: basicByKey[BASIC_FIELD_KEYS.phoneNumber] || undefined,
       address: parseAddress(formData, formConfig),
-      user_type: basicByKey[BASIC_FIELD_KEYS.userType] || "student"
+      user_type: normalizeUserType(basicByKey[BASIC_FIELD_KEYS.userType])
     };
   };
 
@@ -379,6 +424,10 @@ const RegistrationNew = () => {
           answer = formData.get(fieldName) as string;
         }
 
+        if (typeof answer === "string" && answer.trim() === "") {
+          return;
+        }
+
         questions.push({ title: question.title, answer, type: questionType });
     });
 
@@ -388,9 +437,13 @@ const RegistrationNew = () => {
     };
   };
 
-  const extractMatchableResponses = (formData: FormData, formConfig: Form): { textResponses: string[]; numericResponses: number[] } => {
+  const extractMatchableResponses = (
+    formData: FormData,
+    formConfig: Form
+  ): { textResponses: string[]; numericResponses: Record<string, number> } => {
     const textResponses: string[] = [];
-    const numericResponses: number[] = [];
+    const numericResponses: Record<string, number> = {};
+    const numericQuestionKeys = getNumericQuestionKeys(formConfig);
 
     getQuestionEntries(formConfig).forEach(({ question, fieldName }) => {
         if (!question.matchable) {
@@ -405,7 +458,10 @@ const RegistrationNew = () => {
 
         if (questionType === "Slider") {
           const value = parseInt(formData.get(fieldName) as string) || 0;
-          numericResponses.push(value);
+          const numericKey = numericQuestionKeys.get(fieldName);
+          if (numericKey) {
+            numericResponses[numericKey] = value;
+          }
         } else if (
           [
             "short_input",
@@ -418,7 +474,9 @@ const RegistrationNew = () => {
           ].includes(questionType)
         ) {
           const value = (formData.get(fieldName) as string) || "";
-          textResponses.push(value);
+          if (value.trim() !== "") {
+            textResponses.push(value);
+          }
         }
     });
 
@@ -518,7 +576,7 @@ const RegistrationNew = () => {
             uid: user.uid,
             textResponses,
             numericResponses,
-            user_type: basicByKey[BASIC_FIELD_KEYS.userType] || "student",
+            user_type: normalizeUserType(basicByKey[BASIC_FIELD_KEYS.userType]),
             pronouns: getPronouns(formData, form)
           });
         }

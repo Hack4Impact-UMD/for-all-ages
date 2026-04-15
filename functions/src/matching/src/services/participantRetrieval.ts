@@ -6,6 +6,21 @@ import { logger } from '../utils/logger.js';
 import { isValidEmbedding } from '../utils/similarity.js';
 import type { ParticipantWithEmbedding } from '../types/matching.types.js';
 
+function normalizeStoredUserType(userType: unknown): 'Student' | 'Adult' | 'unknown' {
+  if (typeof userType !== 'string') {
+    return 'unknown';
+  }
+
+  const normalized = userType.trim().toLowerCase();
+  if (normalized === 'student') {
+    return 'Student';
+  }
+  if (normalized === 'adult') {
+    return 'Adult';
+  }
+  return 'unknown';
+}
+
 /**
  * Fetch all participants from Pinecone index
  * 
@@ -168,7 +183,7 @@ function parseParticipantFromMatch(match: any): ParticipantWithEmbedding {
   
   return {
     id: match.id,
-    user_type: metadata.user_type || 'unknown',
+    user_type: normalizeStoredUserType(metadata.user_type),
     pronouns: metadata.pronouns || undefined,
     embedding: match.values || [],
     numericAnswers: extractNumericAnswers(metadata),
@@ -184,7 +199,7 @@ function parseParticipantFromRecord(id: string, record: any): ParticipantWithEmb
   
   return {
     id: id,
-    user_type: metadata.user_type || 'unknown',
+    user_type: normalizeStoredUserType(metadata.user_type),
     embedding: record.values || [],
     pronouns: metadata.pronouns || undefined,
     numericAnswers: extractNumericAnswers(metadata),

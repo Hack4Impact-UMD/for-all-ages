@@ -1,6 +1,10 @@
 import { getPineconeClient, getIndexName } from "../config/pinecone.config.js";
 import { logger } from "../utils/logger.js";
 
+function normalizeUserTypeForPinecone(userType: string): "Student" | "Adult" {
+  return userType.trim().toLowerCase() === "adult" ? "Adult" : "Student";
+}
+
 export async function upsertFreeResponse(
   uid: string,
   textResponses: string[],
@@ -31,8 +35,9 @@ export async function upsertFreeResponse(
   const index = client.index(indexName);
 
   try {
+    const normalizedUserType = normalizeUserTypeForPinecone(user_type);
     const metadata: Record<string, any> = {
-      user_type,
+      user_type: normalizedUserType,
     };
 
     // Store numeric responses keyed by stable question ID directly into metadata
@@ -45,7 +50,7 @@ export async function upsertFreeResponse(
     const embeddingInput =
       combinedText.trim().length > 0
         ? combinedText
-        : `uid:${uid} user_type:${user_type}`;
+        : `uid:${uid} user_type:${normalizedUserType}`;
 
     const embedResult = await client.inference.embed(
       "llama-text-embed-v2",

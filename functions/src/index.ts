@@ -24,30 +24,64 @@ type ProgramState = {
   week: number;
 };
 
+function buildNumericScoreRanges(form: any): Record<string, { min: number; max: number }> {
+  const scoreRanges: Record<string, { min: number; max: number }> = {};
+  const usedKeys = new Set<string>();
+  let nextNumericIndex = 1;
+
+  const getNextNumericKey = (): string => {
+    while (usedKeys.has(`numeric${nextNumericIndex}`)) {
+      nextNumericIndex += 1;
+    }
+    const key = `numeric${nextNumericIndex}`;
+    usedKeys.add(key);
+    nextNumericIndex += 1;
+    return key;
+  };
+
+  if (!form || !Array.isArray(form.sections)) {
+    return scoreRanges;
+  }
+
+  form.sections.forEach((section: any) => {
+    if (!Array.isArray(section.questions)) {
+      return;
+    }
+
+    section.questions.forEach((q: any) => {
+      if (!q.matchable || (q.type !== "Slider" && q.type !== "Number" && typeof q.min !== "number")) {
+        return;
+      }
+
+      const existingKey =
+        typeof q.numericKey === "string" && q.numericKey.trim().length > 0
+          ? q.numericKey.trim()
+          : "";
+
+      const key =
+        existingKey && !usedKeys.has(existingKey)
+          ? existingKey
+          : getNextNumericKey();
+
+      usedKeys.add(key);
+      scoreRanges[key] = {
+        min: q.min ?? 1,
+        max: q.max ?? 5,
+      };
+    });
+  });
+
+  return scoreRanges;
+}
+
 // Helper to fetch dynamic score ranges from the creator's form config
 async function getDynamicMatchingConfig(): Promise<Partial<MatchingConfig>> {
   const formSnap = await admin.firestore().doc("config/registrationForm").get();
-  const scoreRanges: Record<string, { min: number; max: number }> = {};
+  let scoreRanges: Record<string, { min: number; max: number }> = {};
   
   if (formSnap.exists) {
     const form = formSnap.data();
-    if (form && Array.isArray(form.sections)) {
-      form.sections.forEach((section: any) => {
-        if (Array.isArray(section.questions)) {
-          section.questions.forEach((q: any) => {
-            // Find matchable slider/numeric questions
-            if (q.matchable && (q.type === "Slider" || q.type === "Number" || typeof q.min === "number")) {
-              // Key by title or id based on what your frontend uses as the stable identifier
-              const key = q.id || q.title; 
-              scoreRanges[key] = {
-                min: q.min ?? 1, // Uses form creator's limit, falls back to 1 if empty
-                max: q.max ?? 5  // Uses form creator's limit, falls back to 5 if empty
-              };
-            }
-          });
-        }
-      });
-    }
+    scoreRanges = buildNumericScoreRanges(form);
   }
 
   return {

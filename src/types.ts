@@ -300,10 +300,16 @@ export interface Question {
   options?: string[];
   min?: number;
   max?: number;
+  numericKey?: string;
   required: boolean;
   matchable: boolean;
   locked?: boolean;
-  lockedKey?: "pronouns" | "school" | "phone number" | "current address";
+  lockedKey?:
+    | "pronouns"
+    | "school"
+    | "phone number"
+    | "current address"
+    | "user type";
 }
 
 /** Section containing questions in a dynamic form */
@@ -327,4 +333,3 @@ export interface PartnerInfo {
     phone_number: string
     user_type: string
 }
-

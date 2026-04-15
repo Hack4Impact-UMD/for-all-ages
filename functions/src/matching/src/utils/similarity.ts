@@ -155,13 +155,6 @@ export function determineConfidence(
 }
 
 /**
- * Clamp a value between min and max
- */
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
-}
-
-/**
  * Validate that an embedding vector is valid (not all zeros, correct dimensions)
  * 
  * @param embedding Embedding vector to validate
