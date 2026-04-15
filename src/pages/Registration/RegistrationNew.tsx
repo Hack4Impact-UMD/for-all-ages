@@ -555,8 +555,16 @@ const RegistrationNew = () => {
         shouldWaitlist = await runTransaction(db, async (transaction) => {
           const programSnap = await transaction.get(programStateRef);
           const programData = programSnap.data();
+          const matchesFinal = programData?.matches_final === true;
+          const programStarted = programData?.started === true;
           const current = programData?.currentParticipants ?? 0;
           const max = programData?.maxParticipants ?? Infinity;
+
+          // Once matches are finalized, keep all new registrations on waitlist
+          // until the program has started, regardless of participant capacity.
+          if (matchesFinal && !programStarted) {
+            return true;
+          }
 
           if (current >= max) {
             return true;
