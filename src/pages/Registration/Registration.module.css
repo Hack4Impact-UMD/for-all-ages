@@ -472,3 +472,38 @@
   color: #555;
   margin-bottom: 1.5rem;
 }
+
+.suggestionsList {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  background: white;
+  border: 1.5px solid #ccc;
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.suggestionItem {
+  padding: 0.55rem 0.75rem;
+  font-size: 0.9rem;
+  color: #222;
+  cursor: pointer;
+}
+
+.suggestionItem:hover {
+  background: #f0f7ff;
+}
+
+.suggestionItem + .suggestionItem {
+  border-top: 1px solid #eee;
+}
+
+.suggestionItemHighlighted {
+  background: #f0f7ff;
+}
