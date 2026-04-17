@@ -12,6 +12,60 @@
   align-items: center;
 }
 
+.previewPage {
+  background-color: #127BBE;
+  font-family: 'Merriweather', serif;
+  text-align: left;
+  padding: 2rem;
+  width: 100%;
+  min-height: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border-radius: 12px;
+  box-sizing: border-box;
+}
+
+.previewPageCompact {
+  font-family: 'Merriweather', serif;
+  text-align: left;
+  padding: 0;
+  width: 100%;
+  min-height: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+.previewFieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.previewFieldset:disabled {
+  opacity: 1;
+}
+
+.previewFieldset *:disabled {
+  opacity: 1;
+}
+
+.previewFieldset input:disabled,
+.previewFieldset textarea:disabled,
+.previewFieldset select:disabled {
+  background: white;
+  color: #333;
+  -webkit-text-fill-color: #333;
+  cursor: not-allowed;
+}
+
+.previewFieldset button:disabled {
+  cursor: not-allowed;
+}
+
 .header {
   text-align: center;
   margin-bottom: 1.5rem;

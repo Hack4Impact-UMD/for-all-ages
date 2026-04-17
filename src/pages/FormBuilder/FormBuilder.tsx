@@ -3,6 +3,8 @@ import type { BannerState, Form, Question, QuestionType } from "../../types";
 import { db } from "../../firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import EditIcon from '@mui/icons-material/Edit';
+import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import {
   DndContext,
   PointerSensor,
@@ -19,6 +21,7 @@ import {
 import type { EditorQuestion, EditorSection, FormEditorState } from "./useFormEditor";
 import { useFormEditor } from "./useFormEditor";
 import styles from "./FormBuilder.module.css";
+import RegistrationNew from "../Registration/RegistrationNew";
 
 // labels for the selection
 
@@ -403,6 +406,7 @@ const FormBuilder: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [banner, setBanner] = useState<BannerState | null>(null);
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
 
   // Which question id is currently being edited inline (null = none)
   const [editingQuestionId, setEditingQuestionId] = useState<string | null>(
@@ -510,6 +514,11 @@ const FormBuilder: React.FC = () => {
 
   const activeSection: EditorSection | null =
     sections[activeSectionIndex] ?? null;
+  const previewForm = getForm();
+  const previewSectionTitle =
+    previewForm.sections[activeSectionIndex]?.title ||
+    activeSection?.title ||
+    `Step ${activeSectionIndex + 1}`;
 
   const handleAddQuestion = () => {
     if (!activeSection) return;
@@ -653,7 +662,32 @@ const FormBuilder: React.FC = () => {
 
         {/* Section content card */}
         <div className={styles.contentCard}>
-          {loading ? (
+          {isPreviewMode ? (
+            <div className={styles.previewPanel}>
+              <div className={styles.previewTopRow}>
+                <h2 className={styles.previewSectionTitle}>
+                  {previewSectionTitle}
+                  <span className={styles.previewingHint}> (previewing)</span>
+                </h2>
+                <button
+                  type="button"
+                  className={styles.previewModeBtn}
+                  onClick={() => setIsPreviewMode(false)}
+                >
+                  <span className={styles.previewModeBtnIcon} aria-hidden="true">
+                    <EditOutlinedIcon fontSize="inherit" />
+                  </span>
+                  Edit
+                </button>
+              </div>
+              <RegistrationNew
+                previewMode
+                previewForm={previewForm}
+                previewInitialStep={activeSectionIndex}
+                compactPreview
+              />
+            </div>
+          ) : loading ? (
             <div className={styles.loadingState}>
               Loading registration form…
             </div>
@@ -677,6 +711,7 @@ const FormBuilder: React.FC = () => {
               <SectionTitleEditor
                 section={activeSection}
                 locked={!!activeSection.locked}
+                onPreview={() => setIsPreviewMode(true)}
                 onRename={(title) =>
                   updateSectionTitle(activeSection.id, title)
                 }
@@ -795,11 +830,13 @@ const FormBuilder: React.FC = () => {
 function SectionTitleEditor({
   section,
   locked,
+  onPreview,
   onRename,
   onDelete,
 }: {
   section: EditorSection;
   locked?: boolean;
+  onPreview: () => void;
   onRename: (title: string) => void;
   onDelete: () => void;
 }) {
@@ -839,25 +876,38 @@ function SectionTitleEditor({
           >
             {section.title || "Untitled Section"}
           </h2>
-            <EditIcon 
-              onClick={() => {
-                setEditing(true);
-                setDraft(section.title ?? "");
-              }}
-            ></EditIcon>
+          <EditIcon
+            onClick={() => {
+              setEditing(true);
+              setDraft(section.title ?? "");
+            }}
+          />
         </div>
       )}
-      <div className={styles.sectionTitleActions}>
-
+      <div className={styles.sectionTitleActionsRow}>
         <button
           type="button"
-          className={`${styles.sectionActionBtn} ${styles.sectionDeleteBtn}`}
-          disabled={locked}
-          onClick={onDelete}
-          title="Delete section"
+          className={styles.previewModeBtn}
+          onClick={onPreview}
+          title="Preview section"
         >
-          Delete Section
+          <span className={styles.previewModeBtnIcon} aria-hidden="true">
+            <VisibilityOutlinedIcon fontSize="inherit" />
+          </span>
+          Preview
         </button>
+
+        <div className={styles.sectionTitleActions}>
+          <button
+            type="button"
+            className={`${styles.sectionActionBtn} ${styles.sectionDeleteBtn}`}
+            disabled={locked}
+            onClick={onDelete}
+            title="Delete section"
+          >
+            Delete Section
+          </button>
+        </div>
       </div>
     </div>
   );
