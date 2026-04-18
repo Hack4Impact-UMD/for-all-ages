@@ -1,6 +1,7 @@
 import styles from "./Profile.module.css";
 import { useState, useEffect } from "react";
-import { phoneNumberRegex, dateRegex } from "../../regex";
+import { dateRegex } from "../../regex";
+import { formatPhone, stripPhone, isValidPhone } from "../../utils/phone";
 import EditIcon from "@mui/icons-material/Edit";
 import {
   signOut,
@@ -178,7 +179,7 @@ const Profile = () => {
           name: data.displayName ?? data.name ?? fbUser.displayName ?? "",
           email: data.email ?? fbUser.email ?? "",
           pronouns: data.pronouns ?? "",
-          phone: data.phoneNumber ?? "",
+          phone: formatPhone(data.phoneNumber ?? ""),
           birthday: toDisplayBirthday(data.dateOfBirth),
           addressLine1: addr.line1 ?? "",
           addressCity: addr.city ?? "",
@@ -250,7 +251,7 @@ const Profile = () => {
     if (errors[name as keyof ErrorState]) {
       setErrors((prev) => ({ ...prev, [name]: undefined }));
     }
-    setUser({ ...user, [name]: value });
+    setUser({ ...user, [name]: name === "phone" ? formatPhone(value) : value });
   };
 
   const validateProfile = () => {
@@ -263,8 +264,8 @@ const Profile = () => {
     }
 
     if (!isAdmin) {
-      if (!phoneNumberRegex.test(user.phone)) {
-        newErrors.phone = "Invalid phone format";
+      if (user.phone && !isValidPhone(user.phone)) {
+        newErrors.phone = "Please enter a valid 10-digit phone number.";
       }
 
       if (user.birthday && !dateRegex.test(user.birthday)) {
@@ -319,7 +320,7 @@ const Profile = () => {
         ? {}
         : {
             pronouns: user.pronouns,
-            phoneNumber: user.phone,
+            phoneNumber: stripPhone(user.phone),
             dateOfBirth: normalizedBirthday,
             interests: user.interests,
             address: {

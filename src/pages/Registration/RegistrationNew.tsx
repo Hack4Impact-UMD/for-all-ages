@@ -1,5 +1,5 @@
 import styles from "./Registration.module.css";
-import { phoneNumberRegex } from "../../regex";
+import { stripPhone, isValidPhone } from "../../utils/phone";
 import type { Form, Question, Section, FormResponse, Participant, Questions, RawAddress } from "../../types";
 import { useState, useEffect, useRef } from "react";
 import ShortInput from "./Question Types/ShortInput";
@@ -395,7 +395,7 @@ const RegistrationNew = () => {
       userUid: user?.uid,
       displayName: user?.displayName || basicByKey[BASIC_FIELD_KEYS.displayName] || undefined,
       email: user?.email || basicByKey[BASIC_FIELD_KEYS.email] || undefined,
-      phoneNumber: basicByKey[BASIC_FIELD_KEYS.phoneNumber] || undefined,
+      phoneNumber: stripPhone(basicByKey[BASIC_FIELD_KEYS.phoneNumber] || "") || undefined,
       address: parseAddress(formData, formConfig),
       user_type: normalizeUserType(basicByKey[BASIC_FIELD_KEYS.userType])
     };
@@ -507,11 +507,11 @@ const RegistrationNew = () => {
       if (phoneEntry) {
         const phone = (formData.get(phoneEntry.fieldName) as string) || "";
         const confirmPhone = (formData.get(`${phoneEntry.fieldName}_confirm`) as string) || "";
-        if (phone && !phoneNumberRegex.test(phone)) {
-          setSubmitError("Please enter a valid phone number.");
+        if (phone && !isValidPhone(phone)) {
+          setSubmitError("Please enter a valid 10-digit phone number.");
           return;
         }
-        if (phone !== confirmPhone) {
+        if (stripPhone(phone) !== stripPhone(confirmPhone)) {
           setSubmitError("Phone numbers must match.");
           return;
         }
