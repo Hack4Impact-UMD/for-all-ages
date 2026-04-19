@@ -272,13 +272,6 @@
   gap: 0;
 }
 
-.contentHeaderRow {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
 .previewModeBtn {
   display: inline-flex;
   align-items: center;
