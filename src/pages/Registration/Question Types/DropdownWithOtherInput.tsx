@@ -1,6 +1,17 @@
 import { useMemo, useState } from "react";
 import styles from "../Registration.module.css";
 
+/**
+ * DropdownWithOtherInput: A dropdown component that always includes an "Other" option.
+ * When "Other" is selected, a text input field appears below the dropdown to allow
+ * users to provide a custom value. The custom text is stored with the field name suffix "_other".
+ *
+ * Props:
+ * - name: The form field name for the dropdown
+ * - options: Array of dropdown options (will auto-append "Other" if not present)
+ * - required: Whether the field is required
+ * - className: CSS class to apply to the select element
+ */
 export default function DropdownWithOtherInput({
   name,
   options,
@@ -14,6 +25,8 @@ export default function DropdownWithOtherInput({
 }) {
   const [selectedValue, setSelectedValue] = useState("");
 
+  // Ensure "Other" option exists exactly once (case-insensitive check)
+  // If already present, use original options; otherwise append it.
   const resolvedOptions = useMemo(
     () => {
       const hasOtherOption = options.some((opt) => opt.trim().toLowerCase() === "other");
@@ -21,6 +34,8 @@ export default function DropdownWithOtherInput({
     },
     [options],
   );
+
+  // Show the custom text input only when "Other" is selected
   const showOtherInput = selectedValue.trim().toLowerCase() === "other";
 
   return (
@@ -40,6 +55,8 @@ export default function DropdownWithOtherInput({
         ))}
       </select>
 
+      {/* Conditional text input for custom "Other" value */}
+      {/* Field name pattern: "{name}_other" for form data extraction */}
       {showOtherInput && (
         <input
           type="text"
