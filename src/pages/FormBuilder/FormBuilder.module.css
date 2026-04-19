@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+
 :root {
   --blue: #0f6bb1;
   --blue-bg: #127bbe; /* the blue page background */
@@ -270,6 +272,66 @@
   gap: 0;
 }
 
+.previewModeBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 15px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: #c6d6e3;
+  color: #3f5f76;
+  font-family: "IBM Plex Sans", sans-serif;
+  font-size: 14px;
+  line-height: normal;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.previewModeBtn:hover {
+  background: #b7ccde;
+  border-color: #9eb6c7;
+}
+
+.previewModeBtnIcon {
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  border: 1px solid #9eb6c7;
+  background: #dce7ef;
+  color: #4e6f86;
+  font-size: 10px;
+}
+
+.previewPanel {
+  margin-top: 4px;
+}
+
+.previewTopRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.previewSectionTitle {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--gray-900);
+}
+
+.previewingHint {
+  font-size: 22px;
+  font-weight: 500;
+  font-style: italic;
+  color: #5f8cab;
+}
+
 .sectionTitleRow {
   display: flex;
   align-items: center;
@@ -296,6 +358,7 @@
   width: 400px;
   max-width: 100%;
 }
+
 .sectionTitleActions {
   display: flex;
   align-items: stretch;
@@ -303,15 +366,29 @@
   border-radius: var(--radius-sm);
   overflow: hidden;
 }
+
+.sectionTitleActionsDeleteDisabled {
+  opacity: 1;
+}
+
 .sectionActionBtn {
   background: none;
   border: none;
   border-left: 1px solid var(--gray-200);
   color: var(--gray-500);
   border-radius: 0;
-  padding: 4px 8px;
+  height: 32px;
+  padding: 0 8px;
+  font-family: "IBM Plex Sans", sans-serif;
   font-size: 14px;
+  line-height: 1;
   transition: background 0.15s;
+}
+
+.sectionActionBtnWithIcon {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 .sectionActionBtn:first-child {
   border-left: none;
@@ -321,10 +398,35 @@
 }
 
 .sectionDeleteBtn {
-    color: red;
+  color: #DC3E3E;
+  border: 1.5px solid currentColor;
+  border-radius: var(--radius-sm);
+  box-sizing: border-box;
+}
+.sectionDeleteBtn:disabled {
+  color: rgba(220, 62, 62, 0.45);
+  border-color: currentColor;
 }
 .sectionDeleteBtn:hover {
   background: var(--red-light);
+}
+
+.sectionActionBtnIcon {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.sectionTitleActionsRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .questionsList {
@@ -358,7 +460,6 @@
 
 .qPreviewLabel {
   font-size: 15px;
-  font-weight: 500;
   color: var(--gray-900);
 }
 .qPreviewPlaceholder {

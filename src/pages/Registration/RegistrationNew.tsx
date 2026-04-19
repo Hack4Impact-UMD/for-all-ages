@@ -28,9 +28,11 @@ import { useNavigate } from "react-router-dom";
 function QuestionRenderer({
   question,
   name,
+  previewMode = false,
 }: {
   question: Question;
   name: string;
+  previewMode?: boolean;
 }) {
   const { type, title, description, options, min, max, required } = question;
   const requiredMark = required ? <span className={styles.requiredStar}> *</span> : null;
@@ -49,30 +51,42 @@ function QuestionRenderer({
     </>
   );
 
+  const withDisabledState = (content: React.ReactNode) => {
+    if (!previewMode) {
+      return content;
+    }
+
+    return (
+      <fieldset disabled className={styles.previewFieldset}>
+        {content}
+      </fieldset>
+    );
+  };
+
   switch (type) {
     case "short_input":
-      return (
+      return withDisabledState(
         <div className={styles.fieldGroup}>
           {labelContent}
           <ShortInput name={name} required={required} className={styles.fieldInput} />
         </div>
       );
     case "medium_input":
-      return (
+      return withDisabledState(
         <div className={styles.fieldGroup}>
           {labelContent}
           <MediumInput name={name} required={required} className={styles.fieldInput} />
         </div>
       );
     case "long_input":
-      return (
+      return withDisabledState(
         <div className={styles.fieldGroup}>
           {labelContent}
           <LongInput name={name} required={required} className={styles.fieldTextarea} />
         </div>
       );
     case "Dropdown":
-      return (
+      return withDisabledState(
         <div className={styles.fieldGroup}>
           {labelContent}
           <DropdownInput
@@ -96,7 +110,7 @@ function QuestionRenderer({
         </div>
       );
     case "Slider":
-      return (
+      return withDisabledState(
         <div className={styles.fieldGroup}>
           {labelContent}
           <SliderInput
@@ -108,27 +122,27 @@ function QuestionRenderer({
         </div>
       );
     case "Radio":
-      return (
+      return withDisabledState(
         <div className={styles.fieldGroup}>
           {labelContent}
           <RadioInput name={name} options={options ?? []} required={required} />
         </div>
       );
     case "Date":
-      return (
+      return withDisabledState(
         <div className={styles.fieldGroup}>
           {labelContent}
           <DateInput name={name} required={required} />
         </div>
       );
     case "phoneNumber":
-      return <PhoneNumberInput name={name} required={required} />;
+      return withDisabledState(<PhoneNumberInput name={name} required={required} />);
     case "text":
       return (
         <TextDisplay title={title + requiredMark} description={description} />
       );
     case "multiple":
-      return (
+      return withDisabledState(
         <div className={styles.fieldGroup}>
           {labelContent}
           <MultipleInput
@@ -139,7 +153,7 @@ function QuestionRenderer({
         </div>
       );
     case "address":
-      return (
+      return withDisabledState(
         <div className={styles.fieldGroup}>
           <span className={styles.fieldLabel}>
             {title}{requiredMark}
@@ -153,14 +167,14 @@ function QuestionRenderer({
         </div>
       );
     case "profilePicture":
-      return (
+      return withDisabledState(
         <div className={styles.fieldGroup}>
           {labelContent}
           <p>profile picture coming soon</p>
         </div>
       );
     default:
-      return (
+      return withDisabledState(
         <div className={styles.fieldGroup}>
           {labelContent}
           <ShortInput name={name} required={required} className={styles.fieldInput} />
@@ -179,10 +193,14 @@ function FormRenderer({
   form,
   currentStep,
   navFooter,
+  previewMode = false,
+  hideSectionTitles = false,
 }: {
   form: Form;
   currentStep: number;
   navFooter: React.ReactNode;
+  previewMode?: boolean;
+  hideSectionTitles?: boolean;
 }) {
   return (
     <>
@@ -193,7 +211,7 @@ function FormRenderer({
           className={styles.card}
           style={{ display: sectionIndex === currentStep ? "block" : "none" }}
         >
-          {section.title && (
+          {section.title && !hideSectionTitles && (
             <h2 className={styles.cardTitle}>{section.title}</h2>
           )}
           {section.questions.map((question, questionIndex) => (
@@ -201,6 +219,7 @@ function FormRenderer({
               key={questionIndex}
               question={question}
               name={`s${sectionIndex}_q${questionIndex}`}
+              previewMode={previewMode}
             />
           ))}
           {sectionIndex === currentStep && navFooter}
@@ -228,18 +247,36 @@ const BASIC_FIELD_KEYS = {
   userType: "user_type",
 } as const;
 
-const RegistrationNew = () => {
+type RegistrationNewProps = {
+  previewMode?: boolean;
+  previewForm?: Form;
+  previewInitialStep?: number;
+  compactPreview?: boolean;
+};
+
+const RegistrationNew = ({
+  previewMode = false,
+  previewForm,
+  previewInitialStep,
+  compactPreview = false,
+}: RegistrationNewProps) => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
 
   const formRef = useRef<HTMLFormElement>(null);
-  const [form, setForm] = useState<Form | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState<Form | null>(previewForm ?? null);
+  const [loading, setLoading] = useState(!previewMode);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [currentStep, setCurrentStep] = useState(0);
+  const [currentStep, setCurrentStep] = useState(previewInitialStep ?? 0);
 
   useEffect(() => {
+    if (previewMode) {
+      setForm(previewForm ?? null);
+      setLoading(false);
+      return;
+    }
+
     const fetchForm = async () => {
       try {
         const docRef = doc(db, "config", "registrationForm");
@@ -264,7 +301,14 @@ const RegistrationNew = () => {
     };
 
     fetchForm();
-  }, []);
+  }, [previewForm, previewMode]);
+
+  useEffect(() => {
+    if (!previewMode || typeof previewInitialStep !== "number") {
+      return;
+    }
+    setCurrentStep(previewInitialStep);
+  }, [previewInitialStep, previewMode]);
 
   const getQuestionEntries = (formConfig: Form): QuestionWithFieldName[] => {
     const entries: QuestionWithFieldName[] = [];
@@ -515,6 +559,10 @@ const RegistrationNew = () => {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
+    if (previewMode) {
+      return;
+    }
+
     if (!user) {
       console.error("User not authenticated. Please log in first.");
       return;
@@ -627,7 +675,7 @@ const RegistrationNew = () => {
     }
   };
 
-  if (loading || authLoading) return <p className={styles.message}>Loading...</p>;
+  if (loading || (!previewMode && authLoading)) return <p className={styles.message}>Loading...</p>;
   if (!form) return <p className={styles.message}>Form not found.</p>;
 
   // Multi-step navigation
@@ -636,6 +684,12 @@ const RegistrationNew = () => {
   const isLastStep = currentStep === totalSteps - 1;
 
   const goNext = () => {
+    if (previewMode) {
+      setCurrentStep((s) => Math.min(s + 1, totalSteps - 1));
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
     const formEl = formRef.current;
     if (formEl) {
       const currentFields = formEl.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(
@@ -669,19 +723,32 @@ const RegistrationNew = () => {
     return styles.stepLabel;
   };
 
+  const showPreviewChrome = !previewMode || !compactPreview;
+
   return (
-    <form ref={formRef} id={styles.page} onSubmit={handleSubmit}>
+    <form
+      ref={formRef}
+      id={previewMode ? undefined : styles.page}
+      className={
+        previewMode
+          ? compactPreview
+            ? styles.previewPageCompact
+            : styles.previewPage
+          : undefined
+      }
+      onSubmit={handleSubmit}
+    >
       {/* Header */}
-      <div className={styles.header}>
+      {showPreviewChrome && <div className={styles.header}>
         <div className={styles.headerTitle}>Registration Form</div>
         <h1 className={styles.headerSubtitle}>Tea @ 3</h1>
         <p className={styles.headerDescription}>
           Let&rsquo;s find your perfect tea-mate. This takes about 8&ndash;10 minutes.
         </p>
-      </div>
+      </div>}
 
       {/* Progress bar */}
-      <div className={styles.progressContainer}>
+      {showPreviewChrome && <div className={styles.progressContainer}>
         <div className={styles.stepsRow}>
           {form.sections.map((section, i) => (
             <div key={i} className={styles.stepItem}>
@@ -694,15 +761,17 @@ const RegistrationNew = () => {
             </div>
           ))}
         </div>
-      </div>
+      </div>}
 
       {/* Form sections -- one visible at a time */}
       <FormRenderer
         form={form}
         currentStep={currentStep}
+        previewMode={previewMode}
+        hideSectionTitles={previewMode && compactPreview}
         navFooter={
           <>
-            {submitError && (
+            {!previewMode && submitError && (
               <div className={styles.errorBanner} role="alert">{submitError}</div>
             )}
             <div className={styles.stepIndicator}>
@@ -719,8 +788,12 @@ const RegistrationNew = () => {
                   Continue
                 </button>
               ) : (
-                <button type="submit" className={styles.btnContinue} disabled={submitting}>
-                  {submitting ? "Submitting..." : "Submit"}
+                <button
+                  type={previewMode ? "button" : "submit"}
+                  className={styles.btnContinue}
+                  disabled={previewMode || submitting}
+                >
+                  {previewMode ? "Submit" : submitting ? "Submitting..." : "Submit"}
                 </button>
               )}
             </div>
