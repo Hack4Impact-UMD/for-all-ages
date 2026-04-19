@@ -1,83 +1,129 @@
-.controlsRow {
-  display: flex;
-  flex-direction: row;
-  justify-content: flex-start; /* Changed from center to flex-start */
-  align-items: flex-end;
-  flex-wrap: wrap;
+.controlsPanel {
+  display: grid;
   gap: 1.25rem;
   width: 100%;
   margin-bottom: 1.5rem;
 }
 
-.contactButton {
-  background: linear-gradient(135deg, #0f6bb1 0%, #1f8ed8 100%);
-  color: #ffffff;
-  border: none;
-  border-radius: 999px;
-  padding: 0.7rem 1.6rem;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition:
-    transform 0.15s ease,
-    box-shadow 0.15s ease;
-  box-shadow: 0 12px 24px rgba(15, 107, 177, 0.3);
-}
-
-.searchGroup {
+.toolbarRow {
   display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-  min-width: clamp(180px, 25%, 280px);
-  flex: 1;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1.25rem;
+  flex-wrap: wrap;
 }
 
-.searchLabel {
+.searchArea {
+  display: grid;
+  gap: 0.5rem;
+  flex: 1 1 520px;
+  min-width: 280px;
+}
+
+.actionGroup {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+  flex: 0 1 auto;
+}
+
+.filtersRow {
+  display: flex;
+  align-items: flex-end;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.filterField {
+  display: grid;
+  gap: 0.45rem;
+  min-width: min(260px, 100%);
+  flex: 1 1 260px;
+  max-width: 360px;
+}
+
+.fieldLabel {
   font-size: 0.95rem;
   font-weight: 600;
   color: #ffffff;
   white-space: nowrap;
 }
 
-.searchInput {
-  border-radius: 24px;
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  background: rgba(255, 255, 255, 0.95);
-  padding: 0.65rem 1.1rem;
+.searchInput,
+.selectInput {
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.96);
+  padding: 0.8rem 1.15rem;
   font-size: 1rem;
   color: #0f172a;
   outline: none;
   box-shadow: 0 6px 20px rgba(15, 107, 177, 0.15);
   width: 100%;
   min-width: 0;
+  box-sizing: border-box;
 }
 
-.searchInput:focus {
+.searchInput:focus,
+.selectInput:focus {
   border-color: #127bbe;
   box-shadow: 0 0 0 3px rgba(18, 123, 190, 0.25);
 }
 
-.addButton {
-  background: linear-gradient(135deg, #0f6bb1 0%, #1f8ed8 100%);
-  color: #ffffff;
+.actionButton,
+.smallActionButton {
+  background: #ffffff;
+  color: #127bbe;
   border: none;
   border-radius: 999px;
-  padding: 0.7rem 1.6rem;
-  font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
   transition:
     transform 0.15s ease,
-    box-shadow 0.15s ease;
-  box-shadow: 0 12px 24px rgba(15, 107, 177, 0.3);
+    box-shadow 0.15s ease,
+    background-color 0.15s ease;
+  box-shadow: 0 12px 24px rgba(15, 107, 177, 0.18);
 }
 
-.addButton:hover {
+.actionButton {
+  background: #ffffff;
+  color: #127bbe;
+  border: none;
+  border-radius: 999px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    background-color 0.15s ease;
+  box-shadow: 0 12px 24px rgba(15, 107, 177, 0.18);
+  padding: 0.8rem 1.5rem;
+  font-size: 1rem;
+  min-height: 48px;
+  min-width: 170px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.smallActionButton {
+  padding: 0.45rem 0.95rem;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.actionButton:hover,
+.smallActionButton:hover {
+  background-color: #e6eef8;
   transform: translateY(-1px);
-  box-shadow: 0 16px 32px rgba(15, 107, 177, 0.35);
+  box-shadow: 0 16px 32px rgba(15, 107, 177, 0.22);
 }
 
-.addButton:active {
+.actionButton:active,
+.smallActionButton:active {
   transform: translateY(0);
 }
 
@@ -165,14 +211,32 @@
   table-layout: fixed;
 }
 
-.colName { width: 14%; }
-.colRole { width: 10%; }
-.colEmail { width: 20%; }
-.colPhone { width: 13%; }
-.colAddress { width: 18%; }
-.colGroup { width: 10%; }
-.colDelete { width: 5%; text-align: center; }
-.colPromote { width: 10%; text-align: center; }
+.colName {
+  width: 14%;
+}
+.colRole {
+  width: 10%;
+}
+.colEmail {
+  width: 20%;
+}
+.colPhone {
+  width: 13%;
+}
+.colAddress {
+  width: 18%;
+}
+.colGroup {
+  width: 10%;
+}
+.colDelete {
+  width: 5%;
+  text-align: center;
+}
+.colPromote {
+  width: 10%;
+  text-align: center;
+}
 
 .table thead th {
   background: #0f6bb1;
@@ -508,57 +572,66 @@
   box-shadow: none;
 }
 
-.deleteColumnHeader {
-    width: 3rem;
-    text-align: center;
-}
-
 .deleteCell {
-    text-align: center;
-    vertical-align: middle;
+  text-align: center;
+  vertical-align: middle;
 }
 
 .deleteButton {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0.4rem;
-    background: transparent;
-    border: none;
-    border-radius: 8px;
-    color: #b91c1c;
-    cursor: pointer;
-    transition: background 0.15s ease, color 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: #b91c1c;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
 }
 
 .deleteButton:hover:not(:disabled) {
-    background: rgba(185, 28, 28, 0.12);
-    color: #991b1b;
+  background: rgba(185, 28, 28, 0.12);
+  color: #991b1b;
 }
 
 .deleteButton:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
-.promoteButton {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0.4rem;
-    background: transparent;
-    border: none;
-    border-radius: 8px;
-    color: #0f6bb1;
-    cursor: pointer;
-    font-size: 1rem;
-    font-weight: 700;
-    transition: background 0.15s ease, color 0.15s ease;
+.nameButton {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
 }
 
-.promoteButton:hover {
-    background: rgba(15, 107, 177, 0.12);
-    color: #0a4f8a;
+@media (max-width: 980px) {
+  .toolbarRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .searchArea {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .actionGroup {
+    justify-content: flex-start;
+  }
+
+  .filtersRow {
+    align-items: stretch;
+  }
+
+  .filterField {
+    max-width: none;
+  }
 }
 
 @media (max-width: 880px) {
@@ -627,10 +700,28 @@
   }
 }
 
-.nameButton {
-  background: none;
-  border: none;
-  color: inherit;
-  cursor: pointer;
-  padding: 0;
+@media (max-width: 640px) {
+  .actionGroup {
+    width: 100%;
+  }
+
+  .actionButton {
+    flex: 1 1 100%;
+    width: 100%;
+    min-width: 0;
+    justify-content: center;
+  }
+
+  .filtersRow {
+    flex-direction: column;
+  }
+
+  .filterField {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .table tbody tr {
+    grid-template-columns: 1fr;
+  }
 }

@@ -7,10 +7,11 @@
 
 .header {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 14px;
   background-color: #127bbe;
-  padding: 14px 24px;
+  padding: 16px 24px;
   border-radius: 12px 12px 0 0;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
   margin-bottom: 0;
@@ -18,138 +19,96 @@
 
 .searchContainer {
   position: relative;
-  width: 320px;
-  max-width: 100%;
+  flex: 0 0 260px;
+  min-width: 240px;
+  max-width: 260px;
 }
 
 .searchIcon {
   position: absolute;
   top: 50%;
-  left: 12px;
+  left: 16px;
   transform: translateY(-50%);
-  color: #1d4e89;
+  color: #127bbe;
   font-size: 20px !important;
 }
 
 .searchInput {
   width: 100%;
-  padding: 8px 12px 8px 38px;
+  min-height: 60px;
+  padding: 0 18px 0 48px;
   border-radius: 9999px;
   border: none;
   outline: none;
   font-size: 15px;
   font-family: "Merriweather", serif;
   color: #1d4e89;
+  background: #ffffff;
+  box-sizing: border-box;
 }
 
 .buttonGroup {
   display: flex;
-  align-items: center;
-  gap: 14px;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 12px;
+  flex: 1 1 0;
+  min-width: 0;
 }
 
 .adminBtn,
-.rematchBtn {
+.rematchBtn,
+.exportBtn,
+.endProgramBtn {
   background-color: #ffffff;
   color: #127bbe;
   border: none;
   border-radius: 9999px;
-  padding: 8px 20px;
+  min-height: 60px;
+  padding: 10px 18px;
   font-family: "Merriweather", serif;
   font-weight: 600;
-  font-size: 15px;
-  display: flex;
+  font-size: 14px;
+  line-height: 1.1;
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   cursor: pointer;
   transition:
     background-color 0.2s ease,
-    transform 0.1s ease;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    transform 0.1s ease,
+    box-shadow 0.2s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+  text-align: center;
+  white-space: normal;
+  word-break: keep-all;
+  flex: 1 1 135px;
+  max-width: 165px;
+  box-sizing: border-box;
 }
 
-.adminBtn:hover,
-.rematchBtn:hover {
+.adminBtn:hover:not(:disabled),
+.rematchBtn:hover:not(:disabled),
+.exportBtn:hover:not(:disabled),
+.endProgramBtn:hover:not(:disabled) {
   background-color: #e6eef8;
   transform: translateY(-1px);
 }
 
 .adminBtn:disabled,
-.rematchBtn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
-}
-
-/* Export Data button – white with blue text, same family as adminBtn */
-.exportBtn {
-  background-color: #ffffff;
-  color: #127bbe;
-  border: 2px solid #127bbe;
-  border-radius: 9999px;
-  padding: 8px 20px;
-  font-family: "Merriweather", serif;
-  font-weight: 600;
-  font-size: 15px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  transition:
-    background-color 0.2s ease,
-    transform 0.1s ease;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-}
-
-.exportBtn:hover:not(:disabled) {
-  background-color: #e6eef8;
-  transform: translateY(-1px);
-}
-
-.exportBtn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
-}
-
-/* End Program button – red destructive style */
-.endProgramBtn {
-  background-color: #e53935;
-  color: #ffffff;
-  border: none;
-  border-radius: 9999px;
-  padding: 8px 20px;
-  font-family: "Merriweather", serif;
-  font-weight: 700;
-  font-size: 15px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  transition:
-    background-color 0.2s ease,
-    transform 0.1s ease;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
-}
-
-.endProgramBtn:hover:not(:disabled) {
-  background-color: #c62828;
-  transform: translateY(-1px);
-}
-
+.rematchBtn:disabled,
+.exportBtn:disabled,
 .endProgramBtn:disabled {
-  opacity: 0.6;
+  opacity: 0.85;
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
 }
 
-/* Confirm button inside the End Program popup */
 .endProgramConfirmBtn {
-  background-color: #e53935;
-  color: #ffffff;
+  background: #ffffff;
+  color: #127bbe;
   border: none;
   border-radius: 999px;
   padding: 8px 18px;
@@ -158,12 +117,13 @@
   cursor: pointer;
   transition:
     transform 0.1s ease,
-    box-shadow 0.2s ease;
+    box-shadow 0.2s ease,
+    background-color 0.2s ease;
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
 }
 
 .endProgramConfirmBtn:hover:not(:disabled) {
-  background-color: #c62828;
+  background-color: #e6eef8;
   transform: translateY(-1px);
 }
 
@@ -174,7 +134,6 @@
   box-shadow: none;
 }
 
-/* Text input inside End Program popup */
 .endConfirmInput {
   width: 100%;
   max-width: 260px;
@@ -202,7 +161,8 @@
 }
 
 .icon {
-  font-size: 18px !important;
+  font-size: 17px !important;
+  flex-shrink: 0;
 }
 
 .rematchActive {
@@ -210,9 +170,10 @@
 }
 
 .stateError {
+  flex-basis: 100%;
   color: #ffdede;
   font-size: 0.9rem;
-  margin-top: 6px;
+  margin-top: 4px;
   text-align: right;
 }
 
@@ -260,6 +221,7 @@
   align-items: center;
   justify-content: center;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .cancelButton {
@@ -345,7 +307,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
+  padding: 10px 18px;
   border-radius: 9999px;
   border: 1px solid #127bbe;
   background-color: #ffffff;
@@ -366,7 +328,7 @@
 
 .filterPopover {
   position: absolute;
-  top: 40px;
+  top: 48px;
   right: 0;
   background-color: #ffffff;
   border-radius: 8px;
@@ -615,10 +577,85 @@
   background-color: #f8d7da;
   color: #721c24;
 }
+
 .nameButton {
   background: none;
   border: none;
   color: inherit;
   cursor: pointer;
   padding: 0;
+}
+
+@media (max-width: 1100px) {
+  .page {
+    padding: 90px 24px 32px;
+  }
+
+  .header {
+    padding: 16px;
+  }
+
+  .searchContainer {
+    flex: 1 1 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .buttonGroup {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .adminBtn,
+  .rematchBtn,
+  .exportBtn,
+  .endProgramBtn {
+    flex: 1 1 170px;
+    max-width: 190px;
+  }
+
+  .stateError {
+    text-align: left;
+  }
+}
+
+@media (max-width: 700px) {
+  .page {
+    padding: 84px 16px 24px;
+  }
+
+  .adminBtn,
+  .rematchBtn,
+  .exportBtn,
+  .endProgramBtn {
+    flex: 1 1 calc(50% - 6px);
+    max-width: none;
+  }
+
+  .confirmCard {
+    padding: 20px;
+  }
+
+  .table {
+    table-layout: auto;
+  }
+
+  .status,
+  .noMatch {
+    width: 100%;
+  }
+}
+
+@media (max-width: 520px) {
+  .adminBtn,
+  .rematchBtn,
+  .exportBtn,
+  .endProgramBtn {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+
+  .searchInput {
+    min-height: 56px;
+  }
 }
