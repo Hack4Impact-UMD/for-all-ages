@@ -217,7 +217,7 @@ const BASIC_FIELD_KEYS = {
 
 const RegistrationNew = () => {
   const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, programState, programStateLoading } = useAuth();
 
   const formRef = useRef<HTMLFormElement>(null);
   const [form, setForm] = useState<Form | null>(null);
@@ -598,8 +598,22 @@ const RegistrationNew = () => {
     }
   };
 
-  if (loading || authLoading) return <p className={styles.message}>Loading...</p>;
+  if (loading || authLoading || programStateLoading) return <p className={styles.message}>Loading...</p>;
   if (!form) return <p className={styles.message}>Form not found.</p>;
+
+  if (programState?.matches_final) {
+    return (
+      <div id={styles.page}>
+        <div className={styles.card}>
+          <h2 className={styles.cardTitle}>Signups have closed for this cohort</h2>
+          <p>
+            If you’re interested in joining, please contact the admin team at{" "}
+            <a href="mailto:info@forallages.org">info@forallages.org</a>.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // Multi-step navigation
   const totalSteps = form.sections.length;

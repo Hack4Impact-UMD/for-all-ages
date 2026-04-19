@@ -11,6 +11,10 @@ import {
   signupWithEmailPassword,
   resendVerificationEmail,
 } from "../../services/auth";
+import {
+  subscribeToProgramState,
+  type ProgramState,
+} from "../../services/programState";
 
 type Tab = "login" | "signup";
 
@@ -51,12 +55,31 @@ function LoginSignup() {
   const [resendLoading, setResendLoading] = useState(false);
   const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
   const {isAdmin} = useAuth()
+  const [programState, setProgramState] = useState<ProgramState | null>(null);
+  const [programStateLoading, setProgramStateLoading] = useState(true);
 
   //verification panel if a user is signed in but not yet verified
   const needsVerification = useMemo(
     () => Boolean(user && !emailVerified),
     [user, emailVerified],
   );
+
+  const signupsClosed = Boolean(programState?.matches_final);
+
+  useEffect(() => {
+    setProgramStateLoading(true);
+    const unsubscribe = subscribeToProgramState(
+      (state) => {
+        setProgramState(state);
+        setProgramStateLoading(false);
+      },
+      () => {
+        setProgramState(null);
+        setProgramStateLoading(false);
+      },
+    );
+    return unsubscribe;
+  }, []);
 
   /**
    * Redirects authenticated & verified users away from this page
@@ -117,6 +140,13 @@ function LoginSignup() {
 
   // Handles user signup
   const handleSignup = async () => {
+    if (signupsClosed) {
+      setError(null);
+      setStatusMessage(
+        "Signups have closed for this cohort. Please contact the admin team if you're interested in joining.",
+      );
+      return;
+    }
     if (signupForm.password !== signupForm.confirmPassword) {
       setError("Passwords do not match.");
       return;
@@ -234,6 +264,9 @@ function LoginSignup() {
               className={`${styles.tab} ${tab === "signup" ? styles.activeTab : ""}`}
               onClick={() => setTab("signup")}
               type="button"
+              disabled={programStateLoading}
+              aria-disabled={programStateLoading}
+              title={programStateLoading ? "Loading signup availability..." : undefined}
             >
               Sign Up
             </button>
@@ -291,6 +324,16 @@ function LoginSignup() {
                   {loginLoading ? "Logging In..." : "Log-In"}
                 </button>
               </>
+            ) : signupsClosed ? (
+              <div className={styles.statusMessage} role="status">
+                <p style={{ margin: 0, fontWeight: 700 }}>
+                  Signups have closed for this cohort
+                </p>
+                <p style={{ margin: "8px 0 0" }}>
+                  If you’re interested in joining, please contact the admin team at{" "}
+                  <a href="mailto:info@forallages.org">info@forallages.org</a>.
+                </p>
+              </div>
             ) : (
               <>
                 <div className={styles.inputGroup}>
@@ -379,7 +422,7 @@ function LoginSignup() {
                 <button
                   type="submit"
                   className={`${styles.submitButton} ${!isSignupValid || signupLoading ? styles.disabled : ""}`}
-                  disabled={!isSignupValid || signupLoading}
+                  disabled={!isSignupValid || signupLoading || programStateLoading}
                 >
                   {signupLoading ? "Signing Up..." : "Sign Up"}
                 </button>
