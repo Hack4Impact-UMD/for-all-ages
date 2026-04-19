@@ -283,7 +283,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 34px;
+  height: 32px;
   padding: 0 15px;
   border: none;
   border-radius: var(--radius-sm);
