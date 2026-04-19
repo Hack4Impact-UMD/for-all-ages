@@ -212,7 +212,7 @@ export default function AdminDashboard() {
       <div className={layoutStyles.surface}>
         <section className={layoutStyles.selectorSection}>
           <WeekSelector
-            weeks={Array.from({ length: WEEKS }, (_, i) => `Week ${i + 1}`)}
+            weeks={weekLabels}
             selectedWeekIndex={selectedWeek}
             onSelect={setSelectedWeek}
             statuses={Array.from({ length: WEEKS }, (_, i) => {

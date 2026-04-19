@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, ResponsiveContainer } from 'recharts';
 import Star from '@mui/icons-material/Star';
 import layoutStyles from '../Dashboard/Dashboard.module.css';
@@ -6,6 +6,7 @@ import styles from './RecapPage.module.css';
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import type { Match, LogWithId } from '../../types';
+import { subscribeToProgramState } from '../../services/programState';
 
 async function fetchLogsByWeek(week: number): Promise<LogWithId[]> {
     const logsRef = collection(db, 'logs');
@@ -38,6 +39,8 @@ async function fetchParticipantName(uid: string): Promise<string> {
 export default function RecapPage() {
     const [selectedWeek, setSelectedWeek] = useState<number>();
     const [actualWeek, setActualWeek] = useState<number>();
+    const [numWeeks, setNumWeeks] = useState(20);
+    const didInitSelectedWeek = useRef(false);
     const [logs, setLogs] = useState<LogWithId[]>([]);
     const [matches, setMatches] = useState<Match[]>([]);
     const [participantNames, setParticipantNames] = useState<Record<string, string>>({});
@@ -61,22 +64,21 @@ export default function RecapPage() {
     }, [logs]);
 
     useEffect(() => {
-        const loadProgramWeek = async () => {
-            try {
-                const docRef = doc(db, 'config', 'programState');
-                const snapshot = await getDoc(docRef);
-                if (snapshot.exists()) {
-                    const data = snapshot.data();
-                    if (data.week) {
-                        setSelectedWeek(data.week);
-                        setActualWeek(data.week);
-                    }
+        const unsubscribe = subscribeToProgramState((state) => {
+            if (!state) return;
+            const nw = Math.max(1, state.numWeeks ?? 20);
+            setNumWeeks(nw);
+            setActualWeek(state.week);
+            setSelectedWeek((w) => {
+                if (!didInitSelectedWeek.current && typeof state.week === 'number') {
+                    didInitSelectedWeek.current = true;
+                    return Math.min(state.week, nw);
                 }
-            } catch (error) {
-                console.error(error);
-            }
-        };
-        loadProgramWeek();
+                if (w == null) return w;
+                return Math.min(w, nw);
+            });
+        });
+        return unsubscribe;
     }, []);
 
     useEffect(() => {
@@ -161,7 +163,7 @@ export default function RecapPage() {
                             value={selectedWeek}
                             onChange={e => setSelectedWeek(Number(e.target.value))}
                         >
-                            {Array.from({length:20},(_,i)=>i+1).map(w=>(
+                            {Array.from({ length: numWeeks }, (_, i) => i + 1).map(w=>(
                                 <option key={w} value={w}>Week {w}</option>
                             ))}
                         </select>

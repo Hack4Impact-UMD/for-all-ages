@@ -201,18 +201,13 @@ export default function Rematching() {
         const preferenceScores = data.preferenceScores ?? {};
         const sliderQuestions = nextMatchableQuestions.filter((q) => q.type === "Slider");
 
-        const q1Title = sliderQuestions[0]?.title;
-        const q2Title = sliderQuestions[1]?.title;
-        const q3Title = sliderQuestions[2]?.title;
-        if (q1Title && responseAnswers[q1Title] == null && preferenceScores.q1 != null) {
-          responseAnswers[q1Title] = preferenceScores.q1;
-        }
-        if (q2Title && responseAnswers[q2Title] == null && preferenceScores.q2 != null) {
-          responseAnswers[q2Title] = preferenceScores.q2;
-        }
-        if (q3Title && responseAnswers[q3Title] == null && preferenceScores.q3 != null) {
-          responseAnswers[q3Title] = preferenceScores.q3;
-        }
+        // This natively supports N questions without breaking backward compatibility
+        sliderQuestions.forEach((q, index) => {
+          const legacyKey = `q${index + 1}`;
+          if (q.title && responseAnswers[q.title] == null && preferenceScores[legacyKey] != null) {
+            responseAnswers[q.title] = preferenceScores[legacyKey];
+          }
+        });
 
         const participant: RematchingParticipant = {
           id,
