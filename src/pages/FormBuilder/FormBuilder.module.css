@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+
 :root {
   --blue: #0f6bb1;
   --blue-bg: #127bbe; /* the blue page background */
@@ -281,13 +283,14 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 15px;
-  border: 1px solid #b7c9d7;
+  height: 34px;
+  padding: 0 15px;
+  border: none;
   border-radius: var(--radius-sm);
   background: #c6d6e3;
   color: #3f5f76;
+  font-family: "IBM Plex Sans", sans-serif;
   font-size: 14px;
-  font-weight: 700;
   line-height: normal;
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease;
@@ -362,22 +365,38 @@
   width: 400px;
   max-width: 100%;
 }
+
 .sectionTitleActions {
-  display: flex;
-  align-items: stretch;
-  border: 1px solid var(--gray-200);
-  border-radius: var(--radius-sm);
-  overflow: hidden;
+  display: contents;
 }
+
+.sectionTitleActionsDelete {
+  margin-left: 0;
+  padding-left: 0;
+}
+
+.sectionTitleActionsDeleteDisabled {
+  opacity: 1;
+}
+
 .sectionActionBtn {
   background: none;
   border: none;
   border-left: 1px solid var(--gray-200);
   color: var(--gray-500);
   border-radius: 0;
-  padding: 4px 8px;
+  height: 32px;
+  padding: 0 8px;
+  font-family: "IBM Plex Sans", sans-serif;
   font-size: 14px;
+  line-height: 1;
   transition: background 0.15s;
+}
+
+.sectionActionBtnWithIcon {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 .sectionActionBtn:first-child {
   border-left: none;
@@ -387,10 +406,29 @@
 }
 
 .sectionDeleteBtn {
-    color: red;
+  color: #DC3E3E;
+  border: 1.5px solid currentColor;
+  border-radius: var(--radius-sm);
+  box-sizing: border-box;
+}
+.sectionDeleteBtn:disabled {
+  color: rgba(220, 62, 62, 0.45);
+  border-color: currentColor;
 }
 .sectionDeleteBtn:hover {
   background: var(--red-light);
+}
+
+.sectionActionBtnIcon {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  font-size: 18px;
+  line-height: 1;
 }
 
 .sectionTitleActionsRow {
@@ -430,7 +468,6 @@
 
 .qPreviewLabel {
   font-size: 15px;
-  font-weight: 500;
   color: var(--gray-900);
 }
 .qPreviewPlaceholder {

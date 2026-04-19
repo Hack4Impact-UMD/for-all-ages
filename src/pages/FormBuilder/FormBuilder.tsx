@@ -5,6 +5,7 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
 import EditIcon from '@mui/icons-material/Edit';
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import {
   DndContext,
   PointerSensor,
@@ -897,17 +898,18 @@ function SectionTitleEditor({
           Preview
         </button>
 
-        <div className={styles.sectionTitleActions}>
-          <button
-            type="button"
-            className={`${styles.sectionActionBtn} ${styles.sectionDeleteBtn}`}
-            disabled={locked}
-            onClick={onDelete}
-            title="Delete section"
-          >
-            Delete Section
-          </button>
-        </div>
+        <button
+          type="button"
+          className={`${styles.sectionActionBtn} ${styles.sectionActionBtnWithIcon} ${styles.sectionDeleteBtn} ${locked ? styles.sectionTitleActionsDeleteDisabled : ""}`}
+          disabled={locked}
+          onClick={onDelete}
+          title="Delete section"
+        >
+            <span className={styles.sectionActionBtnIcon} aria-hidden="true">
+              <DeleteOutlineIcon fontSize="inherit" />
+            </span>
+          Delete Section
+        </button>
       </div>
     </div>
   );
