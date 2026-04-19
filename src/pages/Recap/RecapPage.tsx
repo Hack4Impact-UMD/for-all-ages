@@ -6,7 +6,8 @@ import styles from './RecapPage.module.css';
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import type { Match, LogWithId } from '../../types';
-import { subscribeToProgramState } from '../../services/programState';
+import { getCurrentWeek } from '../../utils/programWeek';
+import { useAuth } from '../../auth/AuthProvider';
 
 async function fetchLogsByWeek(week: number): Promise<LogWithId[]> {
     const logsRef = collection(db, 'logs');
@@ -37,13 +38,27 @@ async function fetchParticipantName(uid: string): Promise<string> {
 }
 
 export default function RecapPage() {
-    const [selectedWeek, setSelectedWeek] = useState<number>();
-    const [actualWeek, setActualWeek] = useState<number>();
-    const [numWeeks, setNumWeeks] = useState(20);
-    const didInitSelectedWeek = useRef(false);
+    const { programState } = useAuth();
+    const numWeeks = Math.max(1, programState?.numWeeks ?? 20);
+    const currentWeek = getCurrentWeek(programState?.startDate, numWeeks);
+
+    const [selectedWeek, setSelectedWeek] = useState<number>(currentWeek);
+    const [actualWeek, setActualWeek] = useState<number>(currentWeek);
+    const hasInitialized = useRef(false);
     const [logs, setLogs] = useState<LogWithId[]>([]);
     const [matches, setMatches] = useState<Match[]>([]);
     const [participantNames, setParticipantNames] = useState<Record<string, string>>({});
+
+    // Sync to current week once programState loads
+    useEffect(() => {
+        if (programState && !hasInitialized.current) {
+            hasInitialized.current = true;
+            const nw = Math.max(1, programState.numWeeks ?? 20);
+            const cw = getCurrentWeek(programState.startDate, nw);
+            setActualWeek(cw);
+            setSelectedWeek(cw);
+        }
+    }, [programState]);
 
     useEffect(() => {
         fetchMatches().then(setMatches).catch(console.error);
@@ -64,24 +79,6 @@ export default function RecapPage() {
     }, [logs]);
 
     useEffect(() => {
-        const unsubscribe = subscribeToProgramState((state) => {
-            if (!state) return;
-            const nw = Math.max(1, state.numWeeks ?? 20);
-            setNumWeeks(nw);
-            setActualWeek(state.week);
-            setSelectedWeek((w) => {
-                if (!didInitSelectedWeek.current && typeof state.week === 'number') {
-                    didInitSelectedWeek.current = true;
-                    return Math.min(state.week, nw);
-                }
-                if (w == null) return w;
-                return Math.min(w, nw);
-            });
-        });
-        return unsubscribe;
-    }, []);
-
-    useEffect(() => {
         if (!selectedWeek) return;
         fetchLogsByWeek(selectedWeek).then(setLogs).catch(console.error);
     }, [selectedWeek]);
@@ -97,18 +94,16 @@ export default function RecapPage() {
     }, [logs]);
 
     const checkInData = useMemo(() => {
-        if (!todayWeekday || !matches.length) return [];
-        let checkedIn = 0, missed = 0, pending = 0;
+        if (!selectedWeek || !actualWeek || !matches.length || selectedWeek > actualWeek) return [];
+        let checkedIn = 0, notSubmitted = 0;
         matches.forEach(m => {
             const hasLog = participantsWithLogs.has(m.participant1_id) || participantsWithLogs.has(m.participant2_id);
             if (hasLog) checkedIn++;
-            else if (m.day_of_call > todayWeekday) pending++;
-            else missed++;
+            else notSubmitted++;
         });
         return [
             { name: 'Checked In', count: checkedIn, value: (checkedIn / matches.length) * 100, color: '#7FBC41' },
-            { name: 'Missed', count: missed, value: (missed / matches.length) * 100, color: '#F76D6D' },
-            { name: 'Pending', count: pending, value: (pending / matches.length) * 100, color: '#EAB419' }
+            { name: 'Not Submitted', count: notSubmitted, value: (notSubmitted / matches.length) * 100, color: '#F76D6D' },
         ];
     }, [matches, todayWeekday, participantsWithLogs]);
 

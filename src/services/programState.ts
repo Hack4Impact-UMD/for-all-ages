@@ -36,6 +36,7 @@ export function subscribeToProgramState(
 export async function startProgram() {
   await updateDoc(programStateRef, {
     started: true,
+    startDate: new Date().toISOString(),
     updatedAt: serverTimestamp(),
   });
 }
@@ -47,9 +48,3 @@ export async function finalizeMatches() {
   });
 }
 
-export async function setCurrentWeek(week: number) {
-  await updateDoc(programStateRef, {
-    week,
-    updatedAt: serverTimestamp(),
-  });
-}
