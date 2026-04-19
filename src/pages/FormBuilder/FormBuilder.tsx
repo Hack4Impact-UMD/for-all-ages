@@ -19,7 +19,7 @@ import {
   useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import type { EditorQuestion, EditorSection, FormEditorState } from "./useFormEditor";
+import type { EditorQuestion, EditorSection } from "./useFormEditor";
 import { useFormEditor } from "./useFormEditor";
 import styles from "./FormBuilder.module.css";
 import RegistrationNew from "../Registration/RegistrationNew";
@@ -31,6 +31,7 @@ const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
   medium_input: "Medium text",
   long_input: "Long text",
   Dropdown: "Dropdown",
+  DropdownWithOther: "Dropdown with other",
   Slider: "Rating (1-5)",
   Radio: "Radio",
   Date: "Date",
@@ -78,7 +79,8 @@ function QuestionPreview({ question }: { question: Question }) {
         <input className={styles.qMockInput} disabled placeholder="Type..." />
       )}
 
-      {question.type === "Dropdown" && (
+      {(question.type === "Dropdown" ||
+        question.type === "DropdownWithOther") && (
         <div className={styles.qMockSelect}>
           <span className={styles.qMockSelectText}>
             {question.options && question.options.length > 0
@@ -244,6 +246,7 @@ function InlineEditor({
 
         {/* Options editor for Dropdown / Radio / Multiple */}
         {(question.type === "Dropdown" ||
+          question.type === "DropdownWithOther" ||
           question.type === "Radio" ||
           question.type === "multiple") && (
           <div className={styles.inlineOptionsBlock}>
@@ -463,7 +466,7 @@ const FormBuilder: React.FC = () => {
     let valid = true
 
     //at least one section
-    if (formToSave.sections.length == 0) {
+    if (formToSave.sections.length === 0) {
       valid = false
     }
 
@@ -473,8 +476,7 @@ const FormBuilder: React.FC = () => {
         valid = false;
       }
       section.questions.forEach((question)=>{
-        console.log(question.title)
-        if (question.title == "" || question.type == null) {
+        if (question.title === "" || question.type == null) {
           valid = false;
         }
       })
