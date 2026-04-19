@@ -189,7 +189,14 @@ const cleanQuestion = (q: EditorQuestion): Question => {
     cleaned.description = rest.description.trim();
   }
 
-  if (["Dropdown", "Radio", "multiple"].includes(rest.type)) {
+  if (
+    [
+      "Dropdown",
+      "DropdownWithOther",
+      "Radio",
+      "multiple",
+    ].includes(rest.type)
+  ) {
     cleaned.options = (rest.options ?? []).filter((o) => o.trim().length > 0);
   }
 
