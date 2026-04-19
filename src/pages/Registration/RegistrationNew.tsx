@@ -333,11 +333,8 @@ const RegistrationNew = ({
   };
 
   const isUserTypeQuestion = (question: Question): boolean => {
-    if (question.lockedKey === "user type") {
-      return true;
-    }
-    const title = question.title.toLowerCase();
-    return title.includes("student") && title.includes("adult");
+    // Use strict matching based on lockedKey to avoid false positives
+    return question.lockedKey === "user type";
   };
 
   const isBasicInfoQuestion = (question: Question): boolean => {
@@ -355,7 +352,7 @@ const RegistrationNew = ({
   };
 
   const normalizeUserType = (value?: string): "student" | "adult" => {
-    const normalized = value?.trim().toLowerCase();
+    const normalized = value?.trim().toLowerCase() ?? "";
     return normalized === "adult" ? "adult" : "student";
   };
 
@@ -408,7 +405,11 @@ const RegistrationNew = ({
       } else if (isEmailQuestion(question)) {
         values[BASIC_FIELD_KEYS.email] = (formData.get(fieldName) as string) || "";
       } else if (isUserTypeQuestion(question)) {
-        values[BASIC_FIELD_KEYS.userType] = (formData.get(fieldName) as string) || "";
+        // Only assign user_type if a non-empty value is found (prevents overwrite by empty matches)
+        const userTypeValue = (formData.get(fieldName) as string)?.trim();
+        if (userTypeValue) {
+          values[BASIC_FIELD_KEYS.userType] = userTypeValue;
+        }
       }
     });
 
