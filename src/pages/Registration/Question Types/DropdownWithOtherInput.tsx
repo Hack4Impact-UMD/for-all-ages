@@ -14,11 +14,14 @@ export default function DropdownWithOtherInput({
 }) {
   const [selectedValue, setSelectedValue] = useState("");
 
-  const hasOtherOption = useMemo(
-    () => options.some((opt) => opt.trim().toLowerCase() === "other"),
+  const resolvedOptions = useMemo(
+    () => {
+      const hasOtherOption = options.some((opt) => opt.trim().toLowerCase() === "other");
+      return hasOtherOption ? options : [...options, "Other"];
+    },
     [options],
   );
-  const showOtherInput = hasOtherOption && selectedValue.trim().toLowerCase() === "other";
+  const showOtherInput = selectedValue.trim().toLowerCase() === "other";
 
   return (
     <>
@@ -30,7 +33,7 @@ export default function DropdownWithOtherInput({
         onChange={(event) => setSelectedValue(event.target.value)}
       >
         <option value="">Select an option</option>
-        {options.map((opt) => (
+        {resolvedOptions.map((opt) => (
           <option key={opt} value={opt}>
             {opt}
           </option>
@@ -43,7 +46,7 @@ export default function DropdownWithOtherInput({
           name={`${name}_other`}
           maxLength={160}
           required={required}
-          className={styles.fieldInput}
+          className={styles.otherFieldInput}
           placeholder="Please specify"
         />
       )}

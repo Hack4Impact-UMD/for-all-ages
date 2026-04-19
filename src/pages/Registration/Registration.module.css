@@ -170,6 +170,19 @@
   border-color: #127BBE;
 }
 
+.otherFieldInput {
+  border: 1.5px solid #ccc;
+  border-radius: 6px;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.95rem;
+  font-family: inherit;
+  color: #333;
+  background: white;
+  width: 100%;
+  max-width: 280px;
+  margin-top: 1rem;
+}
+
 .fieldSelect {
   border: 1.5px solid #ccc;
   border-radius: 6px;
