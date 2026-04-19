@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 // Firebase SDK usage moved behind service helpers
 import { useNavigate } from "react-router-dom";
 import styles from "./Login.module.css";
+import faaLogo from "/faa logo.png";
 import { auth } from "../../firebase";
 import { useAuth } from "../../auth/AuthProvider";
 import {
@@ -212,7 +213,7 @@ function LoginSignup() {
       <div className={styles.logoSection}>
         <div className={styles.logoCard}>
           <img 
-            src="/faa logo.png" 
+            src={faaLogo}
             alt="For All Ages Logo" 
             className={styles.logoImage}
           />
