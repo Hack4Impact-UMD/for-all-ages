@@ -6,6 +6,7 @@ import ShortInput from "./Question Types/ShortInput";
 import MediumInput from "./MediumInput";
 import LongInput from "./Question Types/LongInput";
 import DropdownInput from "./Question Types/DropdownInput";
+import DropdownWithOtherInput from "./Question Types/DropdownWithOtherInput";
 import SliderInput from "./Question Types/SliderInput";
 import RadioInput from "./Question Types/RadioInput";
 import DateInput from "./Question Types/DateInput";
@@ -75,6 +76,18 @@ function QuestionRenderer({
         <div className={styles.fieldGroup}>
           {labelContent}
           <DropdownInput
+            name={name}
+            options={options ?? []}
+            required={required}
+            className={styles.fieldSelect}
+          />
+        </div>
+      );
+    case "DropdownWithOther":
+      return (
+        <div className={styles.fieldGroup}>
+          {labelContent}
+          <DropdownWithOtherInput
             name={name}
             options={options ?? []}
             required={required}
@@ -416,6 +429,13 @@ const RegistrationNew = () => {
         if (questionType === "multiple") {
           const values = formData.getAll(fieldName) as string[];
           answer = values.join(", ");
+        } else if (questionType === "DropdownWithOther") {
+          const selectedValue = (formData.get(fieldName) as string) || "";
+          if (selectedValue.trim().toLowerCase() === "other") {
+            answer = (formData.get(`${fieldName}_other`) as string) || "";
+          } else {
+            answer = selectedValue;
+          }
         } else if (questionType === "address") {
           return;
         } else if (questionType === "Slider") {
@@ -461,6 +481,15 @@ const RegistrationNew = () => {
           const numericKey = numericQuestionKeys.get(fieldName);
           if (numericKey) {
             numericResponses[numericKey] = value;
+          }
+        } else if (questionType === "DropdownWithOther") {
+          const selectedValue = (formData.get(fieldName) as string) || "";
+          const value =
+            selectedValue.trim().toLowerCase() === "other"
+              ? ((formData.get(`${fieldName}_other`) as string) || "")
+              : selectedValue;
+          if (value.trim() !== "") {
+            textResponses.push(value);
           }
         } else if (
           [
@@ -530,19 +559,19 @@ const RegistrationNew = () => {
         getDoc(formResponseDocRef)
       ]);
 
-      const participantData: Participant = {
+      const participantData = {
         type: "Participant",
         ...basicInfo,
-        updatedAt: serverTimestamp() as any,
-        ...(!participantSnap.exists() && { createdAt: serverTimestamp() as any })
+        updatedAt: serverTimestamp(),
+        ...(!participantSnap.exists() && { createdAt: serverTimestamp() })
       };
 
       await setDoc(participantDocRef, participantData, { merge: true });
 
-      const formResponseData: FormResponse = {
+      const formResponseData = {
         ...formResponses,
-        updatedAt: serverTimestamp() as any,
-        ...(!formResponseSnap.exists() && { createdAt: serverTimestamp() as any })
+        updatedAt: serverTimestamp(),
+        ...(!formResponseSnap.exists() && { createdAt: serverTimestamp() })
       };
       await setDoc(formResponseDocRef, formResponseData, { merge: true });
 
