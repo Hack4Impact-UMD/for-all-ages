@@ -64,19 +64,27 @@
 
 .weekHeader {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
     margin-bottom: 1.25rem;
+    min-width: 0;
 }
 
 .weekTitle {
-    margin: 0;
+    margin: 0 4rem 0 0 ;
     font-size: 1.5rem;
     font-weight: 700;
     color: #0f4f86;
 }
 
+.weekDateRange {
+    margin: 0.35rem 0 0;
+    font-size: 1rem;
+    font-weight: 400;
+    color: #3a3a3a;
+}
+
 .weekBadge {
+    margin-left: auto;
     padding: 8px 20px;
     border-radius: 10px;
     font-size: 0.9rem;
@@ -314,7 +322,11 @@
 }
 
 .blockRed {
-    background-color: #ef4444;
+    background-color: #E45B5B;
+}
+
+.blockGold {
+    background-color: #B5952E;
 }
 
 .blockFuture {

@@ -143,7 +143,7 @@ export interface BannerState {
 export interface ProgramState {
     started: boolean
     matches_final: boolean
-    week: number
+    startDate?: string | null
     maxParticipants: number
     currentParticipants: number
     numWeeks: number

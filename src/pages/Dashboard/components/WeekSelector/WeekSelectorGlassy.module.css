@@ -29,12 +29,34 @@
     font-size: 0.9rem;
     font-weight: 600;
     font-family: Merriweather, serif;
-    padding: 0.45rem 1rem;
+    padding: 1.5rem 1rem;
     border-radius: 15px;
     cursor: pointer;
     transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
     white-space: nowrap;
     flex: 0 1 auto;
+}
+
+/* Two-line layout (week name + date range) */
+.weekButtonInner {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.1rem;
+}
+
+.weekButtonTop {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.weekSubLabel {
+    font-size: 0.75rem;
+    font-weight: 400;
+    opacity: 0.8;
+    line-height: 1;
+    margin-top: 2px;
 }
 
 .weekButton:hover {

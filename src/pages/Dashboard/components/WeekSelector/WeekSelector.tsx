@@ -2,6 +2,7 @@ import styles from './WeekSelectorGlassy.module.css'
 
 interface WeekSelectorProps {
     weeks: string[]
+    subLabels?: string[]
     selectedWeekIndex: number
     onSelect: (index: number) => void
     className?: string
@@ -10,6 +11,7 @@ interface WeekSelectorProps {
 
 export default function WeekSelector ({
     weeks,
+    subLabels,
     selectedWeekIndex,
     onSelect,
     className,
@@ -48,20 +50,35 @@ export default function WeekSelector ({
                     const actualIndex = startIndex + index;
                     const isActive = actualIndex === selectedWeekIndex
                     const status = statuses[actualIndex] || 'future';
-                    const isCompleted = status === 'completed'
+                    const showCheckmark = status === 'completed' || status === 'current'
+                    const subLabel = subLabels?.[actualIndex]
 
                     return (
                         <button
-                            key={week}
+                            key={actualIndex}
                             type="button"
                             role="tab"
                             aria-selected={isActive}
                             className={`${styles.weekButton} ${isActive ? styles.activeWeek : ''} ${styles[status]}`.trim()}
                             onClick={() => onSelect(actualIndex)}
                         >
-                            <span className={styles.weekLabel}>{week}</span>
-                            {isCompleted && (
-                                <span className={styles.checkmark} aria-hidden="true">✓</span>
+                            {subLabel ? (
+                                <span className={styles.weekButtonInner}>
+                                    <span className={styles.weekButtonTop}>
+                                        <span className={styles.weekLabel}>{week}</span>
+                                        {showCheckmark && (
+                                            <span className={styles.checkmark} aria-hidden="true">✓</span>
+                                        )}
+                                    </span>
+                                    <span className={styles.weekSubLabel}>{subLabel}</span>
+                                </span>
+                            ) : (
+                                <>
+                                    <span className={styles.weekLabel}>{week}</span>
+                                    {showCheckmark && (
+                                        <span className={styles.checkmark} aria-hidden="true">✓</span>
+                                    )}
+                                </>
                             )}
                         </button>
                     )

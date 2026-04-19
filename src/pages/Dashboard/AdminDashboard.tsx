@@ -7,6 +7,7 @@ import { getAllMatches } from '../../services/matches'
 import { getWeek } from '../../services/weeks'
 import { getDoc, doc } from 'firebase/firestore'
 import { db } from '../../firebase'
+import { getCurrentWeek, getWeekDateLabel, getWeekDateLabelLong } from '../../utils/programWeek'
 import type { Match, Week, PersonTagVariant } from '../../types'
 import { subscribeToProgramState, type ProgramState } from '../../services/programState'
 import CallLogModal from './components/PopUpWindow/CallLogModal'
@@ -49,6 +50,18 @@ export default function AdminDashboard() {
   const hasInitializedWeek = useRef(false)
   const callFilterRef = useRef<HTMLDivElement | null>(null)
 
+  const weekLabels = useMemo(
+    () => Array.from({ length: WEEKS }, (_, i) => `Week ${i + 1}`),
+    []
+  )
+
+  const weekDateLabels = useMemo(
+    () => Array.from({ length: WEEKS }, (_, i) =>
+      getWeekDateLabel(programState?.startDate, i + 1)
+    ),
+    [programState?.startDate]
+  )
+
   useEffect(() => {
     const unsubscribe = subscribeToProgramState(
       (state) => setProgramState(state),
@@ -59,9 +72,10 @@ export default function AdminDashboard() {
 
   // Sync selected week once on initial load
   useEffect(() => {
-    if (programState && typeof programState.week === 'number' && !hasInitializedWeek.current) {
-      setSelectedWeek(Math.max(0, programState.week - 1))
-      hasInitializedWeek.current = true
+    if (programState && !hasInitializedWeek.current) {
+      const week = getCurrentWeek(programState.startDate, programState.numWeeks ?? WEEKS);
+      setSelectedWeek(week-1);
+      hasInitializedWeek.current = true;
     }
   }, [programState])
 
@@ -149,7 +163,7 @@ export default function AdminDashboard() {
     })
   }, [allMatches, searchQuery, participantNames])
 
-  const currentGlobalWeek = programState?.week ?? 1
+  const currentGlobalWeek = getCurrentWeek(programState?.startDate, programState?.numWeeks ?? WEEKS)
   const viewingWeek = selectedWeek + 1
   const isCurrentWeek = viewingWeek === currentGlobalWeek
   const isPastWeek = viewingWeek < currentGlobalWeek
@@ -213,6 +227,7 @@ export default function AdminDashboard() {
         <section className={layoutStyles.selectorSection}>
           <WeekSelector
             weeks={weekLabels}
+            subLabels={weekDateLabels}
             selectedWeekIndex={selectedWeek}
             onSelect={setSelectedWeek}
             statuses={Array.from({ length: WEEKS }, (_, i) => {
@@ -253,7 +268,14 @@ export default function AdminDashboard() {
 
               {/* Week header */}
               <div className={adminStyles.weekHeader}>
-                <h3 className={adminStyles.weekTitle}>Week {viewingWeek}</h3>
+                <div>
+                  <h3 className={adminStyles.weekTitle}>Week {viewingWeek}</h3>
+                  {getWeekDateLabelLong(programState?.startDate, viewingWeek) && (
+                    <h3 className={adminStyles.weekDateRange}>
+                      {getWeekDateLabelLong(programState?.startDate, viewingWeek)}
+                    </h3>
+                  )}
+                </div>
                 <span className={`${adminStyles.weekBadge} ${weekStatusBadge.cls}`}>{weekStatusBadge.label}</span>
               </div>
 
@@ -351,15 +373,21 @@ export default function AdminDashboard() {
                       <div className={adminStyles.progressBlocks}>
                         {Array.from({ length: WEEKS }, (_, i) => {
                           const wk = i + 1
+                          const isCurrent = wk === currentGlobalWeek
+                          const isViewing = wk === viewingWeek
                           if (wk > currentGlobalWeek) {
-                            return <span key={wk} className={`${adminStyles.block} ${adminStyles.blockFuture}`} />
+                            return <span key={wk} className={`${adminStyles.block} ${adminStyles.blockFuture} ${isViewing ? adminStyles.blockCurrent : ''}`} />
                           }
                           const submitted = (allWeeksData[wk] ?? []).includes(match.id)
-                          const isCurrent = wk === currentGlobalWeek
+                          const colorClass = submitted
+                            ? adminStyles.blockGreen
+                            : isCurrent
+                              ? adminStyles.blockGold
+                              : adminStyles.blockRed
                           return (
                             <span
                               key={wk}
-                              className={`${adminStyles.block} ${submitted ? adminStyles.blockGreen : adminStyles.blockRed} ${isCurrent ? adminStyles.blockCurrent : ''}`}
+                              className={`${adminStyles.block} ${colorClass} ${isViewing ? adminStyles.blockCurrent : ''}`}
                             />
                           )
                         })}
