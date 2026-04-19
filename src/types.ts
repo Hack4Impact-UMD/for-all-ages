@@ -283,6 +283,7 @@ export type QuestionType =
   | "medium_input"
   | "long_input"
   | "Dropdown"
+  | "Dropdown_with_other"
   | "Slider"
   | "Radio"
   | "Date"
