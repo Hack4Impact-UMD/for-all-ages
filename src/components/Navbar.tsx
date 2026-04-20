@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import styles from "./Navbar.module.css";
+import styles from "./Components.module.css";
 import Logo from "../assets/For all Ages high res logo 2022 (1).svg";
 import { useAuth } from "../auth/AuthProvider";
 import { useMemo } from "react";
