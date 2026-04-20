@@ -16,13 +16,13 @@ admin.initializeApp({
   projectId: "for-all-ages-prd", 
 });
 
-const CORS_ORIGIN = process.env.CORS_ORIGIN || "http://localhost:5173";
+const CORS_ORIGIN = "https://hack4impact-umd.github.io";
 const PARTICIPANTS = "participants";
 
-type ProgramState = {
-  started: boolean;
-  matches_final: boolean;
-};
+// type ProgramState = {
+//   started: boolean;
+//   matches_final: boolean;
+// };
 
 function buildNumericScoreRanges(form: any): Record<string, { min: number; max: number }> {
   const scoreRanges: Record<string, { min: number; max: number }> = {};

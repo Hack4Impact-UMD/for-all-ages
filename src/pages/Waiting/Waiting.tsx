@@ -7,7 +7,7 @@ import {
   getMatchesByParticipant,
   getPartnerId,
 } from "../../services/matches";
-import type { Match, PartnerInfo, ParticipantDoc } from "../../types";
+import type { PartnerInfo, ParticipantDoc } from "../../types";
 import ProfilePicture from "../Profile/components/ProfilePicture/ProfilePicture";
 import styles from "./Waiting.module.css";
 
@@ -48,17 +48,17 @@ export default function Waiting() {
 
   const navigate = useNavigate();
 
-  const [match, setMatch] = useState<(Match & { id: string }) | null>(null);
+  //const [match, setMatch] = useState<(Match & { id: string }) | null>(null);
   const [partner, setPartner] = useState<PartnerInfo | null>(null);
   const [matchLoading, setMatchLoading] = useState(false);
 
 
-  const isStudent = participant?.user_type?.toLowerCase() === "student";
+  //const isStudent = participant?.user_type?.toLowerCase() === "student";
 
   const greetingName = useMemo(
     () =>
-      buildGreetingName(participant, user?.name ?? user?.email ?? null),
-    [participant, user?.name, user?.email],
+      buildGreetingName(participant, user?.displayName ?? user?.email ?? null),
+    [participant, user?.displayName, user?.email],
   );
 
   const handleMessageAdmins = () => {
@@ -97,7 +97,7 @@ export default function Waiting() {
         }
 
         const userMatch = matches[0];
-        setMatch(userMatch);
+        //setMatch(userMatch);
 
         const partnerId = getPartnerId(userMatch, user.uid);
         const participantRef = doc(db, "participants", partnerId);
@@ -156,7 +156,7 @@ export default function Waiting() {
     } else if (matches_final && !started) {
       statusTitle = "Your match has been set!";
       statusBody =
-        "Your match has been finalized. You’ll get full access to the program once it officially starts. Keep an eye on your email for the start date and next steps.";
+        `Your match has been finalized. You’ll get full access to the program once it officially starts. Keep an eye on your email for the start date and next steps."`;
     } else if (matches_final && started) {
       statusTitle = "Redirecting you to your dashboard…";
       statusBody = "";
