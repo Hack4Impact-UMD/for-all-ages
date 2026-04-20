@@ -12,6 +12,60 @@
   align-items: center;
 }
 
+.previewPage {
+  background-color: #127BBE;
+  font-family: 'Merriweather', serif;
+  text-align: left;
+  padding: 2rem;
+  width: 100%;
+  min-height: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border-radius: 12px;
+  box-sizing: border-box;
+}
+
+.previewPageCompact {
+  font-family: 'Merriweather', serif;
+  text-align: left;
+  padding: 0;
+  width: 100%;
+  min-height: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+.previewFieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.previewFieldset:disabled {
+  opacity: 1;
+}
+
+.previewFieldset *:disabled {
+  opacity: 1;
+}
+
+.previewFieldset input:disabled,
+.previewFieldset textarea:disabled,
+.previewFieldset select:disabled {
+  background: white;
+  color: #333;
+  -webkit-text-fill-color: #333;
+  cursor: not-allowed;
+}
+
+.previewFieldset button:disabled {
+  cursor: not-allowed;
+}
+
 .header {
   text-align: center;
   margin-bottom: 1.5rem;
@@ -168,6 +222,19 @@
 .fieldInput:focus {
   outline: none;
   border-color: #127BBE;
+}
+
+.otherFieldInput {
+  border: 1.5px solid #ccc;
+  border-radius: 6px;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.95rem;
+  font-family: inherit;
+  color: #333;
+  background: white;
+  width: 100%;
+  max-width: 280px;
+  margin-top: 1rem;
 }
 
 .fieldSelect {
@@ -471,4 +538,39 @@
   font-size: 0.9rem;
   color: #555;
   margin-bottom: 1.5rem;
+}
+
+.suggestionsList {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  background: white;
+  border: 1.5px solid #ccc;
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.suggestionItem {
+  padding: 0.55rem 0.75rem;
+  font-size: 0.9rem;
+  color: #222;
+  cursor: pointer;
+}
+
+.suggestionItem:hover {
+  background: #f0f7ff;
+}
+
+.suggestionItem + .suggestionItem {
+  border-top: 1px solid #eee;
+}
+
+.suggestionItemHighlighted {
+  background: #f0f7ff;
 }
