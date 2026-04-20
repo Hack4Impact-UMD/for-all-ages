@@ -1,6 +1,6 @@
 import styles from "./Profile.module.css";
 import { useState, useEffect } from "react";
-import { phoneNumberRegex, emailRegex, dateRegex } from "../../regex";
+import { phoneNumberRegex, dateRegex } from "../../regex";
 import EditIcon from "@mui/icons-material/Edit";
 import {
   signOut,
@@ -8,18 +8,15 @@ import {
   updatePassword,
   reauthenticateWithCredential,
   EmailAuthProvider,
-  verifyBeforeUpdateEmail,
 } from "firebase/auth";
 import { auth, db } from "../../firebase";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 import { getMatchesByParticipant, getPartnerId } from "../../services/matches";
-import type { ErrorState, UserProfile } from "../../types";
-import EmailReauthModal from "./components/EmailReauthModal/EmailReauthModal";
+import type { ErrorState, ParticipantDoc, UserProfile } from "../../types";
 import MatchInterestsModal from "./components/MatchInterestsModal/MatchInterestsModal";
 import ProfilePictureEdit from "./components/ProfilePictureEdit/ProfilePictureEdit";
 
-// normalize birthday to MM/DD/YYYY for profile display/edit
 const toDisplayBirthday = (raw: string | undefined | null): string => {
   if (!raw) return "";
   if (/^(0[1-9]|1[0-2])\/(0[1-9]|[12]\d|3[01])\/\d{4}$/.test(raw)) {
@@ -41,14 +38,13 @@ const toDisplayBirthday = (raw: string | undefined | null): string => {
   return raw;
 };
 
-// normalize birthday to YYYY-MM-DD for Firebase storage
 const toStorageBirthday = (raw: string | undefined | null): string => {
   if (!raw) return "";
-
   if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
     return raw;
   }
 
+  // normalize birthday to MM/DD/YYYY for profile display/edit
   const display = toDisplayBirthday(raw);
   const m = display.match(/^(0[1-9]|1[0-2])\/(0[1-9]|[12]\d|3[01])\/(\d{4})$/);
   if (m) {
@@ -57,6 +53,27 @@ const toStorageBirthday = (raw: string | undefined | null): string => {
   }
 
   return raw;
+};
+
+const getErrorMessage = (error: unknown, fallback: string): string => {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return fallback;
+};
+
+const getFirebaseErrorCode = (error: unknown): string | undefined => {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    typeof error.code === "string"
+  ) {
+    return error.code;
+  }
+
+  return undefined;
 };
 
 const Profile = () => {
@@ -81,11 +98,9 @@ const Profile = () => {
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
-  // email reauth modal
-  const [showEmailReauthModal, setShowEmailReauthModal] = useState(false);
-  const [emailReauthPassword, setEmailReauthPassword] = useState("");
-  const [emailReauthError, setEmailReauthError] = useState<string | null>(null);
-  const [isEmailReauthing, setIsEmailReauthing] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
@@ -117,40 +132,49 @@ const Profile = () => {
             startDate: "",
             endDate: "",
             status: "Participant",
+            matchName: "",
+            matchInterests: "",
           };
           setUser(fallback);
           setLoading(false);
           return;
         }
 
-        const data: any = snap.data();
+        const data = snap.data() as ParticipantDoc;
         const addr = data.address ?? {};
+        const status = data.type ?? "Participant";
+        const isAdmin = String(status).toLowerCase() === "admin";
 
         let matchName = "";
         let matchInterests = "";
 
-        try {
-          const matches = await getMatchesByParticipant(fbUser.uid);
-          if (matches.length > 0) {
-            const firstMatch = matches[0];
-            const partnerId = getPartnerId(firstMatch, fbUser.uid);
+        if (!isAdmin) {
+          try {
+            const matches = await getMatchesByParticipant(fbUser.uid);
+            if (matches.length > 0) {
+              const firstMatch = matches[0];
+              const partnerId = getPartnerId(firstMatch, fbUser.uid);
 
-            const partnerRef = doc(db, "participants", partnerId);
-            const partnerSnap = await getDoc(partnerRef);
-            if (partnerSnap.exists()) {
-              const partnerData: any = partnerSnap.data();
-              matchName =
-                partnerData.displayName ??
-                partnerData.name ??
-                [partnerData.firstName, partnerData.lastName]
-                  .filter(Boolean)
-                  .join(" ");
-              matchInterests =
-                partnerData.interests ?? partnerData.freeResponse ?? "";
+              const partnerRef = doc(db, "participants", partnerId);
+              const partnerSnap = await getDoc(partnerRef);
+              if (partnerSnap.exists()) {
+                const partnerData = partnerSnap.data() as ParticipantDoc & {
+                  name?: string | null;
+                  freeResponse?: string | null;
+                };
+                matchName =
+                  partnerData.displayName ??
+                  partnerData.name ??
+                  [partnerData.firstName, partnerData.lastName]
+                    .filter(Boolean)
+                    .join(" ");
+                matchInterests =
+                  partnerData.interests ?? partnerData.freeResponse ?? "";
+              }
             }
+          } catch (matchErr) {
+            console.error("Error fetching match info:", matchErr);
           }
-        } catch (matchErr) {
-          console.error("Error fetching match info:", matchErr);
         }
 
         const profile: UserProfile = {
@@ -159,7 +183,6 @@ const Profile = () => {
           email: data.email ?? fbUser.email ?? "",
           pronouns: data.pronouns ?? "",
           phone: data.phoneNumber ?? "",
-          // normalize when loading from Firestore for profile display
           birthday: toDisplayBirthday(data.dateOfBirth),
           addressLine1: addr.line1 ?? "",
           addressCity: addr.city ?? "",
@@ -169,7 +192,7 @@ const Profile = () => {
           interests: data.interests ?? "",
           startDate: data.startDate ?? "",
           endDate: data.endDate ?? "",
-          status: data.type ?? "Participant",
+          status,
           matchName,
           matchInterests,
         };
@@ -193,6 +216,8 @@ const Profile = () => {
           startDate: "",
           endDate: "",
           status: "Participant",
+          matchName: "",
+          matchInterests: "",
         };
         setUser(fallback);
       } finally {
@@ -216,6 +241,8 @@ const Profile = () => {
     }
   }, [newPassword, confirmNewPassword]);
 
+  const isAdmin = user?.status?.toLowerCase() === "admin";
+
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
@@ -224,6 +251,9 @@ const Profile = () => {
     if (profileSaveError) {
       setProfileSaveError(null);
     }
+    if (errors[name as keyof ErrorState]) {
+      setErrors((prev) => ({ ...prev, [name]: undefined }));
+    }
     setUser({ ...user, [name]: value });
   };
 
@@ -231,31 +261,42 @@ const Profile = () => {
     if (!user) return { hasErrors: true, newErrors: {} as ErrorState };
 
     const newErrors: ErrorState = {};
-    if (!emailRegex.test(user.email)) newErrors.email = "Invalid email format";
-    if (!phoneNumberRegex.test(user.phone))
-      newErrors.phone = "Invalid phone format";
 
-    if (user.birthday && !dateRegex.test(user.birthday))
-      newErrors.birthday = "Invalid date format";
+    if (!user.name.trim()) {
+      newErrors.name = "Name cannot be empty";
+    }
 
-    if (!user.addressLine1.trim())
-      newErrors.addressLine1 = "Street address cannot be empty";
-    if (!user.addressCity.trim())
-      newErrors.addressCity = "City cannot be empty";
-    if (!user.addressState.trim())
-      newErrors.addressState = "State cannot be empty";
-    if (!user.addressPostalCode.trim())
-      newErrors.addressPostalCode = "Postal code cannot be empty";
-    if (!user.addressCountry.trim())
-      newErrors.addressCountry = "Country cannot be empty";
+    if (!isAdmin) {
+      if (!phoneNumberRegex.test(user.phone)) {
+        newErrors.phone = "Invalid phone format";
+      }
+
+      if (user.birthday && !dateRegex.test(user.birthday)) {
+        newErrors.birthday = "Invalid date format";
+      }
+
+      if (!user.addressLine1.trim()) {
+        newErrors.addressLine1 = "Street address cannot be empty";
+      }
+      if (!user.addressCity.trim()) {
+        newErrors.addressCity = "City cannot be empty";
+      }
+      if (!user.addressState.trim()) {
+        newErrors.addressState = "State cannot be empty";
+      }
+      if (!user.addressPostalCode.trim()) {
+        newErrors.addressPostalCode = "Postal code cannot be empty";
+      }
+      if (!user.addressCountry.trim()) {
+        newErrors.addressCountry = "Country cannot be empty";
+      }
+    }
 
     const hasErrors = Object.keys(newErrors).length > 0;
     return { hasErrors, newErrors };
   };
 
-  const performProfileUpdate = async (
-    passwordForEmail?: string,
-  ): Promise<boolean> => {
+  const performProfileUpdate = async (): Promise<boolean> => {
     if (!user) return false;
 
     const authUser = auth.currentUser;
@@ -264,8 +305,6 @@ const Profile = () => {
       return false;
     }
 
-    const emailChanged = authUser.email !== user.email;
-
     const displayBirthday = toDisplayBirthday(user.birthday);
     const normalizedBirthday = toStorageBirthday(displayBirthday);
 
@@ -273,122 +312,53 @@ const Profile = () => {
       setUser({ ...user, birthday: displayBirthday });
     }
 
-    if (emailChanged && !passwordForEmail) {
-      setEmailReauthError(null);
-      setEmailReauthPassword("");
-      setShowEmailReauthModal(true);
-      return false;
-    }
-
     try {
-      let emailNotice = "";
-      if (emailChanged && passwordForEmail) {
-        if (!authUser.email) {
-          setEmailReauthError(
-            "Your account is missing an email address. Please sign out and sign back in.",
-          );
-          setShowEmailReauthModal(true);
-          return false;
-        }
-
-        setIsEmailReauthing(true);
-        const credential = EmailAuthProvider.credential(
-          authUser.email,
-          passwordForEmail,
-        );
-
-        await reauthenticateWithCredential(authUser, credential);
-
-        // verify email before updating in firebase auth
-        await verifyBeforeUpdateEmail(authUser, user.email);
-
-        setShowEmailReauthModal(false);
-        setEmailReauthPassword("");
-        setEmailReauthError(null);
-
-        emailNotice = `We’ve emailed a verification link to ${user.email}. Please confirm it to finish updating your login email.`;
-      }
-
       const userRef = doc(db, "participants", user.uid);
-      await updateDoc(userRef, {
+
+      const baseUpdate = {
         displayName: user.name,
-        email: user.email,
-        pronouns: user.pronouns,
-        phoneNumber: user.phone,
-        dateOfBirth: normalizedBirthday,
-        interests: user.interests,
-        address: {
-          line1: user.addressLine1,
-          city: user.addressCity,
-          state: user.addressState,
-          postalCode: user.addressPostalCode,
-          country: user.addressCountry,
-        },
+      };
+
+      const participantUpdate = isAdmin
+        ? {}
+        : {
+            pronouns: user.pronouns,
+            phoneNumber: user.phone,
+            dateOfBirth: normalizedBirthday,
+            interests: user.interests,
+            address: {
+              line1: user.addressLine1,
+              city: user.addressCity,
+              state: user.addressState,
+              postalCode: user.addressPostalCode,
+              country: user.addressCountry,
+            },
+          };
+
+      await updateDoc(userRef, {
+        ...baseUpdate,
+        ...participantUpdate,
       });
 
-      window.alert(
-        emailChanged
-          ? `Profile saved. ${emailNotice}`
-          : "Profile updated successfully.",
-      );
+      window.alert("Profile updated successfully.");
       return true;
-    } catch (err: any) {
-      console.error("Error updating profile (email/profile):", err);
+    } catch (err: unknown) {
+      console.error("Error updating profile:", err);
 
-      const code = err?.code as string | undefined;
-      const msg = err?.message as string | undefined;
+      const code = getFirebaseErrorCode(err);
+      const msg = getErrorMessage(
+        err,
+        "Unexpected error updating profile. Please try again.",
+      );
 
-      if (emailChanged) {
-        if (code === "auth/wrong-password") {
-          setEmailReauthError("Current password is incorrect.");
-          setShowEmailReauthModal(true);
-        } else if (code === "auth/requires-recent-login") {
-          setEmailReauthError(
-            "For security reasons, please sign out and sign back in, then try again.",
-          );
-          setShowEmailReauthModal(true);
-        } else if (code === "auth/email-already-in-use") {
-          setEmailReauthError(
-            "That email is already associated with another account.",
-          );
-          setShowEmailReauthModal(true);
-        } else if (code === "auth/invalid-email") {
-          setEmailReauthError("Please enter a valid email address.");
-          setShowEmailReauthModal(true);
-        } else if (code === "auth/operation-not-allowed") {
-          setEmailReauthError(
-            "Email changes are currently disabled for this project. Please contact an administrator.",
-          );
-          setShowEmailReauthModal(true);
-        } else if (code === "permission-denied") {
-          setEmailReauthError(
-            "You do not have permission to update this profile. Please contact an admin.",
-          );
-          setShowEmailReauthModal(true);
-        } else {
-          setEmailReauthError(
-            msg || "Unexpected error updating profile. Please try again.",
-          );
-          if (passwordForEmail) {
-            setShowEmailReauthModal(true);
-          }
-        }
+      if (code === "permission-denied") {
+        setProfileSaveError(
+          "You do not have permission to update this profile. Please contact an admin.",
+        );
       } else {
-        if (code === "permission-denied") {
-          setProfileSaveError(
-            "You do not have permission to update this profile. Please contact an admin.",
-          );
-        } else {
-          setProfileSaveError(
-            msg || "Unexpected error updating profile. Please try again.",
-          );
-        }
+        setProfileSaveError(msg);
       }
       return false;
-    } finally {
-      if (passwordForEmail) {
-        setIsEmailReauthing(false);
-      }
     }
   };
 
@@ -471,24 +441,29 @@ const Profile = () => {
       setPasswordCurrent("");
       setNewPassword("");
       setConfirmNewPassword("");
-    } catch (err: any) {
+      setShowCurrentPassword(false);
+      setShowNewPassword(false);
+      setShowConfirmNewPassword(false);
+    } catch (err: unknown) {
       console.error("Error updating password:", err);
 
-      if (err?.code === "auth/wrong-password") {
+      const code = getFirebaseErrorCode(err);
+      if (code === "auth/wrong-password") {
         setPasswordError("Current password is incorrect.");
-      } else if (err?.code === "auth/too-many-requests") {
+      } else if (code === "auth/too-many-requests") {
         setPasswordError("Too many attempts. Please wait a bit and try again.");
-      } else if (err?.code === "auth/requires-recent-login") {
+      } else if (code === "auth/requires-recent-login") {
         setPasswordError(
           "Please sign out and sign back in, then try changing your password again.",
         );
       } else {
-        setPasswordError(err?.message || "Error updating password.");
+        setPasswordError(getErrorMessage(err, "Error updating password."));
       }
     } finally {
       setIsUpdatingPassword(false);
     }
   };
+
   const passwordsMatch = newPassword === confirmNewPassword;
   const canSubmitPassword =
     !!passwordCurrent &&
@@ -509,72 +484,89 @@ const Profile = () => {
     );
   }
 
-  const personalFields = [
-    { label: "Name", name: "name", value: user.name },
-    { label: "E-mail", name: "email", value: user.email },
-    { label: "Pronouns", name: "pronouns", value: user.pronouns },
-    { label: "Phone Number", name: "phone", value: user.phone },
-    { label: "Birthday", name: "birthday", value: user.birthday },
-    { label: "Street Address", name: "addressLine1", value: user.addressLine1 },
-    { label: "City", name: "addressCity", value: user.addressCity },
-    { label: "State", name: "addressState", value: user.addressState },
-    {
-      label: "Postal Code",
-      name: "addressPostalCode",
-      value: user.addressPostalCode,
-    },
-    { label: "Country", name: "addressCountry", value: user.addressCountry },
-  ] as const;
+  const personalFields = isAdmin
+    ? [
+        { label: "Name", name: "name", value: user.name, editable: true },
+        { label: "E-mail", name: "email", value: user.email, editable: false },
+      ]
+    : [
+        { label: "Name", name: "name", value: user.name, editable: true },
+        { label: "E-mail", name: "email", value: user.email, editable: false },
+        { label: "Pronouns", name: "pronouns", value: user.pronouns, editable: true },
+        { label: "Phone Number", name: "phone", value: user.phone, editable: true },
+        { label: "Birthday", name: "birthday", value: user.birthday, editable: true },
+        {
+          label: "Street Address",
+          name: "addressLine1",
+          value: user.addressLine1,
+          editable: true,
+        },
+        { label: "City", name: "addressCity", value: user.addressCity, editable: true },
+        { label: "State", name: "addressState", value: user.addressState, editable: true },
+        {
+          label: "Postal Code",
+          name: "addressPostalCode",
+          value: user.addressPostalCode,
+          editable: true,
+        },
+        {
+          label: "Country",
+          name: "addressCountry",
+          value: user.addressCountry,
+          editable: true,
+        },
+      ];
 
   const isEditingPersonalField =
-    isEditing && personalFields.some((f) => f.name === editingField);
+    isEditing && personalFields.some((f) => f.name === editingField && f.editable);
 
   return (
     <div className={styles.page}>
       <div className={styles.container}>
-        {/* LEFT COLUMN */}
         <div className={styles.leftColumn}>
           <div className={styles.infoCard}>
-
-            <ProfilePictureEdit uid={user.uid}></ProfilePictureEdit>
-
+            <ProfilePictureEdit uid={user.uid} />
             <h2 className={styles.profileName}>{user.name}</h2>
             <span className={styles.statusTag}>{user.status}</span>
           </div>
 
-          <div className={styles.infoCard}>
-            <h3>Your Match</h3>
-            <div className={styles.matchCircle}></div>
-            <p className={styles.matchText}>
-              {user.matchName && user.matchName.trim().length > 0
-                ? user.matchName
-                : "No match assigned yet"}
-            </p>
+          {!isAdmin && (
+            <div className={styles.infoCard}>
+              <h3>Your Match</h3>
+              <div className={styles.matchCircle}></div>
+              <p className={styles.matchText}>
+                {user.matchName && user.matchName.trim().length > 0
+                  ? user.matchName
+                  : "No match assigned yet"}
+              </p>
 
-            {user.matchName && user.matchName.trim().length > 0 && (
-              <button
-                type="button"
-                className={styles.viewInterestsButton}
-                onClick={() => setShowInterestsModal(true)}
-              >
-                View their interests
-              </button>
-            )}
-          </div>
+              {user.matchName && user.matchName.trim().length > 0 && (
+                <button
+                  type="button"
+                  className={styles.viewInterestsButton}
+                  onClick={() => setShowInterestsModal(true)}
+                >
+                  View their interests
+                </button>
+              )}
+            </div>
+          )}
 
-          <div className={styles.infoCard}>
-            <h3>Program Info</h3>
-            <p>
-              <strong>Start Date:</strong>
-              <br />
-              <span className={styles.date}>{user.startDate}</span>
-            </p>
-            <p>
-              <strong>End Date:</strong>
-              <br />
-              <span className={styles.date}>{user.endDate}</span>
-            </p>
-          </div>
+          {!isAdmin && (
+            <div className={styles.infoCard}>
+              <h3>Program Info</h3>
+              <p>
+                <strong>Start Date:</strong>
+                <br />
+                <span className={styles.date}>{user.startDate}</span>
+              </p>
+              <p>
+                <strong>End Date:</strong>
+                <br />
+                <span className={styles.date}>{user.endDate}</span>
+              </p>
+            </div>
+          )}
 
           <div className={styles.infoCard}>
             <h3>Account</h3>
@@ -589,9 +581,7 @@ const Profile = () => {
           </div>
         </div>
 
-        {/* RIGHT COLUMN */}
         <form className={styles.rightColumn} onSubmit={handleSave}>
-          {/* Personal information */}
           <div className={styles.infoSection}>
             <h3 className={styles.sectionTitle}>Personal Information</h3>
             <div className={styles.grid}>
@@ -613,14 +603,16 @@ const Profile = () => {
                     <div className={styles.boxContent}>
                       <div className={styles.boxHeader}>
                         <span className={styles.boxLabel}>{field.label}</span>
-                        <EditIcon
-                          className={styles.editIcon}
-                          onClick={() => {
-                            setProfileSaveError(null);
-                            setEditingField(field.name);
-                            setIsEditing(true);
-                          }}
-                        />
+                        {field.editable && (
+                          <EditIcon
+                            className={styles.editIcon}
+                            onClick={() => {
+                              setProfileSaveError(null);
+                              setEditingField(field.name);
+                              setIsEditing(true);
+                            }}
+                          />
+                        )}
                       </div>
                       <span className={styles.boxValue}>{field.value}</span>
                     </div>
@@ -641,25 +633,26 @@ const Profile = () => {
                 </button>
               </div>
             )}
+
             {profileSaveError && (
               <span className={styles.error}>{profileSaveError}</span>
             )}
           </div>
 
-          {/* About Me */}
-          <div className={styles.infoSection}>
-            <h3 className={styles.sectionTitle}>About Me</h3>
-            <div className={styles.fieldBox}>
-              <div className={styles.boxContent}>
-                <div className={styles.boxHeader}>
-                  <span className={styles.boxLabel}>Interests</span>
+          {!isAdmin && (
+            <div className={styles.infoSection}>
+              <h3 className={styles.sectionTitle}>About Me</h3>
+              <div className={styles.fieldBox}>
+                <div className={styles.boxContent}>
+                  <div className={styles.boxHeader}>
+                    <span className={styles.boxLabel}>Interests</span>
+                  </div>
+                  <span className={styles.boxValue}>{user.interests}</span>
                 </div>
-                <span className={styles.boxValue}>{user.interests}</span>
               </div>
             </div>
-          </div>
+          )}
 
-          {/* Change Password */}
           <div className={styles.infoSection}>
             <h3 className={styles.sectionTitle}>Change Password</h3>
 
@@ -669,7 +662,7 @@ const Profile = () => {
                   <span className={styles.boxLabel}>Current Password</span>
                 </div>
                 <input
-                  type="password"
+                  type={showCurrentPassword ? "text" : "password"}
                   className={styles.input}
                   value={passwordCurrent}
                   onChange={(e) => {
@@ -677,7 +670,19 @@ const Profile = () => {
                     if (passwordError) setPasswordError(null);
                     if (passwordSuccess) setPasswordSuccess(null);
                   }}
+                  autoComplete="current-password"
                 />
+                <div className={styles.showPasswordRow}>
+                  <input
+                    type="checkbox"
+                    id="profileShowCurrentPassword"
+                    checked={showCurrentPassword}
+                    onChange={(e) => setShowCurrentPassword(e.target.checked)}
+                  />
+                  <label htmlFor="profileShowCurrentPassword" className={styles.showPasswordLabel}>
+                    Show password
+                  </label>
+                </div>
               </div>
             </div>
 
@@ -687,14 +692,26 @@ const Profile = () => {
                   <span className={styles.boxLabel}>New Password</span>
                 </div>
                 <input
-                  type="password"
+                  type={showNewPassword ? "text" : "password"}
                   className={styles.input}
                   value={newPassword}
                   onChange={(e) => {
                     setNewPassword(e.target.value);
                     if (passwordSuccess) setPasswordSuccess(null);
                   }}
+                  autoComplete="new-password"
                 />
+                <div className={styles.showPasswordRow}>
+                  <input
+                    type="checkbox"
+                    id="profileShowNewPassword"
+                    checked={showNewPassword}
+                    onChange={(e) => setShowNewPassword(e.target.checked)}
+                  />
+                  <label htmlFor="profileShowNewPassword" className={styles.showPasswordLabel}>
+                    Show password
+                  </label>
+                </div>
               </div>
             </div>
 
@@ -704,14 +721,26 @@ const Profile = () => {
                   <span className={styles.boxLabel}>Confirm New Password</span>
                 </div>
                 <input
-                  type="password"
+                  type={showConfirmNewPassword ? "text" : "password"}
                   className={styles.input}
                   value={confirmNewPassword}
                   onChange={(e) => {
                     setConfirmNewPassword(e.target.value);
                     if (passwordSuccess) setPasswordSuccess(null);
                   }}
+                  autoComplete="new-password"
                 />
+                <div className={styles.showPasswordRow}>
+                  <input
+                    type="checkbox"
+                    id="profileShowConfirmNewPassword"
+                    checked={showConfirmNewPassword}
+                    onChange={(e) => setShowConfirmNewPassword(e.target.checked)}
+                  />
+                  <label htmlFor="profileShowConfirmNewPassword" className={styles.showPasswordLabel}>
+                    Show password
+                  </label>
+                </div>
               </div>
             </div>
 
@@ -736,40 +765,14 @@ const Profile = () => {
         </form>
       </div>
 
-      <MatchInterestsModal
-        open={showInterestsModal}
-        matchName={user.matchName}
-        matchInterests={user.matchInterests}
-        onClose={() => setShowInterestsModal(false)}
-      />
-
-      <EmailReauthModal
-        open={showEmailReauthModal}
-        loading={isEmailReauthing}
-        error={emailReauthError}
-        password={emailReauthPassword}
-        onPasswordChange={setEmailReauthPassword}
-        onCancel={() => {
-          if (!isEmailReauthing) {
-            setShowEmailReauthModal(false);
-            setEmailReauthPassword("");
-            setEmailReauthError(null);
-          }
-        }}
-        onConfirm={async () => {
-          if (!emailReauthPassword) {
-            setEmailReauthError("Please enter your password.");
-            return;
-          }
-          setEmailReauthError(null);
-          const saved = await performProfileUpdate(emailReauthPassword);
-          if (saved) {
-            setProfileSaveError(null);
-            setEditingField(null);
-            setIsEditing(false);
-          }
-        }}
-      />
+      {!isAdmin && (
+        <MatchInterestsModal
+          open={showInterestsModal}
+          matchName={user.matchName}
+          matchInterests={user.matchInterests}
+          onClose={() => setShowInterestsModal(false)}
+        />
+      )}
     </div>
   );
 };

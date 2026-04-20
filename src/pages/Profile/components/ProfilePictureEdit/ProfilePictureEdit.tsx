@@ -13,6 +13,7 @@ export default function ProfilePictureEdit({ uid }: ProfilePictureEditProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [removed, setRemoved] = useState(false);
+  const [version, setVersion] = useState<number | undefined>(undefined);
 
   const handleEditClick = () => {
     setMenuOpen((prev) => !prev);
@@ -49,7 +50,7 @@ export default function ProfilePictureEdit({ uid }: ProfilePictureEditProps) {
 
       setRemoved(false);
       setMenuOpen(false);
-      window.location.reload();
+      setVersion(Date.now());
     } catch (err) {
       console.error("Upload failed:", err);
     } finally {
@@ -89,8 +90,6 @@ export default function ProfilePictureEdit({ uid }: ProfilePictureEditProps) {
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
-
-      window.location.reload();
     } catch (err) {
       console.error("Remove failed:", err);
     } finally {
@@ -101,7 +100,7 @@ export default function ProfilePictureEdit({ uid }: ProfilePictureEditProps) {
   return (
     <div className={styles.container}>
       <div className={styles.pictureWrapper}>
-        <ProfilePicture uid={removed ? undefined : uid} size={190} />
+        <ProfilePicture uid={removed ? undefined : uid} size={190} version={version} />
 
         <button
           type="button"

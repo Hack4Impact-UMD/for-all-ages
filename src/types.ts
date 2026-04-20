@@ -84,6 +84,8 @@ export interface RematchingParticipant {
     interestsText: string
     school?: string
     preferenceScores?: PreferenceScores
+    pronouns?: string | null
+    matchableAnswers?: Record<string, string | number>
 }
 
 export interface SurveyResponse {
@@ -99,7 +101,6 @@ export interface Survey {
 export interface Match {
     participant1_id: string
     participant2_id: string
-    day_of_call: number // 1-7 (Monday-Sunday), or -1 if not yet set
     similarity: number
 }
 
@@ -142,16 +143,15 @@ export interface BannerState {
 export interface ProgramState {
     started: boolean
     matches_final: boolean
-    week: number
+    startDate?: string | null
     maxParticipants: number
+    currentParticipants: number
     numWeeks: number
 }
 
 /** PreProgram match row status */
 export type MatchStatus = "Pending" | "Approved" | "No Match"
 
-/** Day labels for schedule (AdminDashboard) */
-export type DayKey = "Sun" | "Mon" | "Tue" | "Wed" | "Thurs" | "Fri" | "Sat"
 
 /** Tag variant for person/assignment display */
 export type PersonTagVariant = "rose" | "green" | "gold"
@@ -210,6 +210,8 @@ export interface UI_Match {
 
 /** Registration form state */
 export interface RegistrationFormState {
+    firstName: string
+    lastName: string
     addressLine1: string
     addressLine2: string
     city: string
@@ -219,15 +221,22 @@ export interface RegistrationFormState {
     phone: string
     confirmPhone: string
     email: string
+    confirmEmail: string
     dateOfBirth: string
     pronouns: string
     heardAbout: string
     university: string
     user_type: string
+    language: string
     interests: string
     teaPreference: string
     preferredContactMethods: string[]
     preferenceScores: { q1: number; q2: number; q3: number }
+    isReturningParticipant: boolean
+    healthChallenge: string
+    healthChallengeAreas: string[]
+    healthOther: string
+    agreementName: string
 }
 
 /** Profile page display / form state */
@@ -255,7 +264,7 @@ export interface UserProfile {
 
 /** Validation error fields (Profile and similar forms) */
 export interface ErrorState {
-    email?: string;
+    name?: string;
     phone?: string;
     birthday?: string;
     addressLine1?: string;
@@ -271,6 +280,7 @@ export type QuestionType =
   | "medium_input"
   | "long_input"
   | "Dropdown"
+  | "DropdownWithOther"
   | "Slider"
   | "Radio"
   | "Date"
@@ -288,14 +298,23 @@ export interface Question {
   options?: string[];
   min?: number;
   max?: number;
+  numericKey?: string;
   required: boolean;
   matchable: boolean;
+  locked?: boolean;
+  lockedKey?:
+    | "pronouns"
+    | "school"
+    | "phone number"
+    | "current address"
+    | "user type";
 }
 
 /** Section containing questions in a dynamic form */
 export interface Section {
   title?: string;
   questions: Question[];
+  locked?: boolean;
 }
 
 /** Root form definition for dynamic form rendering */
@@ -312,5 +331,3 @@ export interface PartnerInfo {
     phone_number: string
     user_type: string
 }
-
-

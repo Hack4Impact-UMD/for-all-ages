@@ -27,14 +27,20 @@ function RouteLoader() {
 }
 
 function ProgramGate({ children }: { children: React.ReactNode }) {
-  const { programState, programStateLoading } = useAuth() as {
+  const { programState, programStateLoading, isWaitlisted, waitlistLoading } = useAuth() as {
     programState: { matches_final: boolean; started: boolean } | null;
     programStateLoading: boolean;
+    isWaitlisted: boolean;
+    waitlistLoading: boolean;
   };
   const location = useLocation();
 
-  if (programStateLoading) {
+  if (programStateLoading || waitlistLoading) {
     return <RouteLoader />;
+  }
+
+  if (isWaitlisted) {
+    return <Navigate to="/waiting" replace state={{ from: location }} />;
   }
 
   if (!programState) {
@@ -154,7 +160,6 @@ function App() {
     <HashRouter>
       <Routes>
         <Route path="/" element={<LoginSignup />} />
-
         {/* Routes with navbar */}
         <Route element={<MainLayout />}>
           <Route path="/registration" element={<RegistrationGate />} />
@@ -192,6 +197,9 @@ function App() {
             <Route path="form-builder" element={<FormBuilder />} />
           </Route>
         </Route>
+
+          {/* <Route path={"/user/dashboard"} element={<Dashboard></Dashboard>}></Route>
+          <Route path={"/admin/dashboard"} element={<Dashboard></Dashboard>}></Route> */}
       </Routes>
     </HashRouter>
   );

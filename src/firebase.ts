@@ -60,10 +60,10 @@ const UPSERT_USER_URL =
   "https://us-central1-for-all-ages-prd.cloudfunctions.net/upsertUser";
 export async function upsertUser(body: {
   uid: string;
-  textResponses?: string[];  // array of free-form text responses
-  numericResponses?: number[];  // array of numeric responses
+  textResponses?: string[]; 
+  numericResponses?: Record<string, number>; // Updated from number[] to respect stable ID mapping
   user_type: string;
-  pronouns: string;
+  pronouns?: string;
 }) {
   const res = await fetch(UPSERT_USER_URL, {
     method: 'POST',

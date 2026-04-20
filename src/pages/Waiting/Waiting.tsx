@@ -1,13 +1,22 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { doc, getDoc } from "firebase/firestore";
 import { useAuth } from "../../auth/AuthProvider";
-import type { ParticipantProfile, ProgramState, User } from "../../types";
+import { db } from "../../firebase";
+import {
+  getMatchesByParticipant,
+  getPartnerId,
+} from "../../services/matches";
+import type { Match, PartnerInfo, ParticipantDoc } from "../../types";
+import ProfilePicture from "../Profile/components/ProfilePicture/ProfilePicture";
 import styles from "./Waiting.module.css";
 
 const ADMIN_EMAIL = "info@forallages.org";
 
+
+
 function buildGreetingName(
-  participant: ParticipantProfile | null,
+  participant: ParticipantDoc | null,
   fallbackEmail?: string | null,
 ) {
   const candidate =
@@ -25,15 +34,6 @@ function buildGreetingName(
   return firstWord.charAt(0).toUpperCase() + firstWord.slice(1);
 }
 
-type AuthState = {
-  user: User | null;
-  participant: ParticipantProfile | null;
-  loading: boolean;
-  participantLoading: boolean;
-  programState: ProgramState | null;
-  programStateLoading: boolean;
-};
-
 export default function Waiting() {
   const {
     user,
@@ -42,9 +42,18 @@ export default function Waiting() {
     participantLoading,
     programState,
     programStateLoading,
-  } = useAuth() as AuthState;
+    isWaitlisted,
+    waitlistLoading,
+  } = useAuth();
 
   const navigate = useNavigate();
+
+  const [match, setMatch] = useState<(Match & { id: string }) | null>(null);
+  const [partner, setPartner] = useState<PartnerInfo | null>(null);
+  const [matchLoading, setMatchLoading] = useState(false);
+
+
+  const isStudent = participant?.user_type?.toLowerCase() === "student";
 
   const greetingName = useMemo(
     () =>
@@ -64,20 +73,76 @@ export default function Waiting() {
     window.location.href = mailto;
   };
 
-  const isLoading = loading || participantLoading || programStateLoading;
+  const isLoading = loading || participantLoading || programStateLoading || waitlistLoading;
 
   useEffect(() => {
     if (!programState || isLoading) return;
+    if (isWaitlisted) return;
 
     if (programState.matches_final && programState.started) {
       navigate("/user/dashboard", { replace: true });
     }
-  }, [programState, isLoading, navigate]);
+  }, [programState, isLoading, isWaitlisted, navigate]);
+
+  useEffect(() => {
+    async function loadMatchData() {
+      if (!user?.uid || isLoading || !programState?.matches_final || isWaitlisted) return;
+
+      try {
+        setMatchLoading(true);
+        const matches = await getMatchesByParticipant(user.uid);
+
+        if (matches.length === 0) {
+          return;
+        }
+
+        const userMatch = matches[0];
+        setMatch(userMatch);
+
+        const partnerId = getPartnerId(userMatch, user.uid);
+        const participantRef = doc(db, "participants", partnerId);
+        const participantDoc = await getDoc(participantRef);
+
+        if (participantDoc.exists()) {
+          const data = participantDoc.data();
+          setPartner({
+            id: participantDoc.id,
+            name: data.name || data.displayName || "Unknown",
+            displayName: data.displayName || data.name || "Unknown",
+            email: data.email || "Not provided",
+            phone_number: data.phone_number || data.phoneNumber || "Not provided",
+            user_type: data.user_type || "adult",
+          });
+        } else {
+          setPartner({
+            id: partnerId,
+            name: "Unknown",
+            displayName: "Unknown",
+            email: "Not provided",
+            phone_number: "Not provided",
+            user_type: "adult",
+          });
+        }
+      } catch (error) {
+        console.error("Error loading match data:", error);
+      } finally {
+        setMatchLoading(false);
+      }
+    }
+
+    loadMatchData();
+  }, [user, isLoading, programState?.matches_final, isWaitlisted]);
+
+
 
   let statusTitle = "";
   let statusBody = "";
 
-  if (programState) {
+  if (isWaitlisted) {
+    statusTitle = "You’re on the waitlist";
+    statusBody =
+      "Thank you for filling out the registration form! The program is currently at capacity. You’ve been placed on the waitlist and will be notified when a spot opens up.";
+  } else if (programState) {
     const { matches_final, started } = programState;
 
     if (!matches_final && !started) {
@@ -112,6 +177,37 @@ export default function Waiting() {
             <div className={styles.welcomeWrap}>
               <h1 className={styles.welcomeLink}>Welcome, {greetingName}!</h1>
             </div>
+
+            {!isWaitlisted && programState?.matches_final && !programState?.started && (
+              <>
+                {matchLoading ? (
+                  <div className={styles.loadingMessage}>
+                    Loading match info…
+                  </div>
+                ) : partner ? (
+                  <section className={styles.matchInfoSection}>
+                    <div className={styles.matchInfoCard}>
+                      <h2 className={styles.matchInfoTitle}>Your Match</h2>
+                      <div className={styles.matchInfoContent}>
+                        <ProfilePicture uid={partner.id} size={100} />
+                        <h3 className={styles.matchName}>
+                          {partner.displayName}
+                        </h3>
+                        <p className={styles.matchPhone}>
+                          {partner.phone_number}
+                        </p>
+                      </div>
+                    </div>
+                  </section>
+                ) : (
+                  <div className={styles.loadingMessage}>
+                    Match info unavailable. Please contact admins at{" "}
+                    <a href={`mailto:${ADMIN_EMAIL}`}>{ADMIN_EMAIL}</a>.
+                  </div>
+                )}
+              </>
+            )}
+
             <section className={styles.messageWrapper}>
               <div className={styles.messageCard}>
                 {statusTitle && (

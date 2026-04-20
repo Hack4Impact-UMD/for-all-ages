@@ -1,11 +1,12 @@
 import styles from "./Registration.module.css";
 import { phoneNumberRegex } from "../../regex";
 import type { Form, Question, Section, FormResponse, Participant, Questions, RawAddress } from "../../types";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import ShortInput from "./Question Types/ShortInput";
 import MediumInput from "./MediumInput";
 import LongInput from "./Question Types/LongInput";
 import DropdownInput from "./Question Types/DropdownInput";
+import DropdownWithOtherInput from "./Question Types/DropdownWithOtherInput";
 import SliderInput from "./Question Types/SliderInput";
 import RadioInput from "./Question Types/RadioInput";
 import DateInput from "./Question Types/DateInput";
@@ -13,7 +14,7 @@ import PhoneNumberInput from "./PhoneNumberInput";
 import TextDisplay from "./Question Types/TextDisplay";
 import MultipleInput from "./Question Types/MultipleInput";
 import AddressInput from "./Question Types/AddressInput";
-import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, serverTimestamp, runTransaction, increment } from "firebase/firestore";
 import { db, upsertUser } from "../../firebase";
 import { useAuth } from "../../auth/AuthProvider";
 import { useNavigate } from "react-router-dom";
@@ -27,18 +28,18 @@ import { useNavigate } from "react-router-dom";
 function QuestionRenderer({
   question,
   name,
+  previewMode = false,
 }: {
   question: Question;
   name: string;
+  previewMode?: boolean;
 }) {
-  // destructure to simplify access below
   const { type, title, description, options, min, max, required } = question;
-  const requiredMark = ""; // placeholder for future asterisk logic
+  const requiredMark = required ? <span className={styles.requiredStar}> *</span> : null;
 
-  // common label section shown above every input
   const labelContent = (
     <>
-      <span className={styles.label}>
+      <span className={styles.fieldLabel}>
         {title}
         {requiredMark}
       </span>
@@ -50,43 +51,67 @@ function QuestionRenderer({
     </>
   );
 
+  const withDisabledState = (content: React.ReactNode) => {
+    if (!previewMode) {
+      return content;
+    }
+
+    return (
+      <fieldset disabled className={styles.previewFieldset}>
+        {content}
+      </fieldset>
+    );
+  };
+
   switch (type) {
     case "short_input":
-      // simple text field
-      return (
-        <label className={styles.label}>
+      return withDisabledState(
+        <div className={styles.fieldGroup}>
           {labelContent}
-          <ShortInput name={name} required={required} />
-        </label>
+          <ShortInput name={name} required={required} className={styles.fieldInput} />
+        </div>
       );
     case "medium_input":
-      return (
-        <label className={styles.label}>
+      return withDisabledState(
+        <div className={styles.fieldGroup}>
           {labelContent}
-          <MediumInput name={name} required={required} />
-        </label>
+          <MediumInput name={name} required={required} className={styles.fieldInput} />
+        </div>
       );
     case "long_input":
-      return (
-        <label className={styles.label}>
+      return withDisabledState(
+        <div className={styles.fieldGroup}>
           {labelContent}
-          <LongInput name={name} required={required} id={styles.interests} />
-        </label>
+          <LongInput name={name} required={required} className={styles.fieldTextarea} />
+        </div>
       );
     case "Dropdown":
-      return (
-        <label className={styles.label}>
+      return withDisabledState(
+        <div className={styles.fieldGroup}>
           {labelContent}
           <DropdownInput
             name={name}
             options={options ?? []}
             required={required}
+            className={styles.fieldSelect}
           />
-        </label>
+        </div>
+      );
+    case "DropdownWithOther":
+      return (
+        <div className={styles.fieldGroup}>
+          {labelContent}
+          <DropdownWithOtherInput
+            name={name}
+            options={options ?? []}
+            required={required}
+            className={styles.fieldSelect}
+          />
+        </div>
       );
     case "Slider":
-      return (
-        <label className={styles.label}>
+      return withDisabledState(
+        <div className={styles.fieldGroup}>
           {labelContent}
           <SliderInput
             name={name}
@@ -94,70 +119,66 @@ function QuestionRenderer({
             max={max ?? 5}
             required={required}
           />
-        </label>
+        </div>
       );
     case "Radio":
-      return (
-        <label className={styles.label}>
+      return withDisabledState(
+        <div className={styles.fieldGroup}>
           {labelContent}
           <RadioInput name={name} options={options ?? []} required={required} />
-        </label>
+        </div>
       );
     case "Date":
-      return (
-        <label className={styles.label}>
+      return withDisabledState(
+        <div className={styles.fieldGroup}>
           {labelContent}
           <DateInput name={name} required={required} />
-        </label>
+        </div>
       );
     case "phoneNumber":
-      // phone input includes its own labels/descriptions internally
-      return <PhoneNumberInput name={name} required={required} />;
+      return withDisabledState(<PhoneNumberInput name={name} required={required} />);
     case "text":
-      // purely informational text block
       return (
         <TextDisplay title={title + requiredMark} description={description} />
       );
     case "multiple":
-      return (
-        <label className={styles.label}>
+      return withDisabledState(
+        <div className={styles.fieldGroup}>
           {labelContent}
           <MultipleInput
             name={name}
             options={options ?? []}
             required={required}
           />
-        </label>
+        </div>
       );
     case "address":
-      return (
-        <>
-          <div style={{ display: "flex", alignItems: "baseline", gap: "0.5rem" }}>
-            <span className={styles.label}>{title}{requiredMark}</span>
+      return withDisabledState(
+        <div className={styles.fieldGroup}>
+          <span className={styles.fieldLabel}>
+            {title}{requiredMark}
             {description && (
-              <span className={styles.helpText}>
+              <span className={styles.helpText} style={{ marginLeft: "0.5rem" }}>
                 ({description})
               </span>
             )}
-            
-          </div>
+          </span>
           <AddressInput namePrefix={name} required={required} />
-        </>
+        </div>
       );
     case "profilePicture":
-      return (
-        <label className={styles.label}>
+      return withDisabledState(
+        <div className={styles.fieldGroup}>
           {labelContent}
           <p>profile picture coming soon</p>
-        </label>
+        </div>
       );
     default:
-      // fallback to short input if type isn't recognized
-      return (
-        <label className={styles.label}>
+      return withDisabledState(
+        <div className={styles.fieldGroup}>
           {labelContent}
-          <ShortInput name={name} required={required} />
-        </label>
+          <ShortInput name={name} required={required} className={styles.fieldInput} />
+        </div>
       );
   }
 }
@@ -165,24 +186,43 @@ function QuestionRenderer({
 // ---------------------------------------------------------------------------
 // Form renderer: iterates over sections and delegates each question to
 // QuestionRenderer with a unique name identifier.
+// Accepts currentStep + navFooter to render one section at a time.
 // ---------------------------------------------------------------------------
 
-function FormRenderer({ form }: { form: Form }) {
+function FormRenderer({
+  form,
+  currentStep,
+  navFooter,
+  previewMode = false,
+  hideSectionTitles = false,
+}: {
+  form: Form;
+  currentStep: number;
+  navFooter: React.ReactNode;
+  previewMode?: boolean;
+  hideSectionTitles?: boolean;
+}) {
   return (
     <>
       {form.sections.map((section: Section, sectionIndex) => (
         <div
           key={sectionIndex}
-          className={styles.section}
-          style={{ marginTop: sectionIndex > 0 ? "2.5rem" : 0 }}
+          data-step={sectionIndex}
+          className={styles.card}
+          style={{ display: sectionIndex === currentStep ? "block" : "none" }}
         >
+          {section.title && !hideSectionTitles && (
+            <h2 className={styles.cardTitle}>{section.title}</h2>
+          )}
           {section.questions.map((question, questionIndex) => (
             <QuestionRenderer
               key={questionIndex}
               question={question}
-              name={`s${sectionIndex}_q${questionIndex}`} // unique field name
+              name={`s${sectionIndex}_q${questionIndex}`}
+              previewMode={previewMode}
             />
           ))}
+          {sectionIndex === currentStep && navFooter}
         </div>
       ))}
     </>
@@ -207,25 +247,49 @@ const BASIC_FIELD_KEYS = {
   userType: "user_type",
 } as const;
 
-const RegistrationNew = () => {
+type RegistrationNewProps = {
+  previewMode?: boolean;
+  previewForm?: Form;
+  previewInitialStep?: number;
+  compactPreview?: boolean;
+};
+
+const RegistrationNew = ({
+  previewMode = false,
+  previewForm,
+  previewInitialStep,
+  compactPreview = false,
+}: RegistrationNewProps) => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
 
-  // local state for the fetched configuration
-  const [form, setForm] = useState<Form | null>(null);
-  const [loading, setLoading] = useState(true);
+  const formRef = useRef<HTMLFormElement>(null);
+  const [form, setForm] = useState<Form | null>(previewForm ?? null);
+  const [loading, setLoading] = useState(!previewMode);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [currentStep, setCurrentStep] = useState(previewInitialStep ?? 0);
 
-  // on mount, pull the form schema from Firestore
   useEffect(() => {
+    if (previewMode) {
+      setForm(previewForm ?? null);
+      setLoading(false);
+      return;
+    }
+
     const fetchForm = async () => {
       try {
         const docRef = doc(db, "config", "registrationForm");
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
-          console.log(JSON.stringify(docSnap.data(), null, 2));
-          setForm(docSnap.data() as Form);
+          const data = docSnap.data();
+          if (data.sections && Array.isArray(data.sections)) {
+            setForm(data as Form);
+          } else if (data.questions && Array.isArray(data.questions)) {
+            setForm({
+              sections: [{ title: data.title || "Registration", questions: data.questions }],
+            });
+          }
         } else {
           console.error("No registrationForm document found");
         }
@@ -237,7 +301,14 @@ const RegistrationNew = () => {
     };
 
     fetchForm();
-  }, []);
+  }, [previewForm, previewMode]);
+
+  useEffect(() => {
+    if (!previewMode || typeof previewInitialStep !== "number") {
+      return;
+    }
+    setCurrentStep(previewInitialStep);
+  }, [previewInitialStep, previewMode]);
 
   const getQuestionEntries = (formConfig: Form): QuestionWithFieldName[] => {
     const entries: QuestionWithFieldName[] = [];
@@ -262,18 +333,60 @@ const RegistrationNew = () => {
   };
 
   const isUserTypeQuestion = (question: Question): boolean => {
-    const title = question.title.toLowerCase();
-    return title.includes("student") && title.includes("adult");
+    // Use strict matching based on lockedKey to avoid false positives
+    return question.lockedKey === "user type";
   };
 
   const isBasicInfoQuestion = (question: Question): boolean => {
     if (question.type === "address" || question.type === "phoneNumber") {
       return true;
     }
-    if (isDisplayNameQuestion(question) || isEmailQuestion(question)) {
+    if (
+      isDisplayNameQuestion(question) ||
+      isEmailQuestion(question) ||
+      isUserTypeQuestion(question)
+    ) {
       return true;
     }
     return false;
+  };
+
+  const normalizeUserType = (value?: string): "student" | "adult" => {
+    const normalized = value?.trim().toLowerCase() ?? "";
+    return normalized === "adult" ? "adult" : "student";
+  };
+
+  const getNumericQuestionKeys = (formConfig: Form): Map<string, string> => {
+    const keys = new Map<string, string>();
+    const usedKeys = new Set<string>();
+    let nextNumericIndex = 1;
+
+    const getNextNumericKey = (): string => {
+      while (usedKeys.has(`numeric${nextNumericIndex}`)) {
+        nextNumericIndex += 1;
+      }
+      const key = `numeric${nextNumericIndex}`;
+      usedKeys.add(key);
+      nextNumericIndex += 1;
+      return key;
+    };
+
+    getQuestionEntries(formConfig).forEach(({ question, fieldName }) => {
+      if (question.type !== "Slider" || !question.matchable) {
+        return;
+      }
+
+      const existingKey = question.numericKey?.trim();
+      if (existingKey && !usedKeys.has(existingKey)) {
+        usedKeys.add(existingKey);
+        keys.set(fieldName, existingKey);
+        return;
+      }
+
+      keys.set(fieldName, getNextNumericKey());
+    });
+
+    return keys;
   };
 
   const getBasicInfoByKey = (formData: FormData, formConfig: Form): Record<string, string> => {
@@ -292,14 +405,17 @@ const RegistrationNew = () => {
       } else if (isEmailQuestion(question)) {
         values[BASIC_FIELD_KEYS.email] = (formData.get(fieldName) as string) || "";
       } else if (isUserTypeQuestion(question)) {
-        values[BASIC_FIELD_KEYS.userType] = (formData.get(fieldName) as string) || "";
+        // Only assign user_type if a non-empty value is found (prevents overwrite by empty matches)
+        const userTypeValue = (formData.get(fieldName) as string)?.trim();
+        if (userTypeValue) {
+          values[BASIC_FIELD_KEYS.userType] = userTypeValue;
+        }
       }
     });
 
     return values;
   };
 
-  //Helper: Get pronouns
   const getPronouns = (formData: FormData, formConfig: Form): string => {
     const entry = getQuestionEntries(formConfig).find(
       ({ question }) => question.title?.toLowerCase().includes("pronoun")
@@ -307,10 +423,9 @@ const RegistrationNew = () => {
 
     if (!entry) return "Other";
 
-    return (formData.get(entry.fieldName) as string) || "Other"; //defualt to other
+    return (formData.get(entry.fieldName) as string) || "Other";
   };
 
-  // Helper: Parse address fields from form data
   const parseAddress = (formData: FormData, formConfig: Form): RawAddress => {
     const addressEntry = getQuestionEntries(formConfig).find(
       ({ question }) => question.type === "address",
@@ -332,7 +447,6 @@ const RegistrationNew = () => {
     };
   };
 
-  // Helper: Extract basic info for Participant document
   const extractBasicInfo = (formData: FormData, formConfig: Form): Partial<Participant> => {
     const basicByKey = getBasicInfoByKey(formData, formConfig);
     return {
@@ -341,18 +455,16 @@ const RegistrationNew = () => {
       email: user?.email || basicByKey[BASIC_FIELD_KEYS.email] || undefined,
       phoneNumber: basicByKey[BASIC_FIELD_KEYS.phoneNumber] || undefined,
       address: parseAddress(formData, formConfig),
-      user_type: basicByKey[BASIC_FIELD_KEYS.userType] || "student"
+      user_type: normalizeUserType(basicByKey[BASIC_FIELD_KEYS.userType])
     };
   };
 
-  // Helper: Extract form responses for FormResponse document
   const extractFormResponses = (formData: FormData, formConfig: Form): FormResponse => {
     const questions: Questions[] = [];
 
     getQuestionEntries(formConfig).forEach(({ question, fieldName }) => {
         const questionType = question.type;
 
-        // Skip basic info and non-response fields.
         if (isBasicInfoQuestion(question) || questionType === "text" || questionType === "profilePicture") {
           return;
         }
@@ -362,13 +474,23 @@ const RegistrationNew = () => {
         if (questionType === "multiple") {
           const values = formData.getAll(fieldName) as string[];
           answer = values.join(", ");
+        } else if (questionType === "DropdownWithOther") {
+          const selectedValue = (formData.get(fieldName) as string) || "";
+          if (selectedValue.trim().toLowerCase() === "other") {
+            answer = (formData.get(`${fieldName}_other`) as string) || "";
+          } else {
+            answer = selectedValue;
+          }
         } else if (questionType === "address") {
-          // Address is handled separately, skip here
           return;
         } else if (questionType === "Slider") {
           answer = parseInt(formData.get(fieldName) as string) || 0;
         } else {
           answer = formData.get(fieldName) as string;
+        }
+
+        if (typeof answer === "string" && answer.trim() === "") {
+          return;
         }
 
         questions.push({ title: question.title, answer, type: questionType });
@@ -380,18 +502,19 @@ const RegistrationNew = () => {
     };
   };
 
-  // Helper: Extract matchable questions for Pinecone
-  const extractMatchableResponses = (formData: FormData, formConfig: Form): { textResponses: string[]; numericResponses: number[] } => {
+  const extractMatchableResponses = (
+    formData: FormData,
+    formConfig: Form
+  ): { textResponses: string[]; numericResponses: Record<string, number> } => {
     const textResponses: string[] = [];
-    const numericResponses: number[] = [];
+    const numericResponses: Record<string, number> = {};
+    const numericQuestionKeys = getNumericQuestionKeys(formConfig);
 
     getQuestionEntries(formConfig).forEach(({ question, fieldName }) => {
-        // Only process matchable questions
         if (!question.matchable) {
           return;
         }
 
-        // Skip pronouns as mentioned in requirements
         if (question.title?.toLowerCase().includes("pronoun")) {
           return;
         }
@@ -400,7 +523,19 @@ const RegistrationNew = () => {
 
         if (questionType === "Slider") {
           const value = parseInt(formData.get(fieldName) as string) || 0;
-          numericResponses.push(value);
+          const numericKey = numericQuestionKeys.get(fieldName);
+          if (numericKey) {
+            numericResponses[numericKey] = value;
+          }
+        } else if (questionType === "DropdownWithOther") {
+          const selectedValue = (formData.get(fieldName) as string) || "";
+          const value =
+            selectedValue.trim().toLowerCase() === "other"
+              ? ((formData.get(`${fieldName}_other`) as string) || "")
+              : selectedValue;
+          if (value.trim() !== "") {
+            textResponses.push(value);
+          }
         } else if (
           [
             "short_input",
@@ -413,17 +548,21 @@ const RegistrationNew = () => {
           ].includes(questionType)
         ) {
           const value = (formData.get(fieldName) as string) || "";
-          // Preserve stable text1..textN key mapping even when response is empty.
-          textResponses.push(value);
+          if (value.trim() !== "") {
+            textResponses.push(value);
+          }
         }
     });
 
     return { textResponses, numericResponses };
   };
 
-  // Form submission handler
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    if (previewMode) {
+      return;
+    }
 
     if (!user) {
       console.error("User not authenticated. Please log in first.");
@@ -440,7 +579,6 @@ const RegistrationNew = () => {
     try {
       const formData = new FormData(event.currentTarget);
 
-      // Validate phone number before proceeding
       const phoneEntry = getQuestionEntries(form).find(
         ({ question }) => question.type === "phoneNumber",
       );
@@ -457,17 +595,11 @@ const RegistrationNew = () => {
         }
       }
 
-      // Extract basic info for Participant
       const basicInfo = extractBasicInfo(formData, form);
       const basicByKey = getBasicInfoByKey(formData, form);
-
-      // Extract form responses for FormResponse collection
       const formResponses = extractFormResponses(formData, form);
-
-      // Extract matchable responses for Pinecone
       const { textResponses, numericResponses } = extractMatchableResponses(formData, form);
 
-      // Check if documents exist to determine if we need to set createdAt
       const participantDocRef = doc(db, "participants", user.uid);
       const formResponseDocRef = doc(db, "FormResponse", user.uid);
       
@@ -476,40 +608,66 @@ const RegistrationNew = () => {
         getDoc(formResponseDocRef)
       ]);
 
-      // Create Participant document
-      const participantData: Participant = {
+      const participantData = {
         type: "Participant",
         ...basicInfo,
-        updatedAt: serverTimestamp() as any,
-        ...(!participantSnap.exists() && { createdAt: serverTimestamp() as any })
+        updatedAt: serverTimestamp(),
+        ...(!participantSnap.exists() && { createdAt: serverTimestamp() })
       };
 
       await setDoc(participantDocRef, participantData, { merge: true });
-      console.log("Participant created/updated successfully");
 
-      // Create FormResponse document
-      const formResponseData: FormResponse = {
+      const formResponseData = {
         ...formResponses,
-        updatedAt: serverTimestamp() as any,
-        ...(!formResponseSnap.exists() && { createdAt: serverTimestamp() as any })
+        updatedAt: serverTimestamp(),
+        ...(!formResponseSnap.exists() && { createdAt: serverTimestamp() })
       };
       await setDoc(formResponseDocRef, formResponseData, { merge: true });
-      console.log("FormResponse created/updated successfully");
 
-      // Call upsertUser to update Pinecone with matchable questions
-      if (textResponses.length > 0 || numericResponses.length > 0) {
-        await upsertUser({
-          uid: user.uid,
-          textResponses,
-          numericResponses,
-          user_type: basicByKey[BASIC_FIELD_KEYS.userType] || "student",
-          pronouns: getPronouns(formData, form)
+      // Check waitlist: atomically read currentParticipants and decide.
+      // Skip the capacity check if the participant already existed (re-submission / profile update).
+      const programStateRef = doc(db, "config", "programState");
+      let shouldWaitlist = false;
+
+      if (!participantSnap.exists()) {
+        shouldWaitlist = await runTransaction(db, async (transaction) => {
+          const programSnap = await transaction.get(programStateRef);
+          const programData = programSnap.data();
+          const matchesFinal = programData?.matches_final === true;
+          const programStarted = programData?.started === true;
+          const current = programData?.currentParticipants ?? 0;
+          const max = programData?.maxParticipants ?? Infinity;
+
+          // Once matches are finalized, keep all new registrations on waitlist
+          // until the program has started, regardless of participant capacity.
+          if (matchesFinal && !programStarted) {
+            return true;
+          }
+
+          if (current >= max) {
+            return true;
+          }
+          transaction.set(programStateRef, { currentParticipants: increment(1) }, { merge: true });
+          return false;
         });
-        console.log("User upserted to Pinecone successfully");
       }
 
-      // Navigate to dashboard
-      navigate("/user/dashboard", { replace: true });
+      if (shouldWaitlist) {
+        const waitlistRef = doc(db, "waitlist", user.uid);
+        await setDoc(waitlistRef, { uid: user.uid, createdAt: serverTimestamp() });
+        navigate("/waiting", { replace: true });
+      } else {
+        if (textResponses.length > 0 || numericResponses.length > 0) {
+          await upsertUser({
+            uid: user.uid,
+            textResponses,
+            numericResponses,
+            user_type: normalizeUserType(basicByKey[BASIC_FIELD_KEYS.userType]),
+            pronouns: getPronouns(formData, form)
+          });
+        }
+        navigate("/user/dashboard", { replace: true });
+      }
     } catch (err) {
       console.error("Form submission error:", err);
       setSubmitError("Something went wrong. Please try again.");
@@ -518,20 +676,131 @@ const RegistrationNew = () => {
     }
   };
 
-  // Show loading or form loading error
-  if (loading || authLoading) return <p>Loading...</p>;
-  if (!form) return <p>Form not found.</p>;
+  if (loading || (!previewMode && authLoading)) return <p className={styles.message}>Loading...</p>;
+  if (!form) return <p className={styles.message}>Form not found.</p>;
 
-  // once loaded, render the dynamic form
+  // Multi-step navigation
+  const totalSteps = form.sections.length;
+  const isFirstStep = currentStep === 0;
+  const isLastStep = currentStep === totalSteps - 1;
+
+  const goNext = () => {
+    if (previewMode) {
+      setCurrentStep((s) => Math.min(s + 1, totalSteps - 1));
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
+    const formEl = formRef.current;
+    if (formEl) {
+      const currentFields = formEl.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(
+        `[data-step="${currentStep}"] [name]`
+      );
+      for (const field of currentFields) {
+        if (!field.checkValidity()) {
+          field.reportValidity();
+          return;
+        }
+      }
+    }
+    setCurrentStep((s) => Math.min(s + 1, totalSteps - 1));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const goBack = () => {
+    setCurrentStep((s) => Math.max(s - 1, 0));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const stepCircleClass = (i: number) => {
+    if (i < currentStep) return `${styles.stepCircle} ${styles.stepCircleCompleted}`;
+    if (i === currentStep) return `${styles.stepCircle} ${styles.stepCircleActive}`;
+    return styles.stepCircle;
+  };
+
+  const stepLabelClass = (i: number) => {
+    if (i < currentStep) return `${styles.stepLabel} ${styles.stepLabelCompleted}`;
+    if (i === currentStep) return `${styles.stepLabel} ${styles.stepLabelActive}`;
+    return styles.stepLabel;
+  };
+
+  const showPreviewChrome = !previewMode || !compactPreview;
+
   return (
-    <form id={styles.page} onSubmit={handleSubmit}>
-      <FormRenderer form={form} />
-      {submitError && (
-        <p className={styles.errorText} role="alert">{submitError}</p>
-      )}
-      <button id={styles.submit} type="submit" disabled={submitting}>
-        {submitting ? "Submitting..." : "Submit"}
-      </button>
+    <form
+      ref={formRef}
+      id={previewMode ? undefined : styles.page}
+      className={
+        previewMode
+          ? compactPreview
+            ? styles.previewPageCompact
+            : styles.previewPage
+          : undefined
+      }
+      onSubmit={handleSubmit}
+    >
+      {/* Header */}
+      {showPreviewChrome && <div className={styles.header}>
+        <div className={styles.headerTitle}>Registration Form</div>
+        <h1 className={styles.headerSubtitle}>Tea @ 3</h1>
+        <p className={styles.headerDescription}>
+          Let&rsquo;s find your perfect tea-mate. This takes about 8&ndash;10 minutes.
+        </p>
+      </div>}
+
+      {/* Progress bar */}
+      {showPreviewChrome && <div className={styles.progressContainer}>
+        <div className={styles.stepsRow}>
+          {form.sections.map((section, i) => (
+            <div key={i} className={styles.stepItem}>
+              <div className={stepCircleClass(i)}>
+                {i < currentStep ? "✓" : i + 1}
+              </div>
+              <span className={stepLabelClass(i)}>
+                {section.title || `Step ${i + 1}`}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>}
+
+      {/* Form sections -- one visible at a time */}
+      <FormRenderer
+        form={form}
+        currentStep={currentStep}
+        previewMode={previewMode}
+        hideSectionTitles={previewMode && compactPreview}
+        navFooter={
+          <>
+            {!previewMode && submitError && (
+              <div className={styles.errorBanner} role="alert">{submitError}</div>
+            )}
+            <div className={styles.stepIndicator}>
+              Step {currentStep + 1} of {totalSteps}
+            </div>
+            <div className={styles.navButtons}>
+              {!isFirstStep && (
+                <button type="button" className={styles.btnBack} onClick={goBack}>
+                  Go Back
+                </button>
+              )}
+              {!isLastStep ? (
+                <button type="button" className={styles.btnContinue} onClick={goNext}>
+                  Continue
+                </button>
+              ) : (
+                <button
+                  type={previewMode ? "button" : "submit"}
+                  className={styles.btnContinue}
+                  disabled={previewMode || submitting}
+                >
+                  {previewMode ? "Submit" : submitting ? "Submitting..." : "Submit"}
+                </button>
+              )}
+            </div>
+          </>
+        }
+      />
     </form>
   );
 };
