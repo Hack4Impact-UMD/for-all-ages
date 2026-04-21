@@ -28,6 +28,7 @@ import type {
   FormResponse,
 } from "../../types";
 import ParticipantInfoPopup from "./components/ParticipantInfoPopup/ParticipantInfoPopup";
+import { formatPhone } from "../../utils/phone";
 import { useAuth } from "../../auth/AuthProvider";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -443,7 +444,7 @@ export default function AdminDashboard() {
                           data-label="Phone Number"
                           className={styles.colPhone}
                         >
-                          {admin.phoneNumber || "—"}
+                          {admin.phoneNumber ? formatPhone(admin.phoneNumber) : "—"}
                         </td>
                         <td data-label="Address" className={styles.colAddress}>
                           {admin.address || "—"}
