@@ -48,7 +48,7 @@ export interface Participant {
     preferredContactMethods?: string[] | null
     preferenceScores?: PreferenceScores | null
     status?: string | null
-    role?: Role | "participant" | null
+    role?: Role | "Participant" | null
     hasAuthAccount?: boolean
     isManualEntry?: boolean
     createdAt?: Timestamp | null

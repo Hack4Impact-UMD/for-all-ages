@@ -363,7 +363,7 @@ const RegistrationNew = () => {
       phoneNumber: basicByKey[BASIC_FIELD_KEYS.phoneNumber] || undefined,
       address: parseAddress(formData, formConfig),
       user_type: basicByKey[BASIC_FIELD_KEYS.userType] || "student",
-      role: "participant",
+      role: "Participant",
       hasAuthAccount: !isManualEntry,
       isManualEntry,
     };
@@ -473,6 +473,7 @@ const RegistrationNew = () => {
 
       if (isManualEntry && !manualFullName) {
         setSubmitError("Participant name is required.");
+        setSubmitting(false);
         return;
       }
 
@@ -485,10 +486,12 @@ const RegistrationNew = () => {
         const confirmPhone = (formData.get(`${phoneEntry.fieldName}_confirm`) as string) || "";
         if (phone && !phoneNumberRegex.test(phone)) {
           setSubmitError("Please enter a valid phone number.");
+          setSubmitting(false);
           return;
         }
         if (phone !== confirmPhone) {
           setSubmitError("Phone numbers must match.");
+          setSubmitting(false);
           return;
         }
       }
