@@ -1,7 +1,7 @@
 import styles from "./Registration.module.css";
 import { phoneNumberRegex } from "../../regex";
 import type { Form, Question, Section, FormResponse, Participant, Questions, RawAddress } from "../../types";
-import { useState, useEffect, useRef } from "react";
+import { useRef, useState, useEffect } from "react";
 import ShortInput from "./Question Types/ShortInput";
 import MediumInput from "./MediumInput";
 import LongInput from "./Question Types/LongInput";
@@ -14,10 +14,10 @@ import PhoneNumberInput from "./PhoneNumberInput";
 import TextDisplay from "./Question Types/TextDisplay";
 import MultipleInput from "./Question Types/MultipleInput";
 import AddressInput from "./Question Types/AddressInput";
-import { doc, getDoc, setDoc, serverTimestamp, runTransaction, increment } from "firebase/firestore";
+import { collection, doc, getDoc, setDoc, serverTimestamp, runTransaction, increment } from "firebase/firestore";
 import { db, upsertUser } from "../../firebase";
 import { useAuth } from "../../auth/AuthProvider";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 
 // ---------------------------------------------------------------------------
@@ -247,6 +247,12 @@ const BASIC_FIELD_KEYS = {
   userType: "user_type",
 } as const;
 
+const omitUndefined = <T extends Record<string, unknown>>(value: T): Partial<T> => {
+  return Object.fromEntries(
+    Object.entries(value).filter(([, entry]) => entry !== undefined),
+  ) as Partial<T>;
+};
+
 type RegistrationNewProps = {
   previewMode?: boolean;
   previewForm?: Form;
@@ -261,7 +267,14 @@ const RegistrationNew = ({
   compactPreview = false,
 }: RegistrationNewProps) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, loading: authLoading } = useAuth();
+  /** True only on `/admin/add-participant` (admin-created participant, no Auth account). */
+  const isManualEntry = location.pathname === "/admin/add-participant";
+  const manualFullName = (
+    (location.state as { name?: string } | null)?.name ?? ""
+  ).trim();
+  const manualUserIdRef = useRef<string>(doc(collection(db, "participants")).id);
 
   const formRef = useRef<HTMLFormElement>(null);
   const [form, setForm] = useState<Form | null>(previewForm ?? null);
@@ -447,19 +460,36 @@ const RegistrationNew = ({
     };
   };
 
-  const extractBasicInfo = (formData: FormData, formConfig: Form): Partial<Participant> => {
+  // Helper: Extract basic info for Participant document
+  const extractBasicInfo = (
+    formData: FormData,
+    formConfig: Form,
+    participantId: string,
+  ): Partial<Participant> => {
     const basicByKey = getBasicInfoByKey(formData, formConfig);
+    const formEmail = basicByKey[BASIC_FIELD_KEYS.email]?.trim().toLowerCase() || "";
     return {
-      userUid: user?.uid,
-      displayName: user?.displayName || basicByKey[BASIC_FIELD_KEYS.displayName] || undefined,
-      email: user?.email || basicByKey[BASIC_FIELD_KEYS.email] || undefined,
+      userUid: participantId,
+      displayName:
+        (isManualEntry ? manualFullName || undefined : user?.displayName) ||
+        basicByKey[BASIC_FIELD_KEYS.displayName] ||
+        undefined,
+      email: (isManualEntry ? undefined : (user?.email || formEmail)) || undefined,
       phoneNumber: basicByKey[BASIC_FIELD_KEYS.phoneNumber] || undefined,
       address: parseAddress(formData, formConfig),
-      user_type: normalizeUserType(basicByKey[BASIC_FIELD_KEYS.userType])
+      user_type: normalizeUserType(basicByKey[BASIC_FIELD_KEYS.userType]),
+      role: "Participant",
+      hasAuthAccount: !isManualEntry,
+      isManualEntry,
     };
   };
 
-  const extractFormResponses = (formData: FormData, formConfig: Form): FormResponse => {
+  // Helper: Extract form responses for FormResponse document
+  const extractFormResponses = (
+    formData: FormData,
+    formConfig: Form,
+    participantId: string,
+  ): FormResponse => {
     const questions: Questions[] = [];
 
     getQuestionEntries(formConfig).forEach(({ question, fieldName }) => {
@@ -497,7 +527,7 @@ const RegistrationNew = ({
     });
 
     return {
-      uid: user?.uid || "",
+      uid: participantId,
       questions,
     };
   };
@@ -564,7 +594,7 @@ const RegistrationNew = ({
       return;
     }
 
-    if (!user) {
+    if (!isManualEntry && !user) {
       console.error("User not authenticated. Please log in first.");
       return;
     }
@@ -577,8 +607,18 @@ const RegistrationNew = ({
     setSubmitting(true);
     setSubmitError(null);
     try {
+      const participantId = isManualEntry
+        ? manualUserIdRef.current
+        : user!.uid;
       const formData = new FormData(event.currentTarget);
 
+      if (isManualEntry && !manualFullName) {
+        setSubmitError("Participant name is required.");
+        setSubmitting(false);
+        return;
+      }
+
+      // Validate phone number before proceeding
       const phoneEntry = getQuestionEntries(form).find(
         ({ question }) => question.type === "phoneNumber",
       );
@@ -587,33 +627,42 @@ const RegistrationNew = ({
         const confirmPhone = (formData.get(`${phoneEntry.fieldName}_confirm`) as string) || "";
         if (phone && !phoneNumberRegex.test(phone)) {
           setSubmitError("Please enter a valid phone number.");
+          setSubmitting(false);
           return;
         }
         if (phone !== confirmPhone) {
           setSubmitError("Phone numbers must match.");
+          setSubmitting(false);
           return;
         }
       }
 
-      const basicInfo = extractBasicInfo(formData, form);
+      // Extract basic info for Participant
+      const basicInfo = extractBasicInfo(formData, form, participantId);
       const basicByKey = getBasicInfoByKey(formData, form);
-      const formResponses = extractFormResponses(formData, form);
+
+      // Extract form responses for FormResponse collection
+      const formResponses = extractFormResponses(formData, form, participantId);
+
+      // Extract matchable responses for Pinecone
       const { textResponses, numericResponses } = extractMatchableResponses(formData, form);
 
-      const participantDocRef = doc(db, "participants", user.uid);
-      const formResponseDocRef = doc(db, "FormResponse", user.uid);
+      // Check if documents exist to determine if we need to set createdAt
+      const participantDocRef = doc(db, "participants", participantId);
+      const formResponseDocRef = doc(db, "FormResponse", participantId);
       
       const [participantSnap, formResponseSnap] = await Promise.all([
         getDoc(participantDocRef),
         getDoc(formResponseDocRef)
       ]);
 
-      const participantData = {
+      // Create Participant document
+      const participantData = omitUndefined({
         type: "Participant",
         ...basicInfo,
-        updatedAt: serverTimestamp(),
-        ...(!participantSnap.exists() && { createdAt: serverTimestamp() })
-      };
+        updatedAt: serverTimestamp() as any,
+        ...(!participantSnap.exists() && { createdAt: serverTimestamp() as any })
+      }) as Participant;
 
       await setDoc(participantDocRef, participantData, { merge: true });
 
@@ -652,21 +701,23 @@ const RegistrationNew = ({
         });
       }
 
+      
       if (shouldWaitlist) {
         const waitlistRef = doc(db, "waitlist", user.uid);
         await setDoc(waitlistRef, { uid: user.uid, createdAt: serverTimestamp() });
         navigate("/waiting", { replace: true });
       } else {
-        if (textResponses.length > 0 || numericResponses.length > 0) {
-          await upsertUser({
-            uid: user.uid,
-            textResponses,
-            numericResponses,
-            user_type: normalizeUserType(basicByKey[BASIC_FIELD_KEYS.userType]),
-            pronouns: getPronouns(formData, form)
-          });
-        }
-        navigate("/user/dashboard", { replace: true });
+        // Upsert Pinecone for both self-serve and manual registrations using
+        // the same payload shape the matching pipeline already expects.
+        await upsertUser({
+          uid: participantId,
+          textResponses,
+          numericResponses,
+          user_type: normalizeUserType(basicByKey[BASIC_FIELD_KEYS.userType]),
+          pronouns: getPronouns(formData, form)
+        });
+        // Navigate to dashboard
+        navigate(isManualEntry ? "/admin/creator" : "/user/dashboard", { replace: true });
       }
     } catch (err) {
       console.error("Form submission error:", err);
