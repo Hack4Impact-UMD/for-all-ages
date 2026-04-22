@@ -267,8 +267,8 @@ const RegistrationNew = ({
   compactPreview = false,
 }: RegistrationNewProps) => {
   const navigate = useNavigate();
+  const { user, loading: authLoading, programState, programStateLoading } = useAuth();
   const location = useLocation();
-  const { user, loading: authLoading } = useAuth();
   /** True only on `/admin/add-participant` (admin-created participant, no Auth account). */
   const isManualEntry = location.pathname === "/admin/add-participant";
   const manualFullName = (
@@ -727,8 +727,22 @@ const RegistrationNew = ({
     }
   };
 
-  if (loading || (!previewMode && authLoading)) return <p className={styles.message}>Loading...</p>;
+  if (loading || (!previewMode && authLoading) || programStateLoading) return <p className={styles.message}>Loading...</p>;
   if (!form) return <p className={styles.message}>Form not found.</p>;
+
+  if (programState?.matches_final) {
+    return (
+      <div id={styles.page}>
+        <div className={styles.card}>
+          <h2 className={styles.cardTitle}>Signups have closed for this cohort</h2>
+          <p>
+            If you’re interested in joining, please contact the admin team at{" "}
+            <a href="mailto:info@forallages.org">info@forallages.org</a>.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // Multi-step navigation
   const totalSteps = form.sections.length;
