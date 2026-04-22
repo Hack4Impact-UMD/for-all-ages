@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   collection,
   getDocs,
@@ -62,6 +63,17 @@ function normaliseUserType(user_type?: string | null): string | null {
   return user_type.charAt(0).toUpperCase() + user_type.slice(1).toLowerCase();
 }
 
+function isParticipantRegistrationClosed(
+  programState: { matches_final: boolean; started: boolean; currentParticipants: number; maxParticipants: number } | null,
+): boolean {
+  if (!programState) return false;
+  if (programState.matches_final && !programState.started) {
+    return true;
+  }
+  return programState.currentParticipants >= programState.maxParticipants;
+}
+
+// Composes a display name for an admin from their ParticipantDoc
 function composeDisplayName(doc: ParticipantDoc): string {
   const { displayName, firstName, lastName, email } = doc;
   const fallback = [firstName, lastName].filter(Boolean).join(" ").trim();
@@ -296,10 +308,10 @@ export default function AdminDashboard() {
 
               <button
                 type="button"
-                className={styles.actionButton}
+                className={styles.addButton}
                 onClick={() => setIsModalOpen(true)}
               >
-                Add New Admin
+                Add New User
               </button>
             </div>
           </div>
@@ -657,21 +669,28 @@ type AddAdminModalProps = {
   onSuccess: (message: string) => void;
 };
 
+type AddUserRole = Role | "Participant";
+
+// State for the AddAdminModal form
 type AddAdminFormState = {
   firstName: string;
   lastName: string;
   email: string;
-  role: Role;
+  role: AddUserRole;
   university: string;
+  participantName: string;
 };
 
 function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps) {
+  const navigate = useNavigate();
+  const { programState, programStateLoading } = useAuth();
   const [form, setForm] = useState<AddAdminFormState>({
     firstName: "",
     lastName: "",
     email: "",
     role: "Admin",
     university: "",
+    participantName: "",
   });
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -708,11 +727,14 @@ function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps) {
     const { name, value } = event.target;
     setForm((prev) => {
       if (name === "role") {
-        const roleValue = (value as Role) ?? "Admin";
+        const roleValue = (value as AddUserRole) ?? "Admin";
         return {
           ...prev,
           role: roleValue,
-          university: roleValue === "Admin" ? "" : prev.university,
+          university:
+            roleValue === "Admin" || roleValue === "Participant"
+              ? ""
+              : prev.university,
         };
       }
       const nextState = {
@@ -733,12 +755,21 @@ function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps) {
 
   const trimmedEmail = form.email.trim();
   const emailValid = EMAIL_REGEX.test(trimmedEmail);
-  const allRequiredFilled =
-    form.firstName.trim().length > 0 &&
-    form.lastName.trim().length > 0 &&
-    trimmedEmail.length > 0 &&
-    (form.role !== "Subadmin" || form.university.trim().length > 0);
-  const canSubmit = allRequiredFilled && emailValid && !submitting;
+  const isParticipantRole = form.role === "Participant";
+  const participantCreationDisabled =
+    isParticipantRole &&
+    (programStateLoading || isParticipantRegistrationClosed(programState));
+  const allRequiredFilled = isParticipantRole
+    ? form.participantName.trim().length > 0
+    : form.firstName.trim().length > 0 &&
+      form.lastName.trim().length > 0 &&
+      trimmedEmail.length > 0 &&
+      (form.role !== "Subadmin" || form.university.trim().length > 0);
+  const canSubmit =
+    allRequiredFilled &&
+    (isParticipantRole || emailValid) &&
+    !participantCreationDisabled &&
+    !submitting;
 
   const prepareExistingAccountPrompt = useCallback(async (email: string) => {
     try {
@@ -775,6 +806,23 @@ function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps) {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
+    if (form.role === "Participant") {
+      if (participantCreationDisabled) {
+        setError(programStateLoading ? "Checking program capacity…" : "Program is full.");
+        return;
+      }
+
+      const name = form.participantName.trim();
+      if (!name) {
+        setError("Please enter the participant's name.");
+        return;
+      }
+      navigate("/admin/add-participant", { state: { name } });
+      onSuccess("Opening the registration form for this participant.");
+      return;
+    }
+
+    // Final validation before submission
     if (!canSubmit) {
       setError(
         emailValid
@@ -792,7 +840,7 @@ function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps) {
         firstName: form.firstName.trim(),
         lastName: form.lastName.trim(),
         email: trimmedEmail,
-        role: form.role,
+        role: form.role as Role,
         university:
           form.role === "Subadmin" ? form.university.trim() : undefined,
       });
@@ -831,7 +879,7 @@ function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps) {
         participantId: existingAccountPrompt.participantId,
         firstName: form.firstName.trim() || undefined,
         lastName: form.lastName.trim() || undefined,
-        role: form.role,
+        role: form.role as Role,
         university:
           form.role === "Subadmin" ? form.university.trim() : undefined,
       });
@@ -877,52 +925,6 @@ function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps) {
 
         <form className={styles.modalForm} onSubmit={handleSubmit}>
           <div className={styles.field}>
-            <label htmlFor="admin-first-name">First Name</label>
-            <input
-              ref={firstInputRef}
-              id="admin-first-name"
-              name="firstName"
-              type="text"
-              className={styles.textInput}
-              value={form.firstName}
-              onChange={handleInputChange}
-              placeholder="First name"
-              required
-            />
-          </div>
-
-          <div className={styles.field}>
-            <label htmlFor="admin-last-name">Last Name</label>
-            <input
-              id="admin-last-name"
-              name="lastName"
-              type="text"
-              className={styles.textInput}
-              value={form.lastName}
-              onChange={handleInputChange}
-              placeholder="Last name"
-              required
-            />
-          </div>
-
-          <div className={styles.field}>
-            <label htmlFor="admin-email">Email</label>
-            <input
-              id="admin-email"
-              name="email"
-              type="email"
-              className={styles.textInput}
-              value={form.email}
-              onChange={handleInputChange}
-              placeholder="name@example.com"
-              required
-            />
-            {!emailValid && trimmedEmail.length > 0 ? (
-              <p className={styles.fieldHint}>Enter a valid email address.</p>
-            ) : null}
-          </div>
-
-          <div className={styles.field}>
             <span className={styles.radioLabel}>Role</span>
             <div className={styles.radioGroup}>
               <label className={styles.radioOption}>
@@ -954,24 +956,115 @@ function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps) {
                   <span className={styles.radioText}>Sub-admin</span>
                 </span>
               </label>
-            </div>
 
-            {form.role === "Subadmin" ? (
-              <div className={styles.subField}>
-                <label htmlFor="admin-university">University Name</label>
+              <label className={styles.radioOption}>
                 <input
-                  id="admin-university"
-                  name="university"
+                  className={styles.radioInput}
+                  type="radio"
+                  name="role"
+                  value="Participant"
+                  checked={form.role === "Participant"}
+                  onChange={handleInputChange}
+                />
+                <span className={styles.radioContent}>
+                  <span className={styles.radioVisual} aria-hidden="true" />
+                  <span className={styles.radioText}>Participant</span>
+                </span>
+              </label>
+            </div>
+            {form.role === "Participant" ? (
+              <p className={styles.fieldHint} style={{ color: "#475569", marginTop: "0.35rem" }}>
+                Manual entry (no login). You will complete their registration form next.
+              </p>
+            ) : null}
+          </div>
+
+          {isParticipantRole ? (
+            <div className={styles.field}>
+              <label htmlFor="manual-participant-full-name">Participant name</label>
+              <input
+                ref={firstInputRef}
+                id="manual-participant-full-name"
+                name="participantName"
+                type="text"
+                className={styles.textInput}
+                value={form.participantName}
+                onChange={handleInputChange}
+                placeholder="First and last name"
+                required
+                disabled={participantCreationDisabled}
+              />
+              {participantCreationDisabled ? (
+                <p className={styles.fieldHint}>
+                  {programStateLoading ? "Checking program capacity…" : "Program is full."}
+                </p>
+              ) : null}
+            </div>
+          ) : (
+            <>
+              <div className={styles.field}>
+                <label htmlFor="admin-first-name">First Name</label>
+                <input
+                  ref={firstInputRef}
+                  id="admin-first-name"
+                  name="firstName"
                   type="text"
                   className={styles.textInput}
-                  value={form.university}
+                  value={form.firstName}
                   onChange={handleInputChange}
-                  placeholder="University name"
+                  placeholder="First name"
                   required
                 />
               </div>
-            ) : null}
-          </div>
+
+              <div className={styles.field}>
+                <label htmlFor="admin-last-name">Last Name</label>
+                <input
+                  id="admin-last-name"
+                  name="lastName"
+                  type="text"
+                  className={styles.textInput}
+                  value={form.lastName}
+                  onChange={handleInputChange}
+                  placeholder="Last name"
+                  required
+                />
+              </div>
+
+              <div className={styles.field}>
+                <label htmlFor="admin-email">Email</label>
+                <input
+                  id="admin-email"
+                  name="email"
+                  type="email"
+                  className={styles.textInput}
+                  value={form.email}
+                  onChange={handleInputChange}
+                  placeholder="name@example.com"
+                  required
+                />
+                {!emailValid && trimmedEmail.length > 0 ? (
+                  <p className={styles.fieldHint}>Enter a valid email address.</p>
+                ) : null}
+              </div>
+
+              {form.role === "Subadmin" ? (
+                <div className={styles.field}>
+                  <label htmlFor="admin-university">University Name</label>
+                  <input
+                    id="admin-university"
+                    name="university"
+                    type="text"
+                    className={styles.textInput}
+                    value={form.university}
+                    onChange={handleInputChange}
+                    placeholder="University name"
+                    required
+                  />
+                </div>
+              ) : null}
+            </>
+          )}
 
           {error ? <div className={styles.errorMessage}>{error}</div> : null}
 

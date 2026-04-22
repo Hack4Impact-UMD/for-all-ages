@@ -127,6 +127,18 @@
   transform: translateY(0);
 }
 
+.manualParticipantRow {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 0.75rem;
+  flex-wrap: nowrap;
+}
+
+.manualParticipantInput {
+  width: min(360px, 60vw);
+}
+
 .banner {
   margin: 0;
   margin-top: 0.5rem;

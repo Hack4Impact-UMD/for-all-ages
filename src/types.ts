@@ -48,7 +48,9 @@ export interface Participant {
     preferredContactMethods?: string[] | null
     preferenceScores?: PreferenceScores | null
     status?: string | null
-    role?: Role | null
+    role?: Role | "Participant" | null
+    hasAuthAccount?: boolean
+    isManualEntry?: boolean
     createdAt?: Timestamp | null
     updatedAt?: Timestamp | null
 }
@@ -101,7 +103,6 @@ export interface Survey {
 export interface Match {
     participant1_id: string
     participant2_id: string
-    day_of_call: number // 1-7 (Monday-Sunday), or -1 if not yet set
     similarity: number
 }
 
@@ -144,7 +145,7 @@ export interface BannerState {
 export interface ProgramState {
     started: boolean
     matches_final: boolean
-    week: number
+    startDate?: string | null
     maxParticipants: number
     currentParticipants: number
     numWeeks: number
@@ -153,8 +154,6 @@ export interface ProgramState {
 /** PreProgram match row status */
 export type MatchStatus = "Pending" | "Approved" | "No Match"
 
-/** Day labels for schedule (AdminDashboard) */
-export type DayKey = "Sun" | "Mon" | "Tue" | "Wed" | "Thurs" | "Fri" | "Sat"
 
 /** Tag variant for person/assignment display */
 export type PersonTagVariant = "rose" | "green" | "gold"
