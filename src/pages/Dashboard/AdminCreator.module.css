@@ -638,3 +638,11 @@
     max-height: calc(100vh - 2rem);
   }
 }
+
+.nameButton {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+}

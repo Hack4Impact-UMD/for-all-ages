@@ -6,7 +6,6 @@ import { db } from "../../firebase";
 import {
   getMatchesByParticipant,
   getPartnerId,
-  updateMatchDayOfWeek,
 } from "../../services/matches";
 import type { Match, PartnerInfo, ParticipantDoc } from "../../types";
 import ProfilePicture from "../Profile/components/ProfilePicture/ProfilePicture";
@@ -14,15 +13,7 @@ import styles from "./Waiting.module.css";
 
 const ADMIN_EMAIL = "info@forallages.org";
 
-const DAYS_OF_WEEK = [
-  { value: 7, label: "Sunday" },
-  { value: 1, label: "Monday" },
-  { value: 2, label: "Tuesday" },
-  { value: 3, label: "Wednesday" },
-  { value: 4, label: "Thursday" },
-  { value: 5, label: "Friday" },
-  { value: 6, label: "Saturday" },
-];
+
 
 function buildGreetingName(
   participant: ParticipantDoc | null,
@@ -51,6 +42,8 @@ export default function Waiting() {
     participantLoading,
     programState,
     programStateLoading,
+    isWaitlisted,
+    waitlistLoading,
   } = useAuth();
 
   const navigate = useNavigate();
@@ -58,7 +51,7 @@ export default function Waiting() {
   const [match, setMatch] = useState<(Match & { id: string }) | null>(null);
   const [partner, setPartner] = useState<PartnerInfo | null>(null);
   const [matchLoading, setMatchLoading] = useState(false);
-  const [selectedDay, setSelectedDay] = useState<number>(-1);
+
 
   const isStudent = participant?.user_type?.toLowerCase() === "student";
 
@@ -80,19 +73,20 @@ export default function Waiting() {
     window.location.href = mailto;
   };
 
-  const isLoading = loading || participantLoading || programStateLoading;
+  const isLoading = loading || participantLoading || programStateLoading || waitlistLoading;
 
   useEffect(() => {
     if (!programState || isLoading) return;
+    if (isWaitlisted) return;
 
     if (programState.matches_final && programState.started) {
       navigate("/user/dashboard", { replace: true });
     }
-  }, [programState, isLoading, navigate]);
+  }, [programState, isLoading, isWaitlisted, navigate]);
 
   useEffect(() => {
     async function loadMatchData() {
-      if (!user?.uid || isLoading || !programState?.matches_final) return;
+      if (!user?.uid || isLoading || !programState?.matches_final || isWaitlisted) return;
 
       try {
         setMatchLoading(true);
@@ -104,7 +98,6 @@ export default function Waiting() {
 
         const userMatch = matches[0];
         setMatch(userMatch);
-        setSelectedDay(userMatch.day_of_call >= 1 ? userMatch.day_of_call : -1);
 
         const partnerId = getPartnerId(userMatch, user.uid);
         const participantRef = doc(db, "participants", partnerId);
@@ -138,33 +131,18 @@ export default function Waiting() {
     }
 
     loadMatchData();
-  }, [user, isLoading, programState?.matches_final]);
+  }, [user, isLoading, programState?.matches_final, isWaitlisted]);
 
-  const [updatingDay, setUpdatingDay] = useState(false);
 
-  const handleDayChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-    if (updatingDay) return;
-    const dayValue = Number(e.target.value);
-    const previousDay = selectedDay;
-    setSelectedDay(dayValue);
-
-    if (match && dayValue !== -1) {
-      try {
-        setUpdatingDay(true);
-        await updateMatchDayOfWeek(match.id, dayValue);
-      } catch (error) {
-        setSelectedDay(previousDay);
-        console.error("Error updating day of call:", error);
-      } finally {
-        setUpdatingDay(false);
-      }
-    }
-  };
 
   let statusTitle = "";
   let statusBody = "";
 
-  if (programState) {
+  if (isWaitlisted) {
+    statusTitle = "You’re on the waitlist";
+    statusBody =
+      "Thank you for filling out the registration form! The program is currently at capacity. You’ve been placed on the waitlist and will be notified when a spot opens up.";
+  } else if (programState) {
     const { matches_final, started } = programState;
 
     if (!matches_final && !started) {
@@ -200,7 +178,7 @@ export default function Waiting() {
               <h1 className={styles.welcomeLink}>Welcome, {greetingName}!</h1>
             </div>
 
-            {programState?.matches_final && !programState?.started && (
+            {!isWaitlisted && programState?.matches_final && !programState?.started && (
               <>
                 {matchLoading ? (
                   <div className={styles.loadingMessage}>
@@ -219,33 +197,6 @@ export default function Waiting() {
                           {partner.phone_number}
                         </p>
                       </div>
-
-                      {isStudent && (
-                        <div className={styles.daySelectorWrap}>
-                          <label
-                            htmlFor="day-of-call"
-                            className={styles.dayLabel}
-                          >
-                            Preferred Day for Call
-                          </label>
-                          <select
-                            id="day-of-call"
-                            className={styles.daySelect}
-                            value={selectedDay}
-                            onChange={handleDayChange}
-                            disabled={updatingDay}
-                          >
-                            <option value={-1} disabled>
-                              Select Day for call
-                            </option>
-                            {DAYS_OF_WEEK.map((day) => (
-                              <option key={day.value} value={day.value}>
-                                {day.label}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
                     </div>
                   </section>
                 ) : (

@@ -9,9 +9,9 @@ export default function MultipleInput({
   required: boolean;
 }) {
   return (
-    <div className={styles.checkboxGroup}>
+    <div>
       {options.map((opt) => (
-        <label key={opt} className={styles.checkboxLabel}>
+        <label key={opt} className={styles.checkboxRow}>
           <input type="checkbox" name={name} value={opt} />
           {opt}
         </label>

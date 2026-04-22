@@ -172,12 +172,20 @@ export default function Rematching() {
 
       const participantsRef = collection(db, "participants");
       const participantsSnap = await getDocs(participantsRef);
+
+      // Fetch waitlisted IDs to exclude from matching
+      const waitlistSnap = await getDocs(collection(db, "waitlist"));
+      const waitlistedIds = new Set(waitlistSnap.docs.map((d) => d.id));
+
       const studentsList: RematchingParticipant[] = [];
       const adultsList: RematchingParticipant[] = [];
 
       participantsSnap.forEach((pDoc) => {
         const data = pDoc.data() as any;
         const id = pDoc.id;
+
+        if (waitlistedIds.has(id)) return;
+
         const rawRole = (data.user_type ?? data.userType ?? data.role ?? "") as string;
         const userType = normalizeRole(rawRole);
         const userUid = (data.userUid ?? id) as string;
@@ -193,18 +201,13 @@ export default function Rematching() {
         const preferenceScores = data.preferenceScores ?? {};
         const sliderQuestions = nextMatchableQuestions.filter((q) => q.type === "Slider");
 
-        const q1Title = sliderQuestions[0]?.title;
-        const q2Title = sliderQuestions[1]?.title;
-        const q3Title = sliderQuestions[2]?.title;
-        if (q1Title && responseAnswers[q1Title] == null && preferenceScores.q1 != null) {
-          responseAnswers[q1Title] = preferenceScores.q1;
-        }
-        if (q2Title && responseAnswers[q2Title] == null && preferenceScores.q2 != null) {
-          responseAnswers[q2Title] = preferenceScores.q2;
-        }
-        if (q3Title && responseAnswers[q3Title] == null && preferenceScores.q3 != null) {
-          responseAnswers[q3Title] = preferenceScores.q3;
-        }
+        // This natively supports N questions without breaking backward compatibility
+        sliderQuestions.forEach((q, index) => {
+          const legacyKey = `q${index + 1}`;
+          if (q.title && responseAnswers[q.title] == null && preferenceScores[legacyKey] != null) {
+            responseAnswers[q.title] = preferenceScores[legacyKey];
+          }
+        });
 
         const participant: RematchingParticipant = {
           id,
@@ -380,7 +383,6 @@ export default function Rematching() {
         participant1_id: selectedStudent.id,
         participant2_id: selectedAdult.id,
         status: "approved",
-        day_of_call: -1,
         similarity: matchPercentage != null ? Math.round(matchPercentage) : null,
       });
 

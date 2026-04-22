@@ -2,6 +2,7 @@ import styles from './WeekSelectorGlassy.module.css'
 
 interface WeekSelectorProps {
     weeks: string[]
+    subLabels?: string[]
     selectedWeekIndex: number
     onSelect: (index: number) => void
     className?: string
@@ -10,6 +11,7 @@ interface WeekSelectorProps {
 
 export default function WeekSelector ({
     weeks,
+    subLabels,
     selectedWeekIndex,
     onSelect,
     className,
@@ -41,24 +43,43 @@ export default function WeekSelector ({
                 disabled={startIndex === 0}
                 aria-label="Previous 5 weeks"
             >
-                &lt;
+                &#8249;
             </button>
             <div className={styles.weekList} role="tablist" aria-label="Select week">
                 {visibleWeeks.map((week, index) => {
                     const actualIndex = startIndex + index;
                     const isActive = actualIndex === selectedWeekIndex
                     const status = statuses[actualIndex] || 'future';
-                    
+                    const showCheckmark = status === 'completed' || status === 'current'
+                    const subLabel = subLabels?.[actualIndex]
+
                     return (
                         <button
-                            key={week}
+                            key={actualIndex}
                             type="button"
                             role="tab"
                             aria-selected={isActive}
                             className={`${styles.weekButton} ${isActive ? styles.activeWeek : ''} ${styles[status]}`.trim()}
                             onClick={() => onSelect(actualIndex)}
                         >
-                            {week}
+                            {subLabel ? (
+                                <span className={styles.weekButtonInner}>
+                                    <span className={styles.weekButtonTop}>
+                                        <span className={styles.weekLabel}>{week}</span>
+                                        {showCheckmark && (
+                                            <span className={styles.checkmark} aria-hidden="true">✓</span>
+                                        )}
+                                    </span>
+                                    <span className={styles.weekSubLabel}>{subLabel}</span>
+                                </span>
+                            ) : (
+                                <>
+                                    <span className={styles.weekLabel}>{week}</span>
+                                    {showCheckmark && (
+                                        <span className={styles.checkmark} aria-hidden="true">✓</span>
+                                    )}
+                                </>
+                            )}
                         </button>
                     )
                 })}
@@ -70,7 +91,7 @@ export default function WeekSelector ({
                 disabled={startIndex + weekRange >= weeks.length}
                 aria-label="Next 5 weeks"
             >
-                &gt;
+                &#8250;
             </button>
         </div>
     )

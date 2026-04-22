@@ -245,8 +245,13 @@
     border: 1px solid #ccc;
     font-size: 1rem;
     background: white;
+    color: #213547;
     cursor: pointer;
     width: fit-content;
+}
+
+.weekDropdown option {
+    color: #213547;
 }
 
 
@@ -259,4 +264,3 @@
         min-width: 100%;
     }
 }
-
