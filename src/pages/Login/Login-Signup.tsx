@@ -58,6 +58,9 @@ function LoginSignup() {
   const {isAdmin} = useAuth()
   const [programState, setProgramState] = useState<ProgramState | null>(null);
   const [programStateLoading, setProgramStateLoading] = useState(true);
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [showSignupPassword, setShowSignupPassword] = useState(false);
+  const [showSignupConfirmPassword, setShowSignupConfirmPassword] = useState(false);
 
   //verification panel if a user is signed in but not yet verified
   const needsVerification = useMemo(
@@ -102,6 +105,9 @@ function LoginSignup() {
 
   useEffect(() => {
     setError(null);
+    setShowLoginPassword(false);
+    setShowSignupPassword(false);
+    setShowSignupConfirmPassword(false);
   }, [tab]);
 
   const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -297,7 +303,7 @@ function LoginSignup() {
                     Password
                   </label>
                   <input
-                    type="password"
+                    type={showLoginPassword ? "text" : "password"}
                     id="loginPassword"
                     name="password"
                     className={styles.input}
@@ -306,6 +312,17 @@ function LoginSignup() {
                     autoComplete="current-password"
                     required
                   />
+                  <div className={styles.showPasswordRow}>
+                    <input
+                      type="checkbox"
+                      id="showLoginPassword"
+                      checked={showLoginPassword}
+                      onChange={(e) => setShowLoginPassword(e.target.checked)}
+                    />
+                    <label htmlFor="showLoginPassword" className={styles.showPasswordLabel}>
+                      Show password
+                    </label>
+                  </div>
                 </div>
 
                 <button
@@ -388,7 +405,7 @@ function LoginSignup() {
                     Password
                   </label>
                   <input
-                    type="password"
+                    type={showSignupPassword ? "text" : "password"}
                     id="signupPassword"
                     name="password"
                     className={styles.input}
@@ -397,6 +414,17 @@ function LoginSignup() {
                     autoComplete="new-password"
                     required
                   />
+                  <div className={styles.showPasswordRow}>
+                    <input
+                      type="checkbox"
+                      id="showSignupPassword"
+                      checked={showSignupPassword}
+                      onChange={(e) => setShowSignupPassword(e.target.checked)}
+                    />
+                    <label htmlFor="showSignupPassword" className={styles.showPasswordLabel}>
+                      Show password
+                    </label>
+                  </div>
                 </div>
 
                 <div className={styles.inputGroup}>
@@ -404,7 +432,7 @@ function LoginSignup() {
                     Confirm Password
                   </label>
                   <input
-                    type="password"
+                    type={showSignupConfirmPassword ? "text" : "password"}
                     id="confirmPassword"
                     name="confirmPassword"
                     className={styles.input}
@@ -413,6 +441,17 @@ function LoginSignup() {
                     autoComplete="new-password"
                     required
                   />
+                  <div className={styles.showPasswordRow}>
+                    <input
+                      type="checkbox"
+                      id="showSignupConfirmPassword"
+                      checked={showSignupConfirmPassword}
+                      onChange={(e) => setShowSignupConfirmPassword(e.target.checked)}
+                    />
+                    <label htmlFor="showSignupConfirmPassword" className={styles.showPasswordLabel}>
+                      Show confirm password
+                    </label>
+                  </div>
                   {signupForm.password &&
                     signupForm.confirmPassword &&
                     signupForm.password !== signupForm.confirmPassword && (
