@@ -115,10 +115,20 @@ export default function RecapPage() {
             { name: '15-20 min', min: 15, max: 20 },
             { name: '20+ min', min: 20, max: Infinity }
         ];
-        return buckets.map(b => ({
-            name: b.name,
-            value: logs.filter(l => l.duration >= b.min && l.duration < b.max).length
-        }));
+
+        const total = logs.length;
+
+        return buckets.map(b => {
+            const count = logs.filter(
+                l => l.duration >= b.min && l.duration < b.max
+            ).length;
+
+            return {
+                name: b.name,
+                value: total ? (count / total) * 100 : 0, // percentage
+                count // optional, if you still want raw numbers
+            };
+        });
     }, [logs]);
 
     const qualityData = useMemo(() => {
@@ -198,7 +208,11 @@ export default function RecapPage() {
                             <ResponsiveContainer width="100%" height={280}>
                                 <BarChart data={callLengthData}>
                                     <XAxis dataKey="name" tick={{fontSize:12}}/>
-                                    <YAxis tick={{fontSize:12}}/>
+                                    <YAxis
+                                        tick={{ fontSize: 12 }}
+                                        domain={[0, 100]}
+                                        tickFormatter={(value) => `${value}%`}
+                                    />
                                     <Bar dataKey="value" fill="#127BBE" />
                                 </BarChart>
                             </ResponsiveContainer>

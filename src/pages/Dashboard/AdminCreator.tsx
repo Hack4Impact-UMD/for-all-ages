@@ -308,7 +308,7 @@ export default function AdminDashboard() {
 
               <button
                 type="button"
-                className={styles.addButton}
+                className={styles.actionButton}
                 onClick={() => setIsModalOpen(true)}
               >
                 Add New User

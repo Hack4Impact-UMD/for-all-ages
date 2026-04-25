@@ -16,6 +16,7 @@ import { getMatchesByParticipant, getPartnerId } from "../../services/matches";
 import type { ErrorState, ParticipantDoc, UserProfile } from "../../types";
 import MatchInterestsModal from "./components/MatchInterestsModal/MatchInterestsModal";
 import ProfilePictureEdit from "./components/ProfilePictureEdit/ProfilePictureEdit";
+import ProfilePicture from "./components/ProfilePicture/ProfilePicture";
 
 const toDisplayBirthday = (raw: string | undefined | null): string => {
   if (!raw) return "";
@@ -147,6 +148,7 @@ const Profile = () => {
 
         let matchName = "";
         let matchInterests = "";
+        let matchId = "";
 
         if (!isAdmin) {
           try {
@@ -154,6 +156,7 @@ const Profile = () => {
             if (matches.length > 0) {
               const firstMatch = matches[0];
               const partnerId = getPartnerId(firstMatch, fbUser.uid);
+              matchId = partnerId;
 
               const partnerRef = doc(db, "participants", partnerId);
               const partnerSnap = await getDoc(partnerRef);
@@ -195,6 +198,7 @@ const Profile = () => {
           status,
           matchName,
           matchInterests,
+          matchId 
         };
 
         setUser(profile);
@@ -533,7 +537,7 @@ const Profile = () => {
           {!isAdmin && (
             <div className={styles.infoCard}>
               <h3>Your Match</h3>
-              <div className={styles.matchCircle}></div>
+             <ProfilePicture size={150} uid={user.matchId}></ProfilePicture>
               <p className={styles.matchText}>
                 {user.matchName && user.matchName.trim().length > 0
                   ? user.matchName

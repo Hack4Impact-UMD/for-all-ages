@@ -66,8 +66,7 @@ export default function SettingsPopup ({isOpened, close, program, setProgram}: S
                 </div>
 
                 <div className={styles.settingsRow}>
-                    <p>Current Participants: </p>
-                    <span>{program?.currentParticipants ?? 0}</span>
+                    <p>{`Current Participants: ${program?.currentParticipants ?? 0}`}</p>
                 </div>
 
                 <div className={styles.settingsRow}>

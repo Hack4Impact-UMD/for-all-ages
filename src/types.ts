@@ -262,6 +262,7 @@ export interface UserProfile {
     status: string;
     matchName?: string;
     matchInterests?: string;
+    matchId?: string
 }
 
 /** Validation error fields (Profile and similar forms) */

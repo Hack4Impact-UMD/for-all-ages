@@ -110,7 +110,7 @@ export default function CallLogModal({
 
 
            <div className={styles.rightCol}>
-             <h3 className={styles.merriweatherTitle}>Meeting Notes:</h3>
+             <h3 className={styles.merriweatherTitle}>Concerns:</h3>
              <div className={styles.notesArea}>
                <NoteBox name={p1Name} text={log1?.concerns} submitted={!!log1} />
                <NoteBox name={p2Name} text={log2?.concerns} submitted={!!log2} />
