@@ -5,8 +5,6 @@ import SearchIcon from "@mui/icons-material/Search";
 import FilterListIcon from "@mui/icons-material/FilterList";
 import SettingsIcon from '@mui/icons-material/Settings';
 import AutorenewIcon from "@mui/icons-material/Autorenew";
-import SendIcon from "@mui/icons-material/Send";
-import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 import { db, getUser, matchAll } from "../../firebase";
 import {
   collection,
@@ -543,6 +541,22 @@ const PreProgram = () => {
     }
   };
 
+  const handleToggleProgram = () => {
+    setSettingsPopup(false);
+    if (!programStarted) {
+      setConfirmAction("start");
+    } else {
+      setEndConfirmText("");
+      setEndProgramError(null);
+      setConfirmAction("endProgram");
+    }
+  };
+
+  const handleLockMatchesFromSettings = () => {
+    setSettingsPopup(false);
+    setConfirmAction("finalize");
+  };
+
   const handleStatusChange = async (
     matchId: string | undefined,
     newStatus: MatchStatus | "Separate",
@@ -671,30 +685,6 @@ const PreProgram = () => {
 
         <div className={styles.buttonGroup}>
           <button
-            onClick={() => setConfirmAction("start")}
-            className={styles.adminBtn}
-            disabled={programStateLoading || startingProgram || programStarted}
-          >
-            <SendIcon className={styles.icon} />
-            {programStarted
-              ? "Program Started"
-              : startingProgram
-                ? "Starting..."
-                : "Start Program"}
-          </button>
-          <button
-            onClick={() => setConfirmAction("finalize")}
-            className={styles.adminBtn}
-            disabled={programStateLoading || finalizing || matchesFinalized}
-          >
-            <LockOutlinedIcon className={styles.icon} />
-            {matchesFinalized
-              ? "Matches Locked"
-              : finalizing
-                ? "Locking..."
-                : "Lock In All Matches"}
-          </button>
-          <button
             onClick={() => setSettingsPopup(true)}
             className={styles.adminBtn}
           >
@@ -719,16 +709,6 @@ const PreProgram = () => {
           </button>
           <button className={styles.exportBtn} onClick={handleExportData}>
             Export Data
-          </button>
-          <button
-            className={styles.endProgramBtn}
-            onClick={() => {
-              setEndConfirmText("");
-              setEndProgramError(null);
-              setConfirmAction("endProgram");
-            }}
-          >
-            End Program
           </button>
         </div>
         {programStateError && (
@@ -997,7 +977,19 @@ const PreProgram = () => {
           </tbody>
         </table>
       </div>
-      <SettingsPopup isOpened={settingsPopup} close={()=>{setSettingsPopup(false)}} program={programState} setProgram = {setProgramState}></SettingsPopup>
+      <SettingsPopup
+        isOpened={settingsPopup}
+        close={() => setSettingsPopup(false)}
+        program={programState}
+        setProgram={setProgramState}
+        programStarted={programStarted}
+        matchesFinalized={matchesFinalized}
+        programStateLoading={programStateLoading}
+        startingProgram={startingProgram}
+        finalizing={finalizing}
+        onToggleProgram={handleToggleProgram}
+        onLockMatches={handleLockMatchesFromSettings}
+      />
 
       {selectedUser ? (
         <ParticipantInfoPopup

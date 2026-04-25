@@ -19,9 +19,9 @@
 
 .searchContainer {
   position: relative;
-  flex: 0 0 260px;
+  flex: 0 0 320px;
   min-width: 240px;
-  max-width: 260px;
+  max-width: 320px;
 }
 
 .searchIcon {
@@ -530,6 +530,19 @@
 .warning {
   color: red;
   text-align: center;
+  height: auto;
+  margin: 12px 0 20px;
+}
+
+.settingsActions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 0 8px;
+  width: 100%;
+
+  margin-top: 16px;
 }
 
 .close {
