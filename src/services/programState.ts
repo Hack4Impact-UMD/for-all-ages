@@ -44,6 +44,14 @@ export async function startProgram() {
 export async function finalizeMatches() {
   await updateDoc(programStateRef, {
     matches_final: true,
+    accepting_registrations: false,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function setAcceptingRegistrations(value: boolean) {
+  await updateDoc(programStateRef, {
+    accepting_registrations: value,
     updatedAt: serverTimestamp(),
   });
 }

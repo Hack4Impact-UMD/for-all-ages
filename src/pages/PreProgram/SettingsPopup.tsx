@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../../firebase";
 import Button from "../../components/Button";
+import { setAcceptingRegistrations } from "../../services/programState";
 
 interface SettingsPopupProps {
     isOpened: boolean;
@@ -36,6 +37,10 @@ export default function SettingsPopup({
     const [numWeeks, setNumWeeks] = useState(program?.numWeeks);
     const [maxParticipants, setMaxParticipants] = useState(program?.maxParticipants);
     const [changed, setChanged] = useState(false);
+    const [togglingRegistrations, setTogglingRegistrations] = useState(false);
+
+    // Default to open (true) unless matches are finalized or the field is explicitly false
+    const acceptingRegistrations = program?.accepting_registrations ?? !matchesFinalized;
 
     useEffect(() => {
         setNumWeeks(program?.numWeeks);
@@ -48,6 +53,21 @@ export default function SettingsPopup({
             setChanged(true);
         }
     }, [numWeeks, maxParticipants]);
+
+    const handleToggleRegistrations = async () => {
+        if (!program || matchesFinalized || togglingRegistrations) return;
+        setTogglingRegistrations(true);
+        try {
+            await setAcceptingRegistrations(!acceptingRegistrations);
+            setProgram((prev: ProgramState | null) =>
+                prev ? { ...prev, accepting_registrations: !acceptingRegistrations } : prev
+            );
+        } catch (error) {
+            console.error("Failed to update accepting registrations:", error);
+        } finally {
+            setTogglingRegistrations(false);
+        }
+    };
 
     const handleSave = async () => {
         if (!program) return;
@@ -80,6 +100,19 @@ export default function SettingsPopup({
         <Dialog open={isOpened} onClose={close} classes={{ paper: styles.dialogPaper }}>
             <div className={styles.settingsContainer}>
                 <h3>Program Settings</h3>
+
+                <div className={styles.settingsRow}>
+                    <p>Accepting Registrations</p>
+                    <label className={`${styles.toggle} ${matchesFinalized ? styles.toggleDisabled : ""}`}>
+                        <input
+                            type="checkbox"
+                            checked={acceptingRegistrations}
+                            disabled={matchesFinalized || togglingRegistrations}
+                            onChange={handleToggleRegistrations}
+                        />
+                        <span className={`${styles.toggleSlider} ${acceptingRegistrations ? styles.toggleOn : styles.toggleOff}`} />
+                    </label>
+                </div>
 
                 <div className={styles.settingsRow}>
                     <p>Number of weeks: </p>

@@ -145,6 +145,7 @@ export interface BannerState {
 export interface ProgramState {
     started: boolean
     matches_final: boolean
+    accepting_registrations?: boolean
     startDate?: string | null
     maxParticipants: number
     currentParticipants: number

@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
-import type { BannerState, Form, Question, QuestionType } from "../../types";
+import type { BannerState, Form, ProgramState, Question, QuestionType } from "../../types";
 import { db } from "../../firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
+import { subscribeToProgramState } from "../../services/programState";
 import EditIcon from '@mui/icons-material/Edit';
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
@@ -411,6 +412,15 @@ const FormBuilder: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [banner, setBanner] = useState<BannerState | null>(null);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [programState, setProgramState] = useState<ProgramState | null>(null);
+
+  // readOnly when registrations are open — editing would affect active sign-ups
+  const readOnly = programState?.accepting_registrations === true;
+
+  useEffect(() => {
+    const unsub = subscribeToProgramState((state) => setProgramState(state));
+    return unsub;
+  }, []);
 
   // Which question id is currently being edited inline (null = none)
   const [editingQuestionId, setEditingQuestionId] = useState<string | null>(
@@ -592,7 +602,7 @@ const FormBuilder: React.FC = () => {
               onClick={() => {
                 if (savedFormRef.current) loadForm(savedFormRef.current);
               }}
-              disabled={!savedFormRef.current}
+              disabled={!savedFormRef.current || readOnly}
             >
               Cancel
             </button>
@@ -601,7 +611,7 @@ const FormBuilder: React.FC = () => {
               type="button"
               className={styles.saveBtn}
               onClick={handleSave}
-              disabled={saving}
+              disabled={saving || readOnly}
             >
               {saving ? "Saving…" : "Save"}
             </button>
@@ -614,6 +624,13 @@ const FormBuilder: React.FC = () => {
             This is the form that all users will fill out when they register.
           </p>
         </div>
+
+        {/* Read-only notice when registrations are open */}
+        {readOnly && (
+          <div className={styles.readOnlyBanner} role="status">
+            Registrations are currently open — this form is view-only. Turn off "Accepting Registrations" in Program Settings to make edits.
+          </div>
+        )}
 
         {/* Section tabs card */}
         <div className={styles.tabsCard}>
@@ -642,22 +659,24 @@ const FormBuilder: React.FC = () => {
                   </React.Fragment>
                 ))}
 
-                {/* Add New Section — no connector after */}
-                <div className={styles.tabOuter}>
-                  <button
-                    type="button"
-                    className={styles.tabCircleAdd}
-                    onClick={() => {
-                      addSection();
-                      setActiveSectionIndex(sections.length);
-                      setEditingQuestionId(null);
-                    }}
-                    title="Add new section"
-                  >
-                    +
-                  </button>
-                  <span className={styles.tabLabel}>Add New Section</span>
-                </div>
+                {/* Add New Section — hidden when read-only */}
+                {!readOnly && (
+                  <div className={styles.tabOuter}>
+                    <button
+                      type="button"
+                      className={styles.tabCircleAdd}
+                      onClick={() => {
+                        addSection();
+                        setActiveSectionIndex(sections.length);
+                        setEditingQuestionId(null);
+                      }}
+                      title="Add new section"
+                    >
+                      +
+                    </button>
+                    <span className={styles.tabLabel}>Add New Section</span>
+                  </div>
+                )}
               </div>
             </SortableContext>
           </DndContext>
@@ -713,7 +732,7 @@ const FormBuilder: React.FC = () => {
               {/* Section title */}
               <SectionTitleEditor
                 section={activeSection}
-                locked={!!activeSection.locked}
+                locked={!!activeSection.locked || readOnly}
                 onPreview={() => setIsPreviewMode(true)}
                 onRename={(title) =>
                   updateSectionTitle(activeSection.id, title)
@@ -766,8 +785,9 @@ const FormBuilder: React.FC = () => {
                     <div
                       key={q.id}
                       className={styles.questionPreviewWrapper}
-                      onClick={() => setEditingQuestionId(q.id)}
-                      title="Click to edit"
+                      onClick={readOnly ? undefined : () => setEditingQuestionId(q.id)}
+                      title={readOnly ? undefined : "Click to edit"}
+                      style={readOnly ? { cursor: "default" } : undefined}
                     >
                       <QuestionPreview question={baseQ} />
                     </div>
@@ -778,14 +798,16 @@ const FormBuilder: React.FC = () => {
               {/* Bottom nav */}
               <div className={styles.bottomBar}>
                 <div className={styles.bottomLeft}>
-                  <button
-                    type="button"
-                    className={styles.addQuestionBtn}
-                    onClick={handleAddQuestion}
-                  >
-                    <span className={styles.addQuestionPlus}>+</span>
-                    Add question
-                  </button>
+                  {!readOnly && (
+                    <button
+                      type="button"
+                      className={styles.addQuestionBtn}
+                      onClick={handleAddQuestion}
+                    >
+                      <span className={styles.addQuestionPlus}>+</span>
+                      Add question
+                    </button>
+                  )}
                 </div>
 
                 <div className={styles.bottomCenter}>
