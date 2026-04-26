@@ -402,7 +402,7 @@
 }
 .sectionDeleteBtn:disabled {
   color: #818386;
-  border-color: currentColor;
+  border: 1.5px solid currentColor;
 }
 .sectionDeleteBtn:enabled:hover,
 .sectionDeleteBtn:enabled:focus-visible,

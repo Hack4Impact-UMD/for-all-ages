@@ -892,18 +892,6 @@ function SectionTitleEditor({
       <div className={styles.sectionTitleActionsRow}>
         <button
           type="button"
-          className={styles.previewModeBtn}
-          onClick={onPreview}
-          title="Preview section"
-        >
-          <span className={styles.previewModeBtnIcon} aria-hidden="true">
-            <VisibilityOutlinedIcon fontSize="inherit" />
-          </span>
-          Preview
-        </button>
-
-        <button
-          type="button"
           className={`${styles.sectionActionBtn} ${styles.sectionActionBtnWithIcon} ${styles.sectionDeleteBtn} ${locked ? styles.sectionTitleActionsDeleteDisabled : ""}`}
           disabled={locked}
           onClick={onDelete}
@@ -913,6 +901,17 @@ function SectionTitleEditor({
               <DeleteOutlineIcon fontSize="inherit" />
             </span>
           Delete Section
+        </button>
+        <button
+          type="button"
+          className={styles.previewModeBtn}
+          onClick={onPreview}
+          title="Preview section"
+        >
+          <span className={styles.previewModeBtnIcon} aria-hidden="true">
+            <VisibilityOutlinedIcon fontSize="inherit" />
+          </span>
+          Preview
         </button>
       </div>
     </div>
