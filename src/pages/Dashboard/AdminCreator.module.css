@@ -44,10 +44,11 @@
 }
 
 .fieldLabel {
-  font-size: 0.95rem;
+  font-size: 1.1rem;
   font-weight: 600;
   color: #ffffff;
   white-space: nowrap;
+  text-align: left;
 }
 
 .searchInput,
