@@ -868,6 +868,7 @@
   font-size: 14px;
   font-weight: 600;
   color: var(--blue);
+  margin-top: 1rem;
 }
 
 .navBtns {
