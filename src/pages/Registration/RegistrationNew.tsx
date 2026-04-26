@@ -1,5 +1,5 @@
 import styles from "./Registration.module.css";
-import { phoneNumberRegex } from "../../regex";
+import { stripPhone, isValidPhone } from "../../utils/phone";
 import type { Form, Question, Section, FormResponse, Participant, Questions, RawAddress } from "../../types";
 import { useRef, useState, useEffect } from "react";
 import ShortInput from "./Question Types/ShortInput";
@@ -625,12 +625,12 @@ const RegistrationNew = ({
       if (phoneEntry) {
         const phone = (formData.get(phoneEntry.fieldName) as string) || "";
         const confirmPhone = (formData.get(`${phoneEntry.fieldName}_confirm`) as string) || "";
-        if (phone && !phoneNumberRegex.test(phone)) {
-          setSubmitError("Please enter a valid phone number.");
+        if (phone && !isValidPhone(phone)) {
+          setSubmitError("Please enter a valid 10-digit phone number.");
           setSubmitting(false);
           return;
         }
-        if (phone !== confirmPhone) {
+        if (stripPhone(phone) !== stripPhone(confirmPhone)) {
           setSubmitError("Phone numbers must match.");
           setSubmitting(false);
           return;

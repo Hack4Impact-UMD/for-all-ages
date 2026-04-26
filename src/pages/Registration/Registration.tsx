@@ -4,7 +4,7 @@ import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 import styles from "./Registration.module.css";
 import { useAuth } from "../../auth/AuthProvider";
 import { db } from "../../firebase";
-import { phoneNumberRegex } from "../../regex";
+import { formatPhone, stripPhone, isValidPhone } from "../../utils/phone";
 import { upsertUser } from "../../firebase";
 import { PREFERENCE_QUESTION_LABELS } from "./preferenceQuestions";
 import type { RegistrationFormState } from "../../types";
