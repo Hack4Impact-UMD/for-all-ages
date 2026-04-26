@@ -407,8 +407,14 @@
   color: #818386;
   border-color: currentColor;
 }
-.sectionDeleteBtn:hover {
-  background: none;
+.sectionDeleteBtn:enabled:hover,
+.sectionDeleteBtn:enabled:focus-visible,
+.sectionDeleteBtn:enabled:active {
+  background: var(--red-light);
+  color: #D13434;
+  border-color: #D13434;
+  outline: none;
+  box-shadow: none;
 }
 
 .sectionActionBtnIcon {
