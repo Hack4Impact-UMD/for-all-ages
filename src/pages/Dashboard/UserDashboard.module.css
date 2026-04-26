@@ -1,0 +1,14 @@
+.page {
+    min-height: 100vh;
+    width: 100%;
+    background: #3879B9;
+}
+
+.surface {
+    width: 100%;
+    padding: 100px 60px 40px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+}

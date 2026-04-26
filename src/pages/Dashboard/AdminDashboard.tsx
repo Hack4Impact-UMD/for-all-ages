@@ -30,6 +30,7 @@ function getInitials(name: string): string {
   return name.slice(0, 2).toUpperCase()
 }
 
+// If numWeeks is not found in Firestore, use this number
 const DEFAULT_WEEKS = 20;
 
 export default function AdminDashboard() {
