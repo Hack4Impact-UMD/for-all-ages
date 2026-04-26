@@ -398,17 +398,17 @@
 }
 
 .sectionDeleteBtn {
-  color: #DC3E3E;
+  color: #D13434;
   border: 1.5px solid currentColor;
   border-radius: var(--radius-sm);
   box-sizing: border-box;
 }
 .sectionDeleteBtn:disabled {
-  color: rgba(220, 62, 62, 0.45);
+  color: #818386;
   border-color: currentColor;
 }
 .sectionDeleteBtn:hover {
-  background: var(--red-light);
+  background: none;
 }
 
 .sectionActionBtnIcon {
@@ -879,7 +879,7 @@
 }
 
 .navBtn {
-  background: var(--gray-400);
+  background: #64748B;
   color: white;
   border: none;
   border-radius: 999px;
@@ -898,7 +898,7 @@
 }
 
 .navBtnPrimary {
-  background: var(--blue) !important;
+  background: #0E6BAE !important;
 }
 .navBtnPrimary:hover:not(:disabled) {
   background: var(--blue-dark) !important;
