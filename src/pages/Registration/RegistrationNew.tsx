@@ -730,7 +730,7 @@ const RegistrationNew = ({
   if (loading || (!previewMode && authLoading) || programStateLoading) return <p className={styles.message}>Loading...</p>;
   if (!form) return <p className={styles.message}>Form not found.</p>;
 
-  if (programState?.matches_final) {
+  if (programState?.matches_final && !previewMode) {
     return (
       <div id={styles.page}>
         <div className={styles.card}>
