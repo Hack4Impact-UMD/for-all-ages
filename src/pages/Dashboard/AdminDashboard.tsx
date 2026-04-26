@@ -24,13 +24,13 @@ interface MatchRow {
   name2: string
 }
 
-const WEEKS = 20
-
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/)
   if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
   return name.slice(0, 2).toUpperCase()
 }
+
+const DEFAULT_WEEKS = 20;
 
 export default function AdminDashboard() {
   const [selectedWeek, setSelectedWeek] = useState(0)
@@ -47,19 +47,23 @@ export default function AdminDashboard() {
   const [callStatusFilters, setCallStatusFilters] = useState<CallStatusFilter[]>([])
   const [callFilterOpen, setCallFilterOpen] = useState(false)
 
+  const numWeeks = Math.max(1, programState?.numWeeks ?? DEFAULT_WEEKS);
+
   const hasInitializedWeek = useRef(false)
   const callFilterRef = useRef<HTMLDivElement | null>(null)
 
+  // Labels for the week number only
   const weekLabels = useMemo(
-    () => Array.from({ length: WEEKS }, (_, i) => `Week ${i + 1}`),
-    []
+    () => Array.from({ length: numWeeks }, (_, i) => `Week ${i + 1}`),
+    [numWeeks]
   )
 
+  //Labels for the week date range
   const weekDateLabels = useMemo(
-    () => Array.from({ length: WEEKS }, (_, i) =>
+    () => Array.from({ length: numWeeks }, (_, i) =>
       getWeekDateLabel(programState?.startDate, i + 1)
     ),
-    [programState?.startDate]
+    [numWeeks, programState?.startDate]
   )
 
   useEffect(() => {
@@ -70,14 +74,14 @@ export default function AdminDashboard() {
     return unsubscribe
   }, [])
 
-  // Sync selected week once on initial load
+  // Sync selected week on initial load
   useEffect(() => {
     if (programState && !hasInitializedWeek.current) {
-      const week = getCurrentWeek(programState.startDate, programState.numWeeks ?? WEEKS);
+      const week = getCurrentWeek(programState.startDate, numWeeks);
       setSelectedWeek(week-1);
       hasInitializedWeek.current = true;
     }
-  }, [programState])
+  }, [programState, numWeeks])
 
   // Fetch all matches + participant names once on mount
   useEffect(() => {
@@ -109,7 +113,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     async function loadAllWeeks() {
       const results = await Promise.allSettled(
-        Array.from({ length: WEEKS }, (_, i) => getWeek(i + 1))
+        Array.from({ length: numWeeks }, (_, i) => getWeek(i + 1))
       )
       const data: Record<number, string[]> = {}
       results.forEach((r, i) => {
@@ -118,7 +122,7 @@ export default function AdminDashboard() {
       setAllWeeksData(data)
     }
     loadAllWeeks()
-  }, [])
+  }, [numWeeks])
 
   // Fetch selected week data; sync into allWeeksData for accurate progress display
   useEffect(() => {
@@ -163,7 +167,7 @@ export default function AdminDashboard() {
     })
   }, [allMatches, searchQuery, participantNames])
 
-  const currentGlobalWeek = getCurrentWeek(programState?.startDate, programState?.numWeeks ?? WEEKS)
+  const currentGlobalWeek = getCurrentWeek(programState?.startDate, numWeeks)
   const viewingWeek = selectedWeek + 1
   const isCurrentWeek = viewingWeek === currentGlobalWeek
   const isPastWeek = viewingWeek < currentGlobalWeek
@@ -205,6 +209,7 @@ export default function AdminDashboard() {
   }, [filteredMatches, weekData, participantNames, isPastWeek, isFutureWeek])
 
 
+  // Calculates the stats for the given week and filters
   const stats = useMemo(() => ({
     total: filteredMatches.length,
     complete: matchRows.filter(r => r.variant === 'green').length,
@@ -222,25 +227,9 @@ export default function AdminDashboard() {
     : { label: 'Upcoming', cls: adminStyles.badgeUpcoming })
 
   return (
-    <div className={layoutStyles.page}>
-      <div className={layoutStyles.surface}>
-        <section className={layoutStyles.selectorSection}>
-          <WeekSelector
-            weeks={weekLabels}
-            subLabels={weekDateLabels}
-            selectedWeekIndex={selectedWeek}
-            onSelect={setSelectedWeek}
-            statuses={Array.from({ length: WEEKS }, (_, i) => {
-              const wk = i + 1
-              if (wk < currentGlobalWeek) return 'completed'
-              if (wk === currentGlobalWeek) return 'current'
-              return 'future'
-            })}
-          />
-        </section>
-
-        <section className={`${layoutStyles.contentSection} ${adminStyles.scheduleSection}`}>
-          <div className={adminStyles.scheduleHeader}>
+    <div className={adminStyles.page}>
+      <div className={adminStyles.surface}>
+        <div className={adminStyles.scheduleHeader}>
             <div className={adminStyles.searchContainer}>
               <SearchIcon className={adminStyles.searchIcon} aria-hidden="true" />
               <input
@@ -252,10 +241,25 @@ export default function AdminDashboard() {
                 className={adminStyles.searchInput}
               />
             </div>
-            <h2 className={layoutStyles.sectionHeading}>Dashboard</h2>
+            <h2 className={adminStyles.pageTitle}>Dashboard</h2>
             <div />
           </div>
+        <section className={layoutStyles.selectorSection}>
+          <WeekSelector
+            weeks={weekLabels}
+            subLabels={weekDateLabels}
+            selectedWeekIndex={selectedWeek}
+            onSelect={setSelectedWeek}
+            statuses={Array.from({ length: numWeeks }, (_, i) => {
+              const wk = i + 1
+              if (wk < currentGlobalWeek) return 'completed'
+              if (wk === currentGlobalWeek) return 'current'
+              return 'future'
+            })}
+          />
+        </section>
 
+        <section className={`${layoutStyles.contentSection} ${adminStyles.scheduleSection}`}>
           {error && <div className={adminStyles.errorBox}>{error}</div>}
           {!error && searchQuery.trim() && !matchesLoading && filteredMatches.length === 0 && (
             <div className={adminStyles.noResults}>No matches found for "{searchQuery.trim()}"</div>
@@ -371,7 +375,7 @@ export default function AdminDashboard() {
                         }
                       </div>
                       <div className={adminStyles.progressBlocks}>
-                        {Array.from({ length: WEEKS }, (_, i) => {
+                        {Array.from({ length: numWeeks }, (_, i) => {
                           const wk = i + 1
                           const isCurrent = wk === currentGlobalWeek
                           const isViewing = wk === viewingWeek

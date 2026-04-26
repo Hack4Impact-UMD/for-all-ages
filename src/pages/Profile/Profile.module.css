@@ -5,6 +5,14 @@
   font-family: "Merriweather", serif;
 }
 
+.pageTitle {
+    margin: -9rem 0 2.5rem 0;
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #ffffff;
+    text-align: center;
+}
+
 /* Layout container */
 .container {
   display: flex;
