@@ -35,7 +35,7 @@ import type {
 import SettingsPopup from "./SettingsPopup";
 import ParticipantInfoPopup from "../Dashboard/components/ParticipantInfoPopup/ParticipantInfoPopup";
 
-const APPROVAL_THRESHOLD = 0.8; // 80%
+const DEFAULT_APPROVAL_THRESHOLD = 0.8; // 80%
 const DEV_MODE = true; // ← flip to false before deploying to production
 
 // Collections to wipe on End Program
@@ -158,8 +158,10 @@ const PreProgram = () => {
 
         const pct = Math.round(m.scores.finalScore * 100);
 
+        const approvalThreshold = (programState?.autoApprovalThreshold ?? DEFAULT_APPROVAL_THRESHOLD * 100) / 100;
+
         const status: MatchStatus =
-          m.scores.finalScore >= APPROVAL_THRESHOLD ? "Approved" : "Pending";
+          m.scores.finalScore >= approvalThreshold ? "Approved" : "Pending";
 
         return {
           name1: u1.displayName,
@@ -235,6 +237,8 @@ const PreProgram = () => {
           const u2 = await getUser(p2);
 
           const rawStatus = (data.status as string | undefined) || "";
+          const approvalThreshold = programState?.autoApprovalThreshold ?? 80;
+
           let status: MatchStatus;
           if (rawStatus === "approved") {
             status = "Approved";
@@ -242,7 +246,7 @@ const PreProgram = () => {
             status = "Pending";
           } else {
             status =
-              similarity >= 80
+              similarity >= approvalThreshold
                 ? "Approved"
                 : similarity > 0
                   ? "Pending"
@@ -379,6 +383,54 @@ const PreProgram = () => {
     await writeBatchRef.commit();
     console.log("Matches stored successfully.");
     return withIds;
+  };
+
+  const updateMatchStatuses = async (newThreshold: number) => {
+    try {
+      const matchesRef = collection(db, "matches");
+      const snap = await getDocs(matchesRef);
+
+      if (snap.empty) {
+        console.log("No matches to update");
+        return;
+      }
+
+      const batch = writeBatch(db);
+      let updateCount = 0;
+
+      snap.docs.forEach((matchDoc) => {
+        const data = matchDoc.data();
+        const similarity = data.similarity ?? 0;
+        const currentStatus = data.status;
+        const currentApprovedBy = data.approvedBy ?? "";
+
+        const newStatus = similarity >= newThreshold ? "approved" : "pending";
+        const shouldClearApprovedBy = newStatus !== "approved" && currentApprovedBy;
+
+        if (newStatus !== currentStatus || shouldClearApprovedBy) {
+          batch.update(matchDoc.ref, {
+            status: newStatus,
+            approvedBy:
+              newStatus === "approved"
+                ? currentApprovedBy || "Auto-Approved"
+                : "",
+          });
+          updateCount++;
+        }
+      });
+
+      if (updateCount > 0) {
+        await batch.commit();
+        console.log(`Updated status for ${updateCount} matches`);
+      } else {
+        console.log("No matches needed status updates");
+      }
+
+      // Reload matches to reflect changes in UI
+      await loadMatches();
+    } catch (error) {
+      console.error("Error updating match statuses:", error);
+    }
   };
 
   const handleMatch = async () => {
@@ -1020,7 +1072,7 @@ const PreProgram = () => {
           </tbody>
         </table>
       </div>
-      <SettingsPopup isOpened={settingsPopup} close={()=>{setSettingsPopup(false)}} program={programState} setProgram = {setProgramState}></SettingsPopup>
+      <SettingsPopup isOpened={settingsPopup} close={()=>{setSettingsPopup(false)}} program={programState} setProgram = {setProgramState} onThresholdChange={updateMatchStatuses}></SettingsPopup>
 
       {selectedUser ? (
         <ParticipantInfoPopup
