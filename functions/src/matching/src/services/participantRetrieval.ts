@@ -6,6 +6,21 @@ import { logger } from '../utils/logger.js';
 import { isValidEmbedding } from '../utils/similarity.js';
 import type { ParticipantWithEmbedding } from '../types/matching.types.js';
 
+function normalizeStoredUserType(userType: unknown): 'Student' | 'Adult' | 'unknown' {
+  if (typeof userType !== 'string') {
+    return 'unknown';
+  }
+
+  const normalized = userType.trim().toLowerCase();
+  if (normalized === 'student') {
+    return 'Student';
+  }
+  if (normalized === 'adult') {
+    return 'Adult';
+  }
+  return 'unknown';
+}
+
 /**
  * Fetch all participants from Pinecone index
  * 
@@ -147,6 +162,20 @@ export async function fetchParticipantsByIds(
 }
 
 /**
+ * Helper to extract dynamic numeric answers from metadata
+ */
+function extractNumericAnswers(metadata: Record<string, any>): Record<string, number> {
+  const numericAnswers: Record<string, number> = {};
+  for (const [key, value] of Object.entries(metadata)) {
+    // Collect purely numeric values (avoiding reserved keys)
+    if (typeof value === 'number' && key !== 'full_text_length') {
+      numericAnswers[key] = value;
+    }
+  }
+  return numericAnswers;
+}
+
+/**
  * Parse participant data from Pinecone query match
  */
 function parseParticipantFromMatch(match: any): ParticipantWithEmbedding {
@@ -154,12 +183,10 @@ function parseParticipantFromMatch(match: any): ParticipantWithEmbedding {
   
   return {
     id: match.id,
-    user_type: metadata.user_type || 'unknown',
+    user_type: normalizeStoredUserType(metadata.user_type),
     pronouns: metadata.pronouns || undefined,
     embedding: match.values || [],
-    q1: metadata.q1 !== undefined ? Number(metadata.q1) : undefined,
-    q2: metadata.q2 !== undefined ? Number(metadata.q2) : undefined,
-    q3: metadata.q3 !== undefined ? Number(metadata.q3) : undefined,
+    numericAnswers: extractNumericAnswers(metadata),
     metadata: metadata,
   };
 }
@@ -172,12 +199,10 @@ function parseParticipantFromRecord(id: string, record: any): ParticipantWithEmb
   
   return {
     id: id,
-    user_type: metadata.user_type || 'unknown',
+    user_type: normalizeStoredUserType(metadata.user_type),
     embedding: record.values || [],
     pronouns: metadata.pronouns || undefined,
-    q1: metadata.q1 !== undefined ? Number(metadata.q1) : undefined,
-    q2: metadata.q2 !== undefined ? Number(metadata.q2) : undefined,
-    q3: metadata.q3 !== undefined ? Number(metadata.q3) : undefined,
+    numericAnswers: extractNumericAnswers(metadata),
     metadata: metadata,
   };
 }
@@ -217,18 +242,16 @@ function validateParticipantData(
       logger.error('Inconsistent embedding dimensions detected across participants');
       throw new Error('Embedding dimension mismatch');
     }
-    
-    logger.info(`All embeddings have consistent dimensions: ${firstDimension}`);
   }
   
   // Check for missing Q scores
   const missingQScores = allParticipants.filter(
-    p => p.q1 === undefined || p.q2 === undefined || p.q3 === undefined
+    p => !p.numericAnswers || Object.keys(p.numericAnswers).length === 0
   );
   
   if (missingQScores.length > 0) {
     logger.warn(
-      `${missingQScores.length} participants have missing Q scores (will use defaults)`
+      `${missingQScores.length} participants have no parsed numeric answers.`
     );
   }
 }

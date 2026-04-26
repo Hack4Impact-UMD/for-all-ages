@@ -94,6 +94,11 @@ export default function SettingsPopup ({isOpened, close, program, setProgram, on
                 </div>
 
                 <div className={styles.settingsRow}>
+                    <p>Current Participants: </p>
+                    <span>{program?.currentParticipants ?? 0}</span>
+                </div>
+
+                <div className={styles.settingsRow}>
                     <p>Maximum Number of Participants: </p>
                     <input className={styles.numberInput} min={2} type="number" step={2} value={maxParticipants} disabled={program?.started || program?.matches_final} onChange={(e)=>{setMaxParticipants(Number(e.target.value))}}></input>
                 </div>

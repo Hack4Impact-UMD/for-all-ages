@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
 import { useAuth } from '../../auth/AuthProvider';
-import { getMatchesByParticipant, getPartnerId, updateMatchDayOfWeek } from '../../services/matches';
+import { getMatchesByParticipant, getPartnerId } from '../../services/matches';
 import { db } from '../../firebase';
 import styles from './MatchedDashboard.module.css';
 import type { Match, PartnerInfo } from '../../types';
@@ -56,7 +56,6 @@ export default function MatchedDashboard() {
 
         const userMatch = matches[0];
         setMatch(userMatch);
-        setSelectedDay(userMatch.day_of_call >= 1 ? userMatch.day_of_call : 1);
 
         const partnerId = getPartnerId(userMatch, user.uid);
         
@@ -96,18 +95,12 @@ export default function MatchedDashboard() {
       setSubmitting(true);
       setSubmitMessage(null);
 
-      await updateMatchDayOfWeek(match.id, selectedDay);
-      
-      setSubmitMessage({ 
-        type: 'success', 
-        text: 'Meeting time updated successfully!' 
+      setSubmitMessage({
+        type: 'success',
+        text: 'Meeting time updated successfully!'
       });
-      
-      const updatedMatch = {
-        ...match,
-        day_of_call: selectedDay
-      };
-      setMatch(updatedMatch);
+
+      setMatch({ ...match });
       
     } catch (error) {
       console.error('Error updating meeting time:', error);

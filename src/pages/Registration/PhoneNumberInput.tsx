@@ -1,6 +1,6 @@
 import { useState } from "react";
 import styles from "./Registration.module.css";
-import { phoneNumberRegex } from "../../regex";
+import { formatPhone, stripPhone, isValidPhone } from "../../utils/phone";
 
 export default function PhoneNumberInput({
   name,
@@ -12,52 +12,63 @@ export default function PhoneNumberInput({
   const [phone, setPhone] = useState("");
   const [confirmPhone, setConfirmPhone] = useState("");
 
-  const isPhoneInvalid = phone !== "" && !phoneNumberRegex.test(phone);
-  const isConfirmInvalid =
-    confirmPhone !== "" && !phoneNumberRegex.test(confirmPhone);
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPhone(formatPhone(e.target.value));
+  };
+
+  const handleConfirmChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setConfirmPhone(formatPhone(e.target.value));
+  };
+
+  const isPhoneInvalid = phone !== "" && !isValidPhone(phone);
+  const isConfirmInvalid = confirmPhone !== "" && !isValidPhone(confirmPhone);
   const isMismatch =
-    phone !== "" && confirmPhone !== "" && phone !== confirmPhone;
+    phone !== "" &&
+    confirmPhone !== "" &&
+    stripPhone(phone) !== stripPhone(confirmPhone);
 
   return (
-    <div className={styles.confirm}>
-      <label className={styles.label}>
-        Phone Number
+    <div className={styles.fieldRow}>
+      <div className={styles.fieldGroup}>
+        <span className={styles.fieldLabel}>
+          Phone Number{required && <span className={styles.requiredStar}> *</span>}
+        </span>
         <input
+          className={styles.fieldInput}
           type="tel"
-          name={name}
           value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          placeholder="(XXX) XXX-XXXX"
-          required={required}
+          onChange={handlePhoneChange}
+          placeholder="(xxx) xxx-xxxx"
         />
+        {/* Hidden input submits the clean 10-digit value */}
+        <input type="hidden" name={name} value={stripPhone(phone)} />
         {isPhoneInvalid && (
           <span className={styles.errorText}>
-            Please enter a valid phone number format.
+            Please enter a valid 10-digit phone number.
           </span>
         )}
-        <span className={styles.helpText}>
-          Valid formats: 123-456-7890, (123) 456-7890, +1 (123) 456-7890
-        </span>
-      </label>
+      </div>
 
-      <label className={styles.label}>
-        Confirm Phone Number
+      <div className={styles.fieldGroup}>
+        <span className={styles.fieldLabel}>
+          Confirm Phone Number{required && <span className={styles.requiredStar}> *</span>}
+        </span>
         <input
+          className={styles.fieldInput}
           type="tel"
-          name={`${name}_confirm`}
           value={confirmPhone}
-          onChange={(e) => setConfirmPhone(e.target.value)}
-          placeholder="(XXX) XXX-XXXX"
-          required={required}
+          onChange={handleConfirmChange}
+          placeholder="(xxx) xxx-xxxx"
         />
+        <input type="hidden" name={`${name}_confirm`} value={stripPhone(confirmPhone)} />
         {(isMismatch || isConfirmInvalid) && (
           <span className={styles.errorText}>
             {isMismatch
               ? "Phone numbers must match."
-              : "Please enter a valid phone number format."}
+              : "Please enter a valid 10-digit phone number."}
           </span>
         )}
-      </label>
+      </div>
     </div>
   );
 }
