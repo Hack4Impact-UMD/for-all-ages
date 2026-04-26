@@ -27,14 +27,20 @@ function RouteLoader() {
 }
 
 function ProgramGate({ children }: { children: React.ReactNode }) {
-  const { programState, programStateLoading } = useAuth() as {
+  const { programState, programStateLoading, isWaitlisted, waitlistLoading } = useAuth() as {
     programState: { matches_final: boolean; started: boolean } | null;
     programStateLoading: boolean;
+    isWaitlisted: boolean;
+    waitlistLoading: boolean;
   };
   const location = useLocation();
 
-  if (programStateLoading) {
+  if (programStateLoading || waitlistLoading) {
     return <RouteLoader />;
+  }
+
+  if (isWaitlisted) {
+    return <Navigate to="/waiting" replace state={{ from: location }} />;
   }
 
   if (!programState) {
@@ -192,6 +198,7 @@ function App() {
             <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="recap" element={<RecapPage />} />
             <Route path="creator" element={<AdminCreator />} />
+            <Route path="add-participant" element={<Registration />} />
             <Route path="main" element={<PreProgram />} />
             <Route path="rematching" element={<Rematching />} />
             <Route path="form-builder" element={<FormBuilder />} />

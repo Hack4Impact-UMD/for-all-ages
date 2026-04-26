@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   collection,
   getDocs,
@@ -25,13 +26,15 @@ import type {
   RawAddress,
   AdminRecord,
   BannerState,
+  FormResponse,
 } from "../../types";
+import ParticipantInfoPopup from "./components/ParticipantInfoPopup/ParticipantInfoPopup";
+import { useAuth } from "../../auth/AuthProvider";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 type RoleFilter = "All" | Role | "Participant";
 type GroupFilter = "All" | "Student" | "Adult";
 
-// Formats a RawAddress into a single-line string suitable for display
 function formatAddress(address?: RawAddress | null): string | null {
   if (!address) return null;
   const segments: string[] = [];
@@ -47,8 +50,6 @@ function formatAddress(address?: RawAddress | null): string | null {
   return segments.length ? segments.join(", ") : null;
 }
 
-// Normalises a role string to a Role type
-// Cleans whatever is stored in Firestore and coerces to a strict Role
 function normaliseRole(role?: string | null): Role | "Participant" {
   if (!role) return "Participant";
   const value = role.replace(/\s+/g, "").toLowerCase();
@@ -62,6 +63,16 @@ function normaliseUserType(user_type?: string | null): string | null {
   return user_type.charAt(0).toUpperCase() + user_type.slice(1).toLowerCase();
 }
 
+function isParticipantRegistrationClosed(
+  programState: { matches_final: boolean; started: boolean; currentParticipants: number; maxParticipants: number } | null,
+): boolean {
+  if (!programState) return false;
+  if (programState.matches_final && !programState.started) {
+    return true;
+  }
+  return programState.currentParticipants >= programState.maxParticipants;
+}
+
 // Composes a display name for an admin from their ParticipantDoc
 function composeDisplayName(doc: ParticipantDoc): string {
   const { displayName, firstName, lastName, email } = doc;
@@ -72,8 +83,8 @@ function composeDisplayName(doc: ParticipantDoc): string {
   return "Unnamed Admin";
 }
 
-// Main component for the Admin Dashboard page
 export default function AdminDashboard() {
+  const { user } = useAuth();
   const [admins, setAdmins] = useState<AdminRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -84,6 +95,10 @@ export default function AdminDashboard() {
   const [banner, setBanner] = useState<BannerState | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [promoteTarget, setPromoteTarget] = useState<AdminRecord | null>(null);
+  const [selectedUser, setSelectedUser] = useState<AdminRecord | null>(null);
+  const [formResponses, setFormResponses] = useState<FormResponse | null>(null);
+  const [formLoading, setFormLoading] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const handleModalClose = useCallback(() => {
     setIsModalOpen(false);
@@ -103,14 +118,12 @@ export default function AdminDashboard() {
     setBanner(null);
   }, []);
 
-  // Build a query to get all participants whose role is Admin or Subadmin.
   useEffect(() => {
     let unsubscribe: Unsubscribe | undefined;
 
     const startSubscription = () => {
       const adminsQuery = collection(db, "participants");
 
-      // Set up real-time listener for admin accounts
       unsubscribe = onSnapshot(
         adminsQuery,
         (snapshot) => {
@@ -125,19 +138,14 @@ export default function AdminDashboard() {
               address: formatAddress(data.address ?? null),
               user_type: normaliseUserType(data.user_type ?? null),
               university: data.university ?? null,
+              userUid: data.userUid ?? null,
             };
           });
 
-          // sort alphabetically by name
           records.sort((a, b) =>
             a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
           );
 
-          /**
-           * On success: update state, clear error, end loading.
-           * On error: set a friendly error.
-           * Cleanup: when the component unmounts, call unsubscribe() to stop the live listener
-           */
           setAdmins(records);
           setLoading(false);
           setError(null);
@@ -157,7 +165,6 @@ export default function AdminDashboard() {
     };
   }, []);
 
-  // Recomputes only when admins or searchTerm change
   const filteredAdmins = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
 
@@ -194,34 +201,57 @@ export default function AdminDashboard() {
     return list;
   }, [admins, searchTerm, roleFilter, groupFilter]);
 
-  // Resets the selected age value if Admin or Subadmin is selected
   useEffect(() => {
     if (roleFilter === "Admin" || roleFilter === "Subadmin") {
       setGroupFilter("All");
     }
   }, [roleFilter]);
 
-  // Handles the Contact All button and allows admins to contact all participants and subadmins
+  useEffect(() => {
+    if (!selectedUser?.id) {
+      setFormResponses(null);
+      setFormLoading(false);
+      setFormError(null);
+      return;
+    }
+
+    setFormLoading(true);
+    setFormError(null);
+
+    const q = query(
+      collection(db, "FormResponse"),
+      where("uid", "==", selectedUser.id),
+    );
+
+    getDocs(q)
+      .then((snapshot) => {
+        if (snapshot.empty) {
+          setFormResponses(null);
+        } else {
+          const doc = snapshot.docs[0].data() as FormResponse;
+          setFormResponses(doc);
+        }
+        setFormLoading(false);
+      })
+      .catch((err) => {
+        console.error("Failed to load form responses", err);
+        setFormError("Could not load form responses.");
+        setFormLoading(false);
+      });
+  }, [selectedUser]);
+
   const handleContactAll = () => {
     if (typeof window === "undefined") return;
 
-    // Filters only participants and subadmins
-    const list = admins.filter((user) => {
-      const r = normaliseRole(user.role);
+    const list = admins.filter((u) => {
+      const r = normaliseRole(u.role);
       return r === "Participant" || r === "Subadmin";
     });
 
-    // Holds all of the emails of the new list, filtering falsy emails
-    const emailList = list
-      .map((user) => {
-        return user.email;
-      })
-      .filter(Boolean);
-
-    // Format the email list to be one string
-    const mailToEmailList = emailList.join(",");
-
-    const mailto = `mailto:${mailToEmailList}`;
+    const emailList = list.map((u) => u.email).filter(Boolean);
+    const bccList = emailList.join(",");
+    const adminEmail = user?.email ?? "";
+    const mailto = `mailto:${adminEmail}?bcc=${bccList}`;
     window.location.href = mailto;
   };
 
@@ -251,69 +281,79 @@ export default function AdminDashboard() {
   return (
     <div className={layoutStyles.page}>
       <div className={layoutStyles.surface}>
-        <section className={styles.controlsRow}>
-          <label className={styles.searchLabel} htmlFor="admin-search">
-            Search
-          </label>
-          <button
-            type="button"
-            className={styles.contactButton}
-            onClick={() => {
-              handleContactAll();
-            }}
-          >
-            Contact All
-          </button>
-          <input
-            id="admin-search"
-            type="search"
-            placeholder="Search by name, email, or university…"
-            className={styles.searchInput}
-            value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
-          />
+        <section className={styles.controlsPanel}>
+          <div className={styles.toolbarRow}>
+            <div className={styles.searchArea}>
+              <label className={styles.fieldLabel} htmlFor="admin-search">
+                Search
+              </label>
+              <input
+                id="admin-search"
+                type="search"
+                placeholder="Search by name, email, or university…"
+                className={styles.searchInput}
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+              />
+            </div>
 
-          <div className={styles.searchGroup}>
-            <label className={styles.searchLabel} htmlFor="role-filter">
-              Role
-            </label>
-            <select
-              id="role-filter"
-              value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value as RoleFilter)}
-              className={styles.searchInput}
-            >
-              <option value="All">All</option>
-              <option value="Admin">Admin</option>
-              <option value="Subadmin">Subadmin</option>
-              <option value="Participant">Participant</option>
-            </select>
+            <div className={styles.actionGroup}>
+              <button
+                type="button"
+                className={styles.actionButton}
+                onClick={handleContactAll}
+              >
+                Contact All
+              </button>
+
+              <button
+                type="button"
+                className={styles.addButton}
+                onClick={() => setIsModalOpen(true)}
+              >
+                Add New User
+              </button>
+            </div>
           </div>
-          {roleFilter === "All" || roleFilter === "Participant" ? (
-            <div className={styles.searchGroup}>
-              <label className={styles.searchLabel} htmlFor="group-filter">
-                Group
+
+          <div className={styles.filtersRow}>
+            <div className={styles.filterField}>
+              <label className={styles.fieldLabel} htmlFor="role-filter">
+                Role
               </label>
               <select
-                id="group-filter"
-                value={groupFilter}
-                onChange={(e) => setGroupFilter(e.target.value as GroupFilter)}
-                className={styles.searchInput}
+                id="role-filter"
+                value={roleFilter}
+                onChange={(e) => setRoleFilter(e.target.value as RoleFilter)}
+                className={styles.selectInput}
               >
                 <option value="All">All</option>
-                <option value="Student">Student</option>
-                <option value="Adult">Adult</option>
+                <option value="Admin">Admin</option>
+                <option value="Subadmin">Subadmin</option>
+                <option value="Participant">Participant</option>
               </select>
             </div>
-          ) : null}
 
-          <button
-            type="button"
-            className={styles.addButton}
-            onClick={() => setIsModalOpen(true)}
-          >
-            Add New Admin
-          </button>
+            {(roleFilter === "All" || roleFilter === "Participant") && (
+              <div className={styles.filterField}>
+                <label className={styles.fieldLabel} htmlFor="group-filter">
+                  Group
+                </label>
+                <select
+                  id="group-filter"
+                  value={groupFilter}
+                  onChange={(e) =>
+                    setGroupFilter(e.target.value as GroupFilter)
+                  }
+                  className={styles.selectInput}
+                >
+                  <option value="All">All</option>
+                  <option value="Student">Student</option>
+                  <option value="Adult">Adult</option>
+                </select>
+              </div>
+            )}
+          </div>
         </section>
 
         {banner ? (
@@ -343,14 +383,34 @@ export default function AdminDashboard() {
               <table className={styles.table}>
                 <thead>
                   <tr>
-                    <th scope="col" className={styles.colName}>Name</th>
-                    <th scope="col" className={styles.colRole}>Role</th>
-                    <th scope="col" className={styles.colEmail}>Email</th>
-                    <th scope="col" className={styles.colPhone}>Phone Number</th>
-                    <th scope="col" className={styles.colAddress}>Address</th>
-                    <th scope="col" className={styles.colGroup}>Group</th>
-                    <th scope="col" className={styles.colDelete} aria-label="Delete user" />
-                    <th scope="col" className={styles.colPromote} aria-label="Promote user" />
+                    <th scope="col" className={styles.colName}>
+                      Name
+                    </th>
+                    <th scope="col" className={styles.colRole}>
+                      Role
+                    </th>
+                    <th scope="col" className={styles.colEmail}>
+                      Email
+                    </th>
+                    <th scope="col" className={styles.colPhone}>
+                      Phone Number
+                    </th>
+                    <th scope="col" className={styles.colAddress}>
+                      Address
+                    </th>
+                    <th scope="col" className={styles.colGroup}>
+                      Group
+                    </th>
+                    <th
+                      scope="col"
+                      className={styles.colPromote}
+                      aria-label="Promote user"
+                    />
+                    <th
+                      scope="col"
+                      className={styles.colDelete}
+                      aria-label="Delete user"
+                    />
                   </tr>
                 </thead>
                 <tbody>
@@ -376,7 +436,14 @@ export default function AdminDashboard() {
                     filteredAdmins.map((admin) => (
                       <tr key={admin.id}>
                         <td data-label="Name" className={styles.colName}>
-                          {admin.name}
+                          <button
+                            type="button"
+                            onClick={() => setSelectedUser(admin)}
+                            aria-label={`View form response details for ${admin.name}`}
+                            className={styles.nameButton}
+                          >
+                            {admin.name}
+                          </button>
                         </td>
                         <td data-label="Role" className={styles.colRole}>
                           {admin.role === "Admin"
@@ -414,6 +481,24 @@ export default function AdminDashboard() {
                           )}
                         </td>
                         <td
+                          data-label="Promote"
+                          className={`${styles.deleteCell} ${styles.colPromote}`}
+                        >
+                          {admin.role === "Participant" ? (
+                            <button
+                              type="button"
+                              className={styles.smallActionButton}
+                              onClick={() => setPromoteTarget(admin)}
+                              aria-label={`Promote ${admin.name} to Sub-admin`}
+                              title="Promote to Sub-admin"
+                            >
+                              Promote
+                            </button>
+                          ) : (
+                            <span>—</span>
+                          )}
+                        </td>
+                        <td
                           data-label="Delete"
                           className={`${styles.deleteCell} ${styles.colDelete}`}
                         >
@@ -427,25 +512,6 @@ export default function AdminDashboard() {
                           >
                             <FaTrash aria-hidden />
                           </button>
-                        </td>
-                        <td
-                          data-label="Promote"
-                          className={`${styles.deleteCell} ${styles.colPromote}`}
-                        >
-                          {admin.role === "Participant" ? (
-                            <button
-                              type="button"
-                              className={styles.addButton}
-                              style={{ fontSize: "0.75rem", padding: "0.3rem 0.75rem" }}
-                              onClick={() => setPromoteTarget(admin)}
-                              aria-label={`Promote ${admin.name} to Sub-admin`}
-                              title="Promote to Sub-admin"
-                            >
-                              Promote
-                            </button>
-                          ) : (
-                            <span>—</span>
-                          )}
                         </td>
                       </tr>
                     ))
@@ -470,12 +536,20 @@ export default function AdminDashboard() {
             onSuccess={handlePromoteSuccess}
           />
         ) : null}
+
+        {selectedUser ? (
+          <ParticipantInfoPopup
+            userName={selectedUser.name}
+            onClose={() => setSelectedUser(null)}
+            formResponses={formResponses}
+            loading={formLoading}
+            error={formError}
+          />
+        ) : null}
       </div>
     </div>
   );
 }
-
-// ==================== PromoteModal Component =====================
 
 type PromoteModalProps = {
   participant: AdminRecord;
@@ -483,20 +557,17 @@ type PromoteModalProps = {
   onSuccess: (message: string) => void;
 };
 
-/**
- * Confirms and executes the promotion of a participant to Sub-admin.
- * All existing participant data (user_type, matches, etc.) is preserved —
- * only the `role` field is updated in Firestore.
- */
 function PromoteModal({ participant, onClose, onSuccess }: PromoteModalProps) {
   const [university, setUniversity] = useState(participant.university ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Close on Escape
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { e.preventDefault(); onClose(); }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+      }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
@@ -527,7 +598,9 @@ function PromoteModal({ participant, onClose, onSuccess }: PromoteModalProps) {
     <div
       className={styles.modalBackdrop}
       role="presentation"
-      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
       <div
         className={styles.modalCard}
@@ -545,7 +618,8 @@ function PromoteModal({ participant, onClose, onSuccess }: PromoteModalProps) {
         <div className={styles.modalForm}>
           <p style={{ marginBottom: "1rem" }}>
             <strong>{participant.name}</strong> will be promoted to Sub-admin.
-            They will keep their participant role and remain in the matching process.
+            They will keep their participant role and remain in the matching
+            process.
           </p>
 
           <div className={styles.field}>
@@ -555,7 +629,10 @@ function PromoteModal({ participant, onClose, onSuccess }: PromoteModalProps) {
               type="text"
               className={styles.textInput}
               value={university}
-              onChange={(e) => { setUniversity(e.target.value); setError(null); }}
+              onChange={(e) => {
+                setUniversity(e.target.value);
+                setError(null);
+              }}
               placeholder="University name"
               autoFocus
             />
@@ -587,30 +664,33 @@ function PromoteModal({ participant, onClose, onSuccess }: PromoteModalProps) {
   );
 }
 
-
-// Props for the AddAdminModal component
 type AddAdminModalProps = {
   onClose: () => void;
   onSuccess: (message: string) => void;
 };
+
+type AddUserRole = Role | "Participant";
 
 // State for the AddAdminModal form
 type AddAdminFormState = {
   firstName: string;
   lastName: string;
   email: string;
-  role: Role;
+  role: AddUserRole;
   university: string;
+  participantName: string;
 };
 
-// Modal component for adding a new admin
 function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps) {
+  const navigate = useNavigate();
+  const { programState, programStateLoading } = useAuth();
   const [form, setForm] = useState<AddAdminFormState>({
     firstName: "",
     lastName: "",
     email: "",
     role: "Admin",
     university: "",
+    participantName: "",
   });
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -625,7 +705,6 @@ function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps) {
     firstInputRef.current?.focus();
   }, []);
 
-  // Handle Escape key to close modal
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -640,7 +719,6 @@ function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps) {
     };
   }, [onClose]);
 
-  // Handle input changes for the form fields
   const dismissExistingPrompt = useCallback(() => {
     setExistingAccountPrompt(null);
   }, []);
@@ -649,11 +727,14 @@ function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps) {
     const { name, value } = event.target;
     setForm((prev) => {
       if (name === "role") {
-        const roleValue = (value as Role) ?? "Admin";
+        const roleValue = (value as AddUserRole) ?? "Admin";
         return {
           ...prev,
           role: roleValue,
-          university: roleValue === "Admin" ? "" : prev.university,
+          university:
+            roleValue === "Admin" || roleValue === "Participant"
+              ? ""
+              : prev.university,
         };
       }
       const nextState = {
@@ -674,15 +755,22 @@ function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps) {
 
   const trimmedEmail = form.email.trim();
   const emailValid = EMAIL_REGEX.test(trimmedEmail);
-  const allRequiredFilled =
-    form.firstName.trim().length > 0 &&
-    form.lastName.trim().length > 0 &&
-    trimmedEmail.length > 0 &&
-    (form.role !== "Subadmin" || form.university.trim().length > 0);
-  const canSubmit = allRequiredFilled && emailValid && !submitting;
+  const isParticipantRole = form.role === "Participant";
+  const participantCreationDisabled =
+    isParticipantRole &&
+    (programStateLoading || isParticipantRegistrationClosed(programState));
+  const allRequiredFilled = isParticipantRole
+    ? form.participantName.trim().length > 0
+    : form.firstName.trim().length > 0 &&
+      form.lastName.trim().length > 0 &&
+      trimmedEmail.length > 0 &&
+      (form.role !== "Subadmin" || form.university.trim().length > 0);
+  const canSubmit =
+    allRequiredFilled &&
+    (isParticipantRole || emailValid) &&
+    !participantCreationDisabled &&
+    !submitting;
 
-  // =====TESTING===
-  // should check for existing account and prepare prompt
   const prepareExistingAccountPrompt = useCallback(async (email: string) => {
     try {
       const snapshot = await getDocs(
@@ -718,6 +806,22 @@ function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps) {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
+    if (form.role === "Participant") {
+      if (participantCreationDisabled) {
+        setError(programStateLoading ? "Checking program capacity…" : "Program is full.");
+        return;
+      }
+
+      const name = form.participantName.trim();
+      if (!name) {
+        setError("Please enter the participant's name.");
+        return;
+      }
+      navigate("/admin/add-participant", { state: { name } });
+      onSuccess("Opening the registration form for this participant.");
+      return;
+    }
+
     // Final validation before submission
     if (!canSubmit) {
       setError(
@@ -736,7 +840,7 @@ function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps) {
         firstName: form.firstName.trim(),
         lastName: form.lastName.trim(),
         email: trimmedEmail,
-        role: form.role,
+        role: form.role as Role,
         university:
           form.role === "Subadmin" ? form.university.trim() : undefined,
       });
@@ -775,7 +879,7 @@ function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps) {
         participantId: existingAccountPrompt.participantId,
         firstName: form.firstName.trim() || undefined,
         lastName: form.lastName.trim() || undefined,
-        role: form.role,
+        role: form.role as Role,
         university:
           form.role === "Subadmin" ? form.university.trim() : undefined,
       });
@@ -821,52 +925,6 @@ function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps) {
 
         <form className={styles.modalForm} onSubmit={handleSubmit}>
           <div className={styles.field}>
-            <label htmlFor="admin-first-name">First Name</label>
-            <input
-              ref={firstInputRef}
-              id="admin-first-name"
-              name="firstName"
-              type="text"
-              className={styles.textInput}
-              value={form.firstName}
-              onChange={handleInputChange}
-              placeholder="First name"
-              required
-            />
-          </div>
-
-          <div className={styles.field}>
-            <label htmlFor="admin-last-name">Last Name</label>
-            <input
-              id="admin-last-name"
-              name="lastName"
-              type="text"
-              className={styles.textInput}
-              value={form.lastName}
-              onChange={handleInputChange}
-              placeholder="Last name"
-              required
-            />
-          </div>
-
-          <div className={styles.field}>
-            <label htmlFor="admin-email">Email</label>
-            <input
-              id="admin-email"
-              name="email"
-              type="email"
-              className={styles.textInput}
-              value={form.email}
-              onChange={handleInputChange}
-              placeholder="name@example.com"
-              required
-            />
-            {!emailValid && trimmedEmail.length > 0 ? (
-              <p className={styles.fieldHint}>Enter a valid email address.</p>
-            ) : null}
-          </div>
-
-          <div className={styles.field}>
             <span className={styles.radioLabel}>Role</span>
             <div className={styles.radioGroup}>
               <label className={styles.radioOption}>
@@ -898,24 +956,115 @@ function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps) {
                   <span className={styles.radioText}>Sub-admin</span>
                 </span>
               </label>
-            </div>
 
-            {form.role === "Subadmin" ? (
-              <div className={styles.subField}>
-                <label htmlFor="admin-university">University Name</label>
+              <label className={styles.radioOption}>
                 <input
-                  id="admin-university"
-                  name="university"
+                  className={styles.radioInput}
+                  type="radio"
+                  name="role"
+                  value="Participant"
+                  checked={form.role === "Participant"}
+                  onChange={handleInputChange}
+                />
+                <span className={styles.radioContent}>
+                  <span className={styles.radioVisual} aria-hidden="true" />
+                  <span className={styles.radioText}>Participant</span>
+                </span>
+              </label>
+            </div>
+            {form.role === "Participant" ? (
+              <p className={styles.fieldHint} style={{ color: "#475569", marginTop: "0.35rem" }}>
+                Manual entry (no login). You will complete their registration form next.
+              </p>
+            ) : null}
+          </div>
+
+          {isParticipantRole ? (
+            <div className={styles.field}>
+              <label htmlFor="manual-participant-full-name">Participant name</label>
+              <input
+                ref={firstInputRef}
+                id="manual-participant-full-name"
+                name="participantName"
+                type="text"
+                className={styles.textInput}
+                value={form.participantName}
+                onChange={handleInputChange}
+                placeholder="First and last name"
+                required
+                disabled={participantCreationDisabled}
+              />
+              {participantCreationDisabled ? (
+                <p className={styles.fieldHint}>
+                  {programStateLoading ? "Checking program capacity…" : "Program is full."}
+                </p>
+              ) : null}
+            </div>
+          ) : (
+            <>
+              <div className={styles.field}>
+                <label htmlFor="admin-first-name">First Name</label>
+                <input
+                  ref={firstInputRef}
+                  id="admin-first-name"
+                  name="firstName"
                   type="text"
                   className={styles.textInput}
-                  value={form.university}
+                  value={form.firstName}
                   onChange={handleInputChange}
-                  placeholder="University name"
+                  placeholder="First name"
                   required
                 />
               </div>
-            ) : null}
-          </div>
+
+              <div className={styles.field}>
+                <label htmlFor="admin-last-name">Last Name</label>
+                <input
+                  id="admin-last-name"
+                  name="lastName"
+                  type="text"
+                  className={styles.textInput}
+                  value={form.lastName}
+                  onChange={handleInputChange}
+                  placeholder="Last name"
+                  required
+                />
+              </div>
+
+              <div className={styles.field}>
+                <label htmlFor="admin-email">Email</label>
+                <input
+                  id="admin-email"
+                  name="email"
+                  type="email"
+                  className={styles.textInput}
+                  value={form.email}
+                  onChange={handleInputChange}
+                  placeholder="name@example.com"
+                  required
+                />
+                {!emailValid && trimmedEmail.length > 0 ? (
+                  <p className={styles.fieldHint}>Enter a valid email address.</p>
+                ) : null}
+              </div>
+
+              {form.role === "Subadmin" ? (
+                <div className={styles.field}>
+                  <label htmlFor="admin-university">University Name</label>
+                  <input
+                    id="admin-university"
+                    name="university"
+                    type="text"
+                    className={styles.textInput}
+                    value={form.university}
+                    onChange={handleInputChange}
+                    placeholder="University name"
+                    required
+                  />
+                </div>
+              ) : null}
+            </>
+          )}
 
           {error ? <div className={styles.errorMessage}>{error}</div> : null}
 

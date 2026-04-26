@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import styles from "./PreProgram.module.css";
 import { useNavigate } from "react-router-dom";
 import SearchIcon from "@mui/icons-material/Search";
@@ -13,9 +13,11 @@ import {
   deleteDoc,
   doc,
   getDocs,
+  query,
   serverTimestamp,
   setDoc,
   updateDoc,
+  where,
   writeBatch,
 } from "firebase/firestore";
 import {
@@ -24,14 +26,26 @@ import {
   subscribeToProgramState,
   type ProgramState,
 } from "../../services/programState";
-import type { BackendMatch, UI_Match, MatchStatus } from "../../types";
+import type {
+  BackendMatch,
+  UI_Match,
+  MatchStatus,
+  FormResponse,
+} from "../../types";
 import SettingsPopup from "./SettingsPopup";
+import ParticipantInfoPopup from "../Dashboard/components/ParticipantInfoPopup/ParticipantInfoPopup";
 
 const APPROVAL_THRESHOLD = 0.8; // 80%
 const DEV_MODE = true; // ← flip to false before deploying to production
 
 // Collections to wipe on End Program
-const COLLECTIONS_TO_CLEAR = ["participants", "matches", "logs", "weeks"];
+const COLLECTIONS_TO_CLEAR = [
+  "participants",
+  "matches",
+  "logs",
+  "weeks",
+  "waitlist",
+];
 
 const PreProgram = () => {
   const [matches, setMatches] = useState<UI_Match[]>([]);
@@ -60,11 +74,49 @@ const PreProgram = () => {
 
   const statusFilterRef = useRef<HTMLDivElement | null>(null);
 
+  const [selectedUser, setSelectedUser] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [formResponses, setFormResponses] = useState<FormResponse | null>(null);
+  const [formLoading, setFormLoading] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
   const navigate = useNavigate();
 
   useEffect(() => {
-    loadMatches();
-  }, []);
+    if (!selectedUser?.id) {
+      setFormResponses(null);
+      setFormLoading(false);
+      setFormError(null);
+      return;
+    }
+
+    setFormLoading(true);
+    setFormError(null);
+
+    const q = query(
+      collection(db, "FormResponse"),
+      where("uid", "==", selectedUser.id),
+    );
+
+    getDocs(q)
+      .then((snapshot) => {
+        if (snapshot.empty) {
+          setFormResponses(null);
+        } else {
+          const doc = snapshot.docs[0].data() as FormResponse;
+          setFormResponses(doc);
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load form responses", err);
+        setFormError("Could not load form responses.");
+      })
+      .finally(() => {
+        setFormLoading(false);
+      });
+  }, [selectedUser]);
 
   const sortMatches = (list: UI_Match[]) => {
     const order: Record<MatchStatus, number> = {
@@ -155,7 +207,7 @@ const PreProgram = () => {
     return [...pairRows, ...unmatchedStudentRows, ...unmatchedSeniorRows];
   };
 
-  const loadMatches = async () => {
+  const loadMatches = useCallback(async () => {
     const matchesRef = collection(db, "matches");
     const snap = await getDocs(matchesRef);
 
@@ -165,9 +217,15 @@ const PreProgram = () => {
     if (!snap.empty) {
       const pairRows: UI_Match[] = await Promise.all(
         snap.docs.map(async (d) => {
-          const data = d.data() as any;
-          const p1 = data.participant1_id as string;
-          const p2 = data.participant2_id as string;
+          const data = d.data() as {
+            participant1_id?: string;
+            participant2_id?: string;
+            similarity?: number;
+            status?: string;
+            approvedBy?: string;
+          };
+          const p1 = data.participant1_id ?? "";
+          const p2 = data.participant2_id ?? "";
           const similarity = data.similarity ?? 0;
 
           matchedIds.add(p1);
@@ -214,14 +272,23 @@ const PreProgram = () => {
     const participantsRef = collection(db, "participants");
     const participantsSnap = await getDocs(participantsRef);
 
+    // Fetch waitlisted IDs to exclude from unmatched rows
+    const waitlistSnap = await getDocs(collection(db, "waitlist"));
+    const waitlistedIds = new Set(waitlistSnap.docs.map((d) => d.id));
+
     const unmatchedRows: UI_Match[] = [];
 
     participantsSnap.forEach((pDoc) => {
-      const data = pDoc.data() as any;
+      const data = pDoc.data() as {
+        displayName?: string | null;
+        name?: string | null;
+        fullName?: string | null;
+        user_type?: string | null;
+        userType?: string | null;
+      };
       const id = pDoc.id;
-      console.log("CHECKING: " + id);
       if (matchedIds.has(id)) return;
-      console.log(id + " NOT FOUND IN MATCHIDS");
+      if (waitlistedIds.has(id)) return;
       const displayName =
         data.displayName ?? data.name ?? data.fullName ?? "Unnamed participant";
       const userType = (data.user_type ?? data.userType) as
@@ -229,7 +296,6 @@ const PreProgram = () => {
         | "Adult"
         | "Senior"
         | undefined;
-      console.log(userType);
       if (userType === "Student") {
         unmatchedRows.push({
           name1: displayName,
@@ -261,6 +327,22 @@ const PreProgram = () => {
 
     const sorted = sortMatches(combined);
     setMatches(sorted);
+  }, []);
+
+  useEffect(() => {
+    loadMatches();
+  }, [loadMatches]);
+
+  const [banner, setBanner] = useState<{
+    message: string;
+    type: "success" | "error";
+  } | null>(null);
+
+  const getConfidenceCategory = (confidence?: number) => {
+    if (confidence == null) return null;
+    if (confidence > 80) return "high";
+    if (confidence > 50) return "medium";
+    return "low";
   };
 
   const storeMatches = async (list: UI_Match[]): Promise<UI_Match[]> => {
@@ -284,7 +366,6 @@ const PreProgram = () => {
 
       const newDocRef = doc(colRef);
       writeBatchRef.set(newDocRef, {
-        day_of_call: -1,
         participant1_id: m.participant1_id,
         participant2_id: m.participant2_id,
         similarity: m.confidence,
@@ -370,7 +451,7 @@ const PreProgram = () => {
         const snap = await getDocs(collection(db, colName));
         if (snap.empty) continue;
 
-        const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const rows: Array<Record<string, unknown>> = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
         // Collect all keys
         const allKeys = Array.from(
@@ -391,7 +472,7 @@ const PreProgram = () => {
         const csvLines = [
           allKeys.join(","),
           ...rows.map((r) =>
-            allKeys.map((k) => escapeCell((r as any)[k])).join(","),
+            allKeys.map((k) => escapeCell(r[k])).join(",")
           ),
         ];
 
@@ -453,7 +534,8 @@ const PreProgram = () => {
         started: false,
         updatedAt: serverTimestamp(),
         week: 0,
-      });
+        currentParticipants: 0,
+      }, { merge: true });
 
       // Clear local state
       setMatches([]);
@@ -477,7 +559,7 @@ const PreProgram = () => {
     const updated = [...matches];
     const match = updated[index];
 
-    if (match.status === "No Match") return;
+    if (!match || match.status === "No Match") return;
 
     try {
       let adminName = "Unknown Admin";
@@ -521,6 +603,12 @@ const PreProgram = () => {
 
         const deleteMatchRef = doc(db, "matches", match.matchId);
         await deleteDoc(deleteMatchRef);
+
+        setBanner({
+          message: "Match separated successfully.",
+          type: "success",
+        });
+        setTimeout(() => setBanner(null), 3000);
         return;
       }
 
@@ -538,9 +626,19 @@ const PreProgram = () => {
         status: firestoreStatus,
         approvedBy: newStatus === "Approved" ? adminName : "",
       });
+
+      setBanner({
+        message: `Match marked as ${newStatus} successfully.`,
+        type: "success",
+      });
+      setTimeout(() => setBanner(null), 3000);
     } catch (err) {
       console.error("Failed to update match status:", err);
-      await loadMatches();
+      setBanner({
+        message: "Failed to update match status.",
+        type: "error",
+      });
+      setTimeout(() => setBanner(null), 3000);
     }
   };
 
@@ -770,6 +868,12 @@ const PreProgram = () => {
         </div>
       )}
 
+      {banner && (
+        <div className={`${styles.banner} ${styles[banner.type]}`}>
+          {banner.message}
+        </div>
+      )}
+
       {/* ── Match Table ── */}
       <div className={styles.container}>
         <div className={styles.filterBar} ref={statusFilterRef}>
@@ -817,7 +921,7 @@ const PreProgram = () => {
           <thead>
             <tr>
               <th>Student</th>
-              <th>Senior</th>
+              <th>Older Adult</th>
               <th>Final Score %</th>
               <th>Status</th>
               <th>Approved By</th>
@@ -833,9 +937,58 @@ const PreProgram = () => {
             ) : (
               filteredMatches.map((m, i) => (
                 <tr key={i}>
-                  <td>{m.name1}</td>
-                  <td>{m.name2}</td>
-                  <td>{m.confidence != null ? `${m.confidence}%` : "—"}</td>
+                  <td>
+                    {m.participant1_id ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSelectedUser({ id: m.participant1_id!, name: m.name1 })
+                        }
+                        className={styles.nameButton}
+                      >
+                        {m.name1}
+                      </button>
+                    ) : (
+                      m.name1
+                    )}
+                  </td>
+                  <td>
+                    {m.participant2_id ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSelectedUser({ id: m.participant2_id!, name: m.name2 })
+                        }
+                        className={styles.nameButton}
+                      >
+                        {m.name2}
+                      </button>
+                    ) : (
+                      m.name2
+                    )}
+                  </td>
+                  <td>
+                    {m.confidence != null ? (
+                      <span
+                        className={`${styles.score} ${
+                          getConfidenceCategory(m.confidence) === "high"
+                            ? styles.high
+                            : getConfidenceCategory(m.confidence) === "medium"
+                              ? styles.medium
+                              : styles.low
+                        }`}
+                      >
+                        {m.confidence}%{" "}
+                        {getConfidenceCategory(m.confidence) === "high"
+                          ? "High"
+                          : getConfidenceCategory(m.confidence) === "medium"
+                            ? "Medium"
+                            : "Low"}
+                      </span>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
                   <td>
                     {m.status === "No Match" ? (
                       <span className={`${styles.noMatch}`}>No Match</span>
@@ -845,7 +998,7 @@ const PreProgram = () => {
                         onChange={(e) =>
                           handleStatusChange(
                             m.matchId,
-                            e.target.value as MatchStatus | "Separate",
+                            e.target.value as MatchStatus | "Separate"
                           )
                         }
                         className={`${styles.status} ${
@@ -867,14 +1020,17 @@ const PreProgram = () => {
           </tbody>
         </table>
       </div>
-      <SettingsPopup
-        isOpened={settingsPopup}
-        close={() => {
-          setSettingsPopup(false);
-        }}
-        program={programState}
-        setProgram={setProgramState}
-      ></SettingsPopup>
+      <SettingsPopup isOpened={settingsPopup} close={()=>{setSettingsPopup(false)}} program={programState} setProgram = {setProgramState}></SettingsPopup>
+
+      {selectedUser ? (
+        <ParticipantInfoPopup
+          userName={selectedUser.name}
+          onClose={() => setSelectedUser(null)}
+          formResponses={formResponses}
+          loading={formLoading}
+          error={formError}
+        />
+      ) : null}
     </div>
   );
 };

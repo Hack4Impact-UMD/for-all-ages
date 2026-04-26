@@ -7,215 +7,235 @@ import { getAllMatches } from '../../services/matches'
 import { getWeek } from '../../services/weeks'
 import { getDoc, doc } from 'firebase/firestore'
 import { db } from '../../firebase'
-import type { Match, Week, DayKey, PersonAssignment, PersonTagVariant } from '../../types'
+import { getCurrentWeek, getWeekDateLabel, getWeekDateLabelLong } from '../../utils/programWeek'
+import type { Match, Week, PersonTagVariant } from '../../types'
 import { subscribeToProgramState, type ProgramState } from '../../services/programState'
 import CallLogModal from './components/PopUpWindow/CallLogModal'
 import SearchIcon from '@mui/icons-material/Search'
 import FilterListIcon from '@mui/icons-material/FilterList'
 
-type CallStatusFilter = "Missed" | "Pending" | "Completed";
+type CallStatusFilter =  'Submitted' | 'Not Submitted'
 
-const DAY_LABELS: DayKey[] = [
-  "Sun",
-  "Mon",
-  "Tue",
-  "Wed",
-  "Thurs",
-  "Fri",
-  "Sat",
-];
+interface MatchRow {
+  match: Match & { id: string }
+  label: CallStatusFilter | null
+  variant: PersonTagVariant | null
+  name1: string
+  name2: string
+}
 
-const WEEKS = 20;
+const WEEKS = 20
+
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/)
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+  return name.slice(0, 2).toUpperCase()
+}
 
 export default function AdminDashboard() {
-   const [selectedWeek, setSelectedWeek] = useState(0) // 0-indexed (Week 1)
-   const [allMatches, setAllMatches] = useState<(Match & { id: string })[]>([])
-   const [weekData, setWeekData] = useState<Week | null>(null)
-   const [participantNames, setParticipantNames] = useState<Record<string, string>>({})
-   const [loading, setLoading] = useState(true)
-   const [matchesLoading, setMatchesLoading] = useState(true)
-   const [error, setError] = useState<string | null>(null)
-   const [programState, setProgramState] = useState<ProgramState | null>(null)
-   const [activeMatch, setActiveMatch] = useState<(Match & { id: string }) | null>(null);
-   const [searchQuery, setSearchQuery] = useState('')
-   const [callStatusFilters, setCallStatusFilters] = useState<CallStatusFilter[]>([]);
-   const [callFilterOpen, setCallFilterOpen] = useState(false);
+  const [selectedWeek, setSelectedWeek] = useState(0)
+  const [allMatches, setAllMatches] = useState<(Match & { id: string })[]>([])
+  const [weekData, setWeekData] = useState<Week | null>(null)
+  const [allWeeksData, setAllWeeksData] = useState<Record<number, string[]>>({})
+  const [participantNames, setParticipantNames] = useState<Record<string, string>>({})
+  const [loading, setLoading] = useState(true)
+  const [matchesLoading, setMatchesLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [programState, setProgramState] = useState<ProgramState | null>(null)
+  const [activeMatch, setActiveMatch] = useState<(Match & { id: string }) | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [callStatusFilters, setCallStatusFilters] = useState<CallStatusFilter[]>([])
+  const [callFilterOpen, setCallFilterOpen] = useState(false)
 
-   // Ref to ensure we only sync the week from Firebase ONCE on initial load
-   const hasInitializedWeek = useRef(false);
-   const callFilterRef = useRef<HTMLDivElement | null>(null);
+  const hasInitializedWeek = useRef(false)
+  const callFilterRef = useRef<HTMLDivElement | null>(null)
 
-   useEffect(() => {
-       const unsubscribe = subscribeToProgramState(
-           (state) => {
-               setProgramState(state)
-           },
-           (err) => {
-               console.error('ProgramState subscription error', err)
-           }
-       )
-       return unsubscribe
-   }, [])
+  const weekLabels = useMemo(
+    () => Array.from({ length: WEEKS }, (_, i) => `Week ${i + 1}`),
+    []
+  )
 
-   // ONLY update selected week when programState first loads or when explicitly needed
-   useEffect(() => {
-       if (programState && typeof programState.week === 'number' && !hasInitializedWeek.current) {
-           const nextWeekIndex = Math.max(0, programState.week - 1)
-           setSelectedWeek(nextWeekIndex)
-           hasInitializedWeek.current = true; // Mark as initialized so user selection isn't overridden
-       }
-   }, [programState?.week])
+  const weekDateLabels = useMemo(
+    () => Array.from({ length: WEEKS }, (_, i) =>
+      getWeekDateLabel(programState?.startDate, i + 1)
+    ),
+    [programState?.startDate]
+  )
 
-   // Fetch all matches once on mount
-   useEffect(() => {
-     async function loadMatches() {
-       try {
-         setMatchesLoading(true);
-         const matchesData = await getAllMatches();
-         setAllMatches(matchesData);
+  useEffect(() => {
+    const unsubscribe = subscribeToProgramState(
+      (state) => setProgramState(state),
+      (err) => console.error('ProgramState subscription error', err)
+    )
+    return unsubscribe
+  }, [])
 
-         const uniqueParticipantIds = new Set<string>();
-         matchesData.forEach((match) => {
-           uniqueParticipantIds.add(match.participant1_id);
-           uniqueParticipantIds.add(match.participant2_id);
-         });
+  // Sync selected week once on initial load
+  useEffect(() => {
+    if (programState && !hasInitializedWeek.current) {
+      const week = getCurrentWeek(programState.startDate, programState.numWeeks ?? WEEKS);
+      setSelectedWeek(week-1);
+      hasInitializedWeek.current = true;
+    }
+  }, [programState])
 
-         const names: Record<string, string> = {};
-         const participantFetches = Array.from(uniqueParticipantIds).map(
-           async (participantId) => {
-             const participantRef = doc(db, "participants", participantId);
-             const participantDoc = await getDoc(participantRef);
-             return {
-               participantId,
-               name: participantDoc.exists() ? (participantDoc.data().displayName || participantDoc.data().name || "Unknown") : "Unknown"
-             };
-           }
-         );
-         const results = await Promise.all(participantFetches);
-         results.forEach(r => names[r.participantId] = r.name);
-         setParticipantNames(names);
-       } catch (err: any) {
-         setError("Failed to load matches.");
-       } finally {
-         setMatchesLoading(false);
-       }
-     }
-     loadMatches();
-   }, []);
+  // Fetch all matches + participant names once on mount
+  useEffect(() => {
+    async function loadMatches() {
+      try {
+        setMatchesLoading(true)
+        const matchesData = await getAllMatches()
+        setAllMatches(matchesData)
 
-   // Fetch week data when selected week changes
-   useEffect(() => {
-     async function loadWeekData() {
-       try {
-         setLoading(true);
-         const weekNumber = selectedWeek + 1;
-         const week = await getWeek(weekNumber);
-         setWeekData(week);
-       } catch (err) {
-         setWeekData(null); // Explicitly set to null if missing
-       } finally {
-         setLoading(false);
-       }
-     }
-     loadWeekData();
-   }, [selectedWeek]);
+        const uniqueIds = new Set<string>()
+        matchesData.forEach(m => { uniqueIds.add(m.participant1_id); uniqueIds.add(m.participant2_id) })
 
-   useEffect(() => {
-     if (!callFilterOpen) return;
+        const names: Record<string, string> = {}
+        await Promise.all(Array.from(uniqueIds).map(async (id) => {
+          const snap = await getDoc(doc(db, 'participants', id))
+          names[id] = snap.exists() ? (snap.data().displayName || snap.data().name || 'Unknown') : 'Unknown'
+        }))
+        setParticipantNames(names)
+      } catch {
+        setError('Failed to load matches.')
+      } finally {
+        setMatchesLoading(false)
+      }
+    }
+    loadMatches()
+  }, [])
 
-     const handleClickOutside = (event: MouseEvent | TouchEvent) => {
-       if (!callFilterRef.current) return;
-       if (!callFilterRef.current.contains(event.target as Node)) {
-         setCallFilterOpen(false);
-       }
-     };
+  // Fetch all weeks once for progress bars
+  useEffect(() => {
+    async function loadAllWeeks() {
+      const results = await Promise.allSettled(
+        Array.from({ length: WEEKS }, (_, i) => getWeek(i + 1))
+      )
+      const data: Record<number, string[]> = {}
+      results.forEach((r, i) => {
+        data[i + 1] = r.status === 'fulfilled' && r.value ? r.value.calls : []
+      })
+      setAllWeeksData(data)
+    }
+    loadAllWeeks()
+  }, [])
 
-     document.addEventListener('mousedown', handleClickOutside);
-     document.addEventListener('touchstart', handleClickOutside);
+  // Fetch selected week data; sync into allWeeksData for accurate progress display
+  useEffect(() => {
+    async function loadWeekData() {
+      try {
+        setLoading(true)
+        const week = await getWeek(selectedWeek + 1)
+        setWeekData(week)
+        setAllWeeksData(prev => ({ ...prev, [selectedWeek + 1]: week?.calls ?? [] }))
+      } catch {
+        setWeekData(null)
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadWeekData()
+  }, [selectedWeek])
 
-     return () => {
-       document.removeEventListener('mousedown', handleClickOutside);
-       document.removeEventListener('touchstart', handleClickOutside);
-     };
-   }, [callFilterOpen]);
+  // Close filter dropdown on outside click
+  useEffect(() => {
+    if (!callFilterOpen) return
+    const handler = (e: MouseEvent | TouchEvent) => {
+      if (!callFilterRef.current?.contains(e.target as Node)) setCallFilterOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    document.addEventListener('touchstart', handler)
+    return () => {
+      document.removeEventListener('mousedown', handler)
+      document.removeEventListener('touchstart', handler)
+    }
+  }, [callFilterOpen])
 
-   const filteredMatches = useMemo(() => {
-     const normalizedQuery = searchQuery.trim().toLowerCase();
-     if (!normalizedQuery) return allMatches;
-     return allMatches.filter((match) => {
-       const name1 = (participantNames[match.participant1_id] || '').toLowerCase();
-       const name2 = (participantNames[match.participant2_id] || '').toLowerCase();
-       return name1.includes(normalizedQuery) || name2.includes(normalizedQuery);
-     });
-   }, [allMatches, searchQuery, participantNames]);
 
-   // Transform matches into calendar format grouped by day
-   const activeWeekData = useMemo(() => {
-     const schedule: Record<DayKey, PersonAssignment[]> = {
-       Sun: [], Mon: [], Tue: [], Wed: [], Thurs: [], Fri: [], Sat: [],
-     };
+  // Search option based on the names of participants
+  const filteredMatches = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    if (!q) return allMatches
+    return allMatches.filter(m => {
+      const n1 = (participantNames[m.participant1_id] || '').toLowerCase()
+      const n2 = (participantNames[m.participant2_id] || '').toLowerCase()
+      return n1.includes(q) || n2.includes(q)
+    })
+  }, [allMatches, searchQuery, participantNames])
 
-     const currentGlobalWeek = programState?.week ?? 1;
-     const today = new Date();
-     const todayDayOfWeek = today.getDay(); // 0-6
+  const currentGlobalWeek = getCurrentWeek(programState?.startDate, programState?.numWeeks ?? WEEKS)
+  const viewingWeek = selectedWeek + 1
+  const isCurrentWeek = viewingWeek === currentGlobalWeek
+  const isPastWeek = viewingWeek < currentGlobalWeek
+  const isFutureWeek = viewingWeek > currentGlobalWeek
 
-     filteredMatches.forEach((match) => {
-       if (match.day_of_call < 1) return; // Don't show on roadmap until user has set a day
-       const programDayRaw = match.day_of_call;
-       const programDay = programDayRaw === 7 ? 0 : programDayRaw; // 0-6 (Sun-Sat)
-       const dayKey = DAY_LABELS[programDay];
+  // Compute per-row status
+  const matchRows = useMemo((): MatchRow[] => {
+    return filteredMatches.map(match => {
+      const hasLog = weekData?.calls.includes(match.id) ?? false
+      let label: CallStatusFilter | null
+      let variant: PersonTagVariant | null
 
-       if (!dayKey) return; // Safeguard against bad data
+      if (isFutureWeek) {
+        // Upcoming week — no status yet
+        label = null
+        variant = null
+      } else if (hasLog) {
+        // Current week submitted -> green "Complete"
+        label = 'Submitted'
+        variant = 'green'
+      } else if (isPastWeek) {
+        // Past week, no log -> red "Not Submitted"
+        label = 'Not Submitted'
+        variant = 'rose'
+      } else {
+        // Current week, no log -> yellow "Not Submitted"
+        label = 'Not Submitted'
+        variant = 'gold'
+      }
 
-       let variant: "rose" | "green" | "gold" = "gold";
+      return {
+        match,
+        label,
+        variant,
+        name1: participantNames[match.participant1_id] || 'Loading...',
+        name2: participantNames[match.participant2_id] || 'Loading...',
+      }
+    })
+  }, [filteredMatches, weekData, participantNames, isPastWeek, isFutureWeek])
 
-       // 1. Check if completed
-       if (weekData && weekData.calls.includes(match.id)) {
-         variant = "green";
-       } else {
-         const viewingWeek = selectedWeek + 1;
 
-         if (viewingWeek < currentGlobalWeek) {
-           variant = "rose"; // Past week missed
-         } else if (viewingWeek === currentGlobalWeek) {
-           if (programDay < todayDayOfWeek) {
-             variant = "rose"; // Past day in current week missed
-           }
-         }
-       }
+  const stats = useMemo(() => ({
+    total: filteredMatches.length,
+    complete: matchRows.filter(r => r.variant === 'green').length,
+    notSubmitted: matchRows.filter(r => r.variant !== 'green').length,
+  }), [matchRows, filteredMatches.length])
 
-       schedule[dayKey].push({
-         names: [
-           participantNames[match.participant1_id] || "Loading...",
-           participantNames[match.participant2_id] || "Loading..."
-         ],
-         variant: variant,
-         matchId: match.id,
-       });
-     });
+  const visibleRows = useMemo(() => {
+    if (callStatusFilters.length === 0) return matchRows
+    return matchRows.filter(r => r.label !== null && callStatusFilters.includes(r.label))
+  }, [matchRows, callStatusFilters])
 
-     return schedule;
-   }, [filteredMatches, weekData, participantNames, selectedWeek, programState?.week]);
+  // Top right badge showing the status of that week
+  const weekStatusBadge = isPastWeek ? { label: 'Completed', cls: adminStyles.badgeCompleted } :
+    ( isCurrentWeek ? { label: 'Ongoing', cls: adminStyles.badgeOngoing }
+    : { label: 'Upcoming', cls: adminStyles.badgeUpcoming })
 
-   const pendingMatches = useMemo(
-     () => filteredMatches.filter((m) => m.day_of_call < 1),
-     [filteredMatches]
-   );
-
-   const getStatusForVariant = (variant: PersonTagVariant | undefined): CallStatusFilter => {
-     if (variant === 'green') return 'Completed';
-     if (variant === 'rose') return 'Missed';
-     return 'Pending';
-   };
-
-   return (
+  return (
     <div className={layoutStyles.page}>
       <div className={layoutStyles.surface}>
         <section className={layoutStyles.selectorSection}>
           <WeekSelector
-            weeks={Array.from({ length: WEEKS }, (_, i) => `Week ${i + 1}`)}
+            weeks={weekLabels}
+            subLabels={weekDateLabels}
             selectedWeekIndex={selectedWeek}
             onSelect={setSelectedWeek}
+            statuses={Array.from({ length: WEEKS }, (_, i) => {
+              const wk = i + 1
+              if (wk < currentGlobalWeek) return 'completed'
+              if (wk === currentGlobalWeek) return 'current'
+              return 'future'
+            })}
           />
         </section>
 
@@ -235,8 +255,8 @@ export default function AdminDashboard() {
             <h2 className={layoutStyles.sectionHeading}>Dashboard</h2>
             <div />
           </div>
-          {error && <div className={adminStyles.errorBox}>{error}</div>}
 
+          {error && <div className={adminStyles.errorBox}>{error}</div>}
           {!error && searchQuery.trim() && !matchesLoading && filteredMatches.length === 0 && (
             <div className={adminStyles.noResults}>No matches found for "{searchQuery.trim()}"</div>
           )}
@@ -245,103 +265,140 @@ export default function AdminDashboard() {
             <div className={adminStyles.loading}>Loading Week {selectedWeek + 1}...</div>
           ) : (
             <div className={adminStyles.scheduleCard}>
-              <div className={adminStyles.scheduleInner}>
-                <div className={adminStyles.filterBar} ref={callFilterRef}>
-                  <button
-                    type="button"
-                    className={adminStyles.filterButton}
-                    onClick={() => setCallFilterOpen((open) => !open)}
-                  >
-                    <FilterListIcon className={adminStyles.filterIcon} />
-                    <span>Filter calls</span>
-                  </button>
-                  {callFilterOpen && (
-                    <div className={adminStyles.filterPopover}>
-                      {(["Missed", "Pending", "Completed"] as CallStatusFilter[]).map(
-                        (status) => (
-                          <label key={status} className={adminStyles.filterOption}>
-                            <input
-                              type="checkbox"
-                              checked={callStatusFilters.includes(status)}
-                              onChange={() =>
-                                setCallStatusFilters((prev) =>
-                                  prev.includes(status)
-                                    ? prev.filter((s) => s !== status)
-                                    : [...prev, status],
-                                )
-                              }
-                            />
-                            <span>{status}</span>
-                          </label>
-                        ),
-                      )}
-                      <button
-                        type="button"
-                        className={adminStyles.clearFilterButton}
-                        onClick={() => setCallStatusFilters([])}
-                      >
-                        Clear filters
-                      </button>
-                    </div>
+
+              {/* Week header */}
+              <div className={adminStyles.weekHeader}>
+                <div>
+                  <h3 className={adminStyles.weekTitle}>Week {viewingWeek}</h3>
+                  {getWeekDateLabelLong(programState?.startDate, viewingWeek) && (
+                    <h3 className={adminStyles.weekDateRange}>
+                      {getWeekDateLabelLong(programState?.startDate, viewingWeek)}
+                    </h3>
                   )}
                 </div>
-                <div className={adminStyles.dayGrid}>
-                  {DAY_LABELS.map((day) => {
-                    const assignments = activeWeekData[day] ?? [];
-                    const visibleAssignments = assignments.filter((assignment) => {
-                      if (callStatusFilters.length === 0) return true;
-                      const status = getStatusForVariant(assignment.variant);
-                      return callStatusFilters.includes(status);
-                    });
-                    return (
-                      <div className={adminStyles.dayColumn} key={day}>
-                        <div className={adminStyles.dayHeader}>{day}</div>
-                        <div className={adminStyles.peopleList}>
-                          {visibleAssignments.length === 0 ? (
-                            <div className={adminStyles.emptyDay}>No calls</div>
-                          ) : (
-                            visibleAssignments.map((assignment, index) => (
-                              <div
-                                key={`${day}-${index}`}
-                                onClick={() => {
-                                  if (assignment.variant !== 'green') return
-                                  const match = allMatches.find(m => m.id === assignment.matchId)
-                                  if (match) setActiveMatch(match)
-                                }}
-                                style={{ cursor: assignment.variant === 'green' ? 'pointer' : 'default' }}
-                              >
-                                <PersonTag names={assignment.names} variant={assignment.variant} />
-                              </div>
-                            ))
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                <span className={`${adminStyles.weekBadge} ${weekStatusBadge.cls}`}>{weekStatusBadge.label}</span>
               </div>
+
+
+              
+
+              {/* Filter */}
+              <div className={adminStyles.filterBar} ref={callFilterRef}>
+                <button
+                  type="button"
+                  className={adminStyles.filterButton}
+                  onClick={() => setCallFilterOpen(o => !o)}
+                >
+                  <FilterListIcon className={adminStyles.filterIcon} />
+                  <span>Filter calls</span>
+                </button>
+                {callFilterOpen && (
+                  <div className={adminStyles.filterPopover}>
+                    {(['Submitted', 'Not Submitted'] as CallStatusFilter[]).map(status => (
+                      <label key={status} className={adminStyles.filterOption}>
+                        <input
+                          type="checkbox"
+                          checked={callStatusFilters.includes(status)}
+                          onChange={() =>
+                            setCallStatusFilters(prev =>
+                              prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]
+                            )
+                          }
+                        />
+                        <span>{status}</span>
+                      </label>
+                    ))}
+                    <button
+                      type="button"
+                      className={adminStyles.clearFilterButton}
+                      onClick={() => setCallStatusFilters([])}
+                    >
+                      Clear filters
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Stats — current and past weeks */}
+              {(isCurrentWeek || isPastWeek) && (
+                <div className={adminStyles.statsRow}>
+                  <div className={adminStyles.statBox}>
+                    <span className={adminStyles.statHeader}>Calls Scheduled</span>
+                    <span className={adminStyles.statValue}>{stats.total} <span className={adminStyles.statUnit}>this week</span></span>
+                  </div>
+                  <div className={adminStyles.statBox}>
+                    <span className={adminStyles.statHeader}>Log Complete</span>
+                    <span className={`${adminStyles.statValue} ${adminStyles.statValueGreen}`}>{stats.complete} <span className={adminStyles.statUnit}>pairs</span></span>
+                  </div>
+                  <div className={adminStyles.statBox}>
+                    <span className={adminStyles.statHeader}>{isPastWeek ? 'Missed' : 'Log Not Submitted'}</span>
+                    <span className={`${adminStyles.statValue} ${isPastWeek ? adminStyles.statValueRed : adminStyles.statValueGold}`}>{stats.notSubmitted} <span className={adminStyles.statUnit}>pairs</span></span>
+                  </div>
+                </div>
+              )}
+
+              
+              {/* Match table */}
+              <div className={adminStyles.matchTable}>
+                <div className={adminStyles.tableHeader}>
+                  <span>Student Name</span>
+                  <span>Older Adult Name</span>
+                  <span>Call Status</span>
+                  <span>Progress</span>
+                </div>
+                {visibleRows.length === 0 ? (
+                  <div className={adminStyles.emptyTable}>No matches found</div>
+                ) : (
+                  visibleRows.map(({ match, label, variant, name1, name2 }) => (
+                    <div
+                      key={match.id}
+                      className={adminStyles.tableRow}
+                      onClick={() => { if (variant === 'green') setActiveMatch(match) }}
+                      style={{ cursor: variant === 'green' ? 'pointer' : 'default' }}
+                    >
+                      <span className={adminStyles.participantCell}>
+                        <span className={adminStyles.avatar}>{getInitials(name1)}</span>
+                        <span>{name1}</span>
+                      </span>
+                      <span className={adminStyles.participantCell}>
+                        <span className={adminStyles.avatar}>{getInitials(name2)}</span>
+                        <span>{name2}</span>
+                      </span>
+                      <div className={adminStyles.statusCell}>
+                        {label && variant
+                          ? <PersonTag names={label} variant={variant} />
+                          : <span className={adminStyles.noStatus}>—</span>
+                        }
+                      </div>
+                      <div className={adminStyles.progressBlocks}>
+                        {Array.from({ length: WEEKS }, (_, i) => {
+                          const wk = i + 1
+                          const isCurrent = wk === currentGlobalWeek
+                          const isViewing = wk === viewingWeek
+                          if (wk > currentGlobalWeek) {
+                            return <span key={wk} className={`${adminStyles.block} ${adminStyles.blockFuture} ${isViewing ? adminStyles.blockCurrent : ''}`} />
+                          }
+                          const submitted = (allWeeksData[wk] ?? []).includes(match.id)
+                          const colorClass = submitted
+                            ? adminStyles.blockGreen
+                            : isCurrent
+                              ? adminStyles.blockGold
+                              : adminStyles.blockRed
+                          return (
+                            <span
+                              key={wk}
+                              className={`${adminStyles.block} ${colorClass} ${isViewing ? adminStyles.blockCurrent : ''}`}
+                            />
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
             </div>
           )}
-
-          <h2 className={layoutStyles.sectionHeading}>Pending</h2>
-          <div className={adminStyles.pendingCard}>
-            <div className={adminStyles.pendingList}>
-              {pendingMatches.length === 0 ? (
-                <div className={adminStyles.emptyDay}>No pending matches</div>
-              ) : (
-                pendingMatches.map((match) => (
-                  <PersonTag
-                    key={match.id}
-                    names={[
-                      participantNames[match.participant1_id] || "Loading...",
-                      participantNames[match.participant2_id] || "Loading...",
-                    ]}
-                    variant="gold"
-                  />
-                ))
-              )}
-            </div>
-          </div>
         </section>
       </div>
 
@@ -354,5 +411,5 @@ export default function AdminDashboard() {
         />
       )}
     </div>
-   );
+  )
 }

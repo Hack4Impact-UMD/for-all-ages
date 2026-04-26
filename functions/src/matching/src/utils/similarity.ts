@@ -65,54 +65,44 @@ export function cosineSimilarity(vector1: number[], vector2: number[]): number {
  * @returns Similarity score [0-1] where 1 = identical, 0 = maximally different
  */
 export function quantifiableScoreSimilarity(
-  scores1: { q1?: number; q2?: number; q3?: number },
-  scores2: { q1?: number; q2?: number; q3?: number },
+  scores1: Record<string, number> = {},
+  scores2: Record<string, number> = {},
   config: MatchingConfig
 ): number {
   const { scoreRanges } = config;
   
-  // Handle missing scores
-  const q1_1 = scores1.q1 ?? ((scoreRanges.q1Min + scoreRanges.q1Max) / 2);
-  const q1_2 = scores2.q1 ?? ((scoreRanges.q1Min + scoreRanges.q1Max) / 2);
-  
-  const q2_1 = scores1.q2 ?? ((scoreRanges.q2Min + scoreRanges.q2Max) / 2);
-  const q2_2 = scores2.q2 ?? ((scoreRanges.q2Min + scoreRanges.q2Max) / 2);
-  
-  const q3_1 = scores1.q3 ?? ((scoreRanges.q3Min + scoreRanges.q3Max) / 2);
-  const q3_2 = scores2.q3 ?? ((scoreRanges.q3Min + scoreRanges.q3Max) / 2);
-  
-  // Clamp values to valid ranges
-  const clampedQ1_1 = clamp(q1_1, scoreRanges.q1Min, scoreRanges.q1Max);
-  const clampedQ1_2 = clamp(q1_2, scoreRanges.q1Min, scoreRanges.q1Max);
-  
-  const clampedQ2_1 = clamp(q2_1, scoreRanges.q2Min, scoreRanges.q2Max);
-  const clampedQ2_2 = clamp(q2_2, scoreRanges.q2Min, scoreRanges.q2Max);
-  
-  const clampedQ3_1 = clamp(q3_1, scoreRanges.q3Min, scoreRanges.q3Max);
-  const clampedQ3_2 = clamp(q3_2, scoreRanges.q3Min, scoreRanges.q3Max);
-  
-  // Calculate squared differences
-  const diffQ1 = clampedQ1_1 - clampedQ1_2;
-  const diffQ2 = clampedQ2_1 - clampedQ2_2;
-  const diffQ3 = clampedQ3_1 - clampedQ3_2;
-  
-  const ssd = (diffQ1 * diffQ1) + (diffQ2 * diffQ2) + (diffQ3 * diffQ3);
-  
-  // Calculate maximum possible SSD
-  const maxDiffQ1 = scoreRanges.q1Max - scoreRanges.q1Min;
-  const maxDiffQ2 = scoreRanges.q2Max - scoreRanges.q2Min;
-  const maxDiffQ3 = scoreRanges.q3Max - scoreRanges.q3Min;
-  
-  const maxSSD = (maxDiffQ1 * maxDiffQ1) + (maxDiffQ2 * maxDiffQ2) + (maxDiffQ3 * maxDiffQ3);
-  
-  // Normalize to [0, 1] where 1 = identical, 0 = maximally different
-  if (maxSSD === 0) {
-    return 1; // All scores are identical if no range
+  let totalSimilarity = 0;
+  let sharedQuestions = 0;
+
+  for (const questionId in scores1) {
+    // Only score overlapping numeric questions that are configured
+    if (questionId in scores2 && scoreRanges[questionId]) {
+      const a = scores1[questionId];
+      const b = scores2[questionId];
+      const { min, max } = scoreRanges[questionId];
+      
+      const range = max - min;
+      if (range > 0) {
+        // similarity_q = 1 - |a - b| / (max_q - min_q)
+        const similarity = 1 - (Math.abs(a - b) / range);
+        // Clamp between 0 and 1 in case of unexpected values outside ranges
+        totalSimilarity += Math.max(0, Math.min(1, similarity));
+      } else {
+        // Fallback if max == min
+        totalSimilarity += (a === b ? 1 : 0);
+      }
+      
+      sharedQuestions++;
+    }
   }
-  
-  const similarity = 1 - (ssd / maxSSD);
-  
-  return Math.max(0, Math.min(1, similarity));
+
+  // If there are no overlapping questions, default to 0 similarity
+  if (sharedQuestions === 0) {
+    return 0;
+  }
+
+  // Calculate the final average across shared numeric questions
+  return totalSimilarity / sharedQuestions;
 }
 
 /**
@@ -162,13 +152,6 @@ export function determineConfidence(
   } else {
     return 'low';
   }
-}
-
-/**
- * Clamp a value between min and max
- */
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
 }
 
 /**

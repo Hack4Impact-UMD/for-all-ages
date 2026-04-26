@@ -29,28 +29,30 @@ export interface PreferenceScores {
 
 /** Participant document shape - stores only basic info (Firestore-friendly; all fields optional) */
 export interface Participant {
-  id?: string;
-  type?: "Participant";
-  userUid?: string;
-  displayName?: string | null;
-  firstName?: string | null;
-  lastName?: string | null;
-  email?: string | null;
-  phoneNumber?: string | null;
-  address?: RawAddress | null;
-  user_type?: UserType | string;
-  dateOfBirth?: string | null;
-  pronouns?: string | null;
-  heardAbout?: string | null;
-  university?: string | null;
-  interests?: string | null;
-  teaPreference?: string | null;
-  preferredContactMethods?: string[] | null;
-  preferenceScores?: PreferenceScores | null;
-  status?: string | null;
-  role?: Role | null;
-  createdAt?: Timestamp | null;
-  updatedAt?: Timestamp | null;
+    id?: string
+    type?: "Participant"
+    userUid?: string
+    displayName?: string | null
+    firstName?: string | null
+    lastName?: string | null
+    email?: string | null
+    phoneNumber?: string | null
+    address?: RawAddress | null
+    user_type?: UserType | string
+    dateOfBirth?: string | null
+    pronouns?: string | null
+    heardAbout?: string | null
+    university?: string | null
+    interests?: string | null
+    teaPreference?: string | null
+    preferredContactMethods?: string[] | null
+    preferenceScores?: PreferenceScores | null
+    status?: string | null
+    role?: Role | "Participant" | null
+    hasAuthAccount?: boolean
+    isManualEntry?: boolean
+    createdAt?: Timestamp | null
+    updatedAt?: Timestamp | null
 }
 
 export type ParticipantDoc = Partial<Participant>;
@@ -99,10 +101,9 @@ export interface Survey {
 }
 
 export interface Match {
-  participant1_id: string;
-  participant2_id: string;
-  day_of_call: number; // 1-7 (Monday-Sunday), or -1 if not yet set
-  similarity: number;
+    participant1_id: string
+    participant2_id: string
+    similarity: number
 }
 
 export interface Week {
@@ -142,18 +143,17 @@ export interface BannerState {
 
 /** Program config document (Firestore config/programState) */
 export interface ProgramState {
-  started: boolean;
-  matches_final: boolean;
-  week: number;
-  maxParticipants: number;
-  numWeeks: number;
+    started: boolean
+    matches_final: boolean
+    startDate?: string | null
+    maxParticipants: number
+    currentParticipants: number
+    numWeeks: number
 }
 
 /** PreProgram match row status */
 export type MatchStatus = "Pending" | "Approved" | "No Match";
 
-/** Day labels for schedule (AdminDashboard) */
-export type DayKey = "Sun" | "Mon" | "Tue" | "Wed" | "Thurs" | "Fri" | "Sat";
 
 /** Tag variant for person/assignment display */
 export type PersonTagVariant = "rose" | "green" | "gold";
@@ -267,14 +267,14 @@ export interface UserProfile {
 
 /** Validation error fields (Profile and similar forms) */
 export interface ErrorState {
-  email?: string;
-  phone?: string;
-  birthday?: string;
-  addressLine1?: string;
-  addressCity?: string;
-  addressState?: string;
-  addressPostalCode?: string;
-  addressCountry?: string;
+    name?: string;
+    phone?: string;
+    birthday?: string;
+    addressLine1?: string;
+    addressCity?: string;
+    addressState?: string;
+    addressPostalCode?: string;
+    addressCountry?: string;
 }
 
 /** Question type for dynamic form rendering */
@@ -283,6 +283,7 @@ export type QuestionType =
   | "medium_input"
   | "long_input"
   | "Dropdown"
+  | "DropdownWithOther"
   | "Slider"
   | "Radio"
   | "Date"
@@ -300,14 +301,23 @@ export interface Question {
   options?: string[];
   min?: number;
   max?: number;
+  numericKey?: string;
   required: boolean;
   matchable: boolean;
+  locked?: boolean;
+  lockedKey?:
+    | "pronouns"
+    | "school"
+    | "phone number"
+    | "current address"
+    | "user type";
 }
 
 /** Section containing questions in a dynamic form */
 export interface Section {
   title?: string;
   questions: Question[];
+  locked?: boolean;
 }
 
 /** Root form definition for dynamic form rendering */
