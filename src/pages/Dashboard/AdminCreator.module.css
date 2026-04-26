@@ -1,5 +1,6 @@
 .surfaceTight {
   padding-top: 88px;
+  width: min(1600px, 100%);
 }
 
 .pageTitle {
