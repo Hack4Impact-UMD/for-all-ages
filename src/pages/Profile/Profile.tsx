@@ -99,6 +99,10 @@ const Profile = () => {
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       if (!fbUser) {
@@ -438,6 +442,9 @@ const Profile = () => {
       setPasswordCurrent("");
       setNewPassword("");
       setConfirmNewPassword("");
+      setShowCurrentPassword(false);
+      setShowNewPassword(false);
+      setShowConfirmNewPassword(false);
     } catch (err: unknown) {
       console.error("Error updating password:", err);
 
@@ -656,7 +663,7 @@ const Profile = () => {
                   <span className={styles.boxLabel}>Current Password</span>
                 </div>
                 <input
-                  type="password"
+                  type={showCurrentPassword ? "text" : "password"}
                   className={styles.input}
                   value={passwordCurrent}
                   onChange={(e) => {
@@ -664,7 +671,19 @@ const Profile = () => {
                     if (passwordError) setPasswordError(null);
                     if (passwordSuccess) setPasswordSuccess(null);
                   }}
+                  autoComplete="current-password"
                 />
+                <div className={styles.showPasswordRow}>
+                  <input
+                    type="checkbox"
+                    id="profileShowCurrentPassword"
+                    checked={showCurrentPassword}
+                    onChange={(e) => setShowCurrentPassword(e.target.checked)}
+                  />
+                  <label htmlFor="profileShowCurrentPassword" className={styles.showPasswordLabel}>
+                    Show password
+                  </label>
+                </div>
               </div>
             </div>
 
@@ -674,14 +693,26 @@ const Profile = () => {
                   <span className={styles.boxLabel}>New Password</span>
                 </div>
                 <input
-                  type="password"
+                  type={showNewPassword ? "text" : "password"}
                   className={styles.input}
                   value={newPassword}
                   onChange={(e) => {
                     setNewPassword(e.target.value);
                     if (passwordSuccess) setPasswordSuccess(null);
                   }}
+                  autoComplete="new-password"
                 />
+                <div className={styles.showPasswordRow}>
+                  <input
+                    type="checkbox"
+                    id="profileShowNewPassword"
+                    checked={showNewPassword}
+                    onChange={(e) => setShowNewPassword(e.target.checked)}
+                  />
+                  <label htmlFor="profileShowNewPassword" className={styles.showPasswordLabel}>
+                    Show password
+                  </label>
+                </div>
               </div>
             </div>
 
@@ -691,14 +722,26 @@ const Profile = () => {
                   <span className={styles.boxLabel}>Confirm New Password</span>
                 </div>
                 <input
-                  type="password"
+                  type={showConfirmNewPassword ? "text" : "password"}
                   className={styles.input}
                   value={confirmNewPassword}
                   onChange={(e) => {
                     setConfirmNewPassword(e.target.value);
                     if (passwordSuccess) setPasswordSuccess(null);
                   }}
+                  autoComplete="new-password"
                 />
+                <div className={styles.showPasswordRow}>
+                  <input
+                    type="checkbox"
+                    id="profileShowConfirmNewPassword"
+                    checked={showConfirmNewPassword}
+                    onChange={(e) => setShowConfirmNewPassword(e.target.checked)}
+                  />
+                  <label htmlFor="profileShowConfirmNewPassword" className={styles.showPasswordLabel}>
+                    Show password
+                  </label>
+                </div>
               </div>
             </div>
 

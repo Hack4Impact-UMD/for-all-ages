@@ -5,26 +5,26 @@ export type Role = "Admin" | "Subadmin";
 export type UserType = "student" | "adult";
 
 export interface User {
-    email: string;
-    name: string;
-    role: Role;
+  email: string;
+  name: string;
+  role: Role;
 }
 
 /** Address shape for participant documents (Firestore) */
 export interface RawAddress {
-    line1?: string | null
-    line2?: string | null
-    city?: string | null
-    state?: string | null
-    postalCode?: string | null
-    country?: string | null
+  line1?: string | null;
+  line2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postalCode?: string | null;
+  country?: string | null;
 }
 
 /** Preference scores (q1–q3) used in participant docs and rematching */
 export interface PreferenceScores {
-    q1?: number
-    q2?: number
-    q3?: number
+  q1?: number;
+  q2?: number;
+  q3?: number;
 }
 
 /** Participant document shape - stores only basic info (Firestore-friendly; all fields optional) */
@@ -48,7 +48,9 @@ export interface Participant {
     preferredContactMethods?: string[] | null
     preferenceScores?: PreferenceScores | null
     status?: string | null
-    role?: Role | null
+    role?: Role | "Participant" | null
+    hasAuthAccount?: boolean
+    isManualEntry?: boolean
     createdAt?: Timestamp | null
     updatedAt?: Timestamp | null
 }
@@ -56,213 +58,211 @@ export interface Participant {
 export type ParticipantDoc = Partial<Participant>;
 
 export type ParticipantProfile = Pick<
-    Participant,
-    "displayName" | "firstName" | "lastName"
+  Participant,
+  "displayName" | "firstName" | "lastName"
 >;
 
 /** Question response for FormResponse collection */
 export interface Questions {
-	title: string
-	type: QuestionType
-	answer: string | number
+  title: string;
+  type: QuestionType;
+  answer: string | number;
 }
 
 /** FormResponse document - stores all non-basic questions */
 export interface FormResponse {
-    uid: string  // user uid
-    questions: Questions[]
-    createdAt?: Timestamp | null
-    updatedAt?: Timestamp | null
+  uid: string; // user uid
+  questions: Questions[];
+  createdAt?: Timestamp | null;
+  updatedAt?: Timestamp | null;
 }
 
 /** Participant view for rematching page (participants-test2 collection) */
 export interface RematchingParticipant {
-    id: string
-    userUid: string
-    type: UserType
-    name: string
-    interestsText: string
-    school?: string
-    preferenceScores?: PreferenceScores
-    pronouns?: string | null
-    matchableAnswers?: Record<string, string | number>
+  id: string;
+  userUid: string;
+  type: UserType;
+  name: string;
+  interestsText: string;
+  school?: string;
+  preferenceScores?: PreferenceScores;
+  pronouns?: string | null;
+  matchableAnswers?: Record<string, string | number>;
 }
 
 export interface SurveyResponse {
-    question: string
-    answer: string
+  question: string;
+  answer: string;
 }
 
 export interface Survey {
-    participant_id: string
-    responses: SurveyResponse[]
+  participant_id: string;
+  responses: SurveyResponse[];
 }
 
 export interface Match {
     participant1_id: string
     participant2_id: string
-    day_of_call: number // 1-7 (Monday-Sunday), or -1 if not yet set
     similarity: number
 }
 
 export interface Week {
-    week: number  // 1-20, acts as primary key
-    calls: string[]  // Array of match_ids (document IDs)
+  week: number; // 1-20, acts as primary key
+  calls: string[]; // Array of match_ids (document IDs)
 }
 
 export interface Logs {
-    week: number
-    uid: string
-    duration: number
-    rating: number
-    concerns: string
+  week: number;
+  uid: string;
+  duration: number;
+  rating: number;
+  concerns: string;
 }
 
 /** Log document with Firestore document id */
-export type LogWithId = Logs & { id: string }
+export type LogWithId = Logs & { id: string };
 
 /** Admin list row (participant doc with required id and name) */
 export interface AdminRecord {
-    id: string
-    name: string
-    role: Role | "Participant"
-    email: string
-    phoneNumber?: string | null
-    address?: string | null
-    user_type?: string | null
-    status?: string | null
-    university?: string | null
+  id: string;
+  name: string;
+  role: Role | "Participant";
+  email: string;
+  phoneNumber?: string | null;
+  address?: string | null;
+  user_type?: string | null;
+  status?: string | null;
+  university?: string | null;
 }
 
 /** Banner message for success/error feedback */
 export interface BannerState {
-    type: "success" | "error"
-    message: string
+  type: "success" | "error";
+  message: string;
 }
 
 /** Program config document (Firestore config/programState) */
 export interface ProgramState {
     started: boolean
     matches_final: boolean
-    week: number
+    startDate?: string | null
     maxParticipants: number
     currentParticipants: number
     numWeeks: number
 }
 
 /** PreProgram match row status */
-export type MatchStatus = "Pending" | "Approved" | "No Match"
+export type MatchStatus = "Pending" | "Approved" | "No Match";
 
-/** Day labels for schedule (AdminDashboard) */
-export type DayKey = "Sun" | "Mon" | "Tue" | "Wed" | "Thurs" | "Fri" | "Sat"
 
 /** Tag variant for person/assignment display */
-export type PersonTagVariant = "rose" | "green" | "gold"
+export type PersonTagVariant = "rose" | "green" | "gold";
 
 /** Assignment of names to a day slot (AdminDashboard) */
 export interface PersonAssignment {
-    names: string[]
-    variant?: PersonTagVariant
-    matchId?: string
+  names: string[];
+  variant?: PersonTagVariant;
+  matchId?: string;
 }
 
 /** Params for inviting a new admin account */
 export interface InviteAdminParams {
-    firstName: string
-    lastName: string
-    email: string
-    role: Role
-    university?: string | null
+  firstName: string;
+  lastName: string;
+  email: string;
+  role: Role;
+  university?: string | null;
 }
 
 /** Event edit form values (roadmap events) */
 export interface EditEventValues {
-    title: string
-    timeText?: string
-    locationText?: string
-    colorHex?: string
+  title: string;
+  timeText?: string;
+  locationText?: string;
+  colorHex?: string;
 }
 
 /** Preference question ids (q1–q3) */
-export type PreferenceQuestionId = "q1" | "q2" | "q3"
+export type PreferenceQuestionId = "q1" | "q2" | "q3";
 
 /** Matching API result (PreProgram / matching service) */
 export interface BackendMatch {
-    studentId: string
-    seniorId: string
-    scores: {
-        frqScore: number
-        quantScore: number
-        finalScore: number
-    }
-    confidence: string
-    rank: number
+  studentId: string;
+  seniorId: string;
+  scores: {
+    frqScore: number;
+    quantScore: number;
+    finalScore: number;
+  };
+  confidence: string;
+  rank: number;
 }
 
 /** PreProgram UI table row */
 export interface UI_Match {
-    name1: string
-    name2: string
-    participant1_id: string | null
-    participant2_id: string | null
-    confidence?: number
-    status: MatchStatus
-    score: number
-    matchId?: string
+  name1: string;
+  name2: string;
+  participant1_id: string | null;
+  participant2_id: string | null;
+  confidence?: number;
+  status: MatchStatus;
+  score: number;
+  matchId?: string;
+  approvedBy?: string;
 }
 
 /** Registration form state */
 export interface RegistrationFormState {
-    firstName: string
-    lastName: string
-    addressLine1: string
-    addressLine2: string
-    city: string
-    state: string
-    postalCode: string
-    country: string
-    phone: string
-    confirmPhone: string
-    email: string
-    confirmEmail: string
-    dateOfBirth: string
-    pronouns: string
-    heardAbout: string
-    university: string
-    user_type: string
-    language: string
-    interests: string
-    teaPreference: string
-    preferredContactMethods: string[]
-    preferenceScores: { q1: number; q2: number; q3: number }
-    isReturningParticipant: boolean
-    healthChallenge: string
-    healthChallengeAreas: string[]
-    healthOther: string
-    agreementName: string
+  firstName: string;
+  lastName: string;
+  addressLine1: string;
+  addressLine2: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+  phone: string;
+  confirmPhone: string;
+  email: string;
+  confirmEmail: string;
+  dateOfBirth: string;
+  pronouns: string;
+  heardAbout: string;
+  university: string;
+  user_type: string;
+  language: string;
+  interests: string;
+  teaPreference: string;
+  preferredContactMethods: string[];
+  preferenceScores: { q1: number; q2: number; q3: number };
+  isReturningParticipant: boolean;
+  healthChallenge: string;
+  healthChallengeAreas: string[];
+  healthOther: string;
+  agreementName: string;
 }
 
 /** Profile page display / form state */
 export interface UserProfile {
-    uid: string;
-    name: string;
-    email: string;
-    pronouns: string;
-    phone: string;
-    birthday: string;
+  uid: string;
+  name: string;
+  email: string;
+  pronouns: string;
+  phone: string;
+  birthday: string;
 
-    addressLine1: string;
-    addressCity: string;
-    addressState: string;
-    addressPostalCode: string;
-    addressCountry: string;
+  addressLine1: string;
+  addressCity: string;
+  addressState: string;
+  addressPostalCode: string;
+  addressCountry: string;
 
-    interests: string;
-    startDate: string;
-    endDate: string;
-    status: string;
-    matchName?: string;
-    matchInterests?: string;
+  interests: string;
+  startDate: string;
+  endDate: string;
+  status: string;
+  matchName?: string;
+  matchInterests?: string;
 }
 
 /** Validation error fields (Profile and similar forms) */
@@ -283,6 +283,7 @@ export type QuestionType =
   | "medium_input"
   | "long_input"
   | "Dropdown"
+  | "DropdownWithOther"
   | "Slider"
   | "Radio"
   | "Date"
@@ -326,10 +327,10 @@ export interface Form {
 
 /** Partner card display (MatchedDashboard) */
 export interface PartnerInfo {
-    id: string
-    name: string
-    displayName: string
-    email: string
-    phone_number: string
-    user_type: string
+  id: string;
+  name: string;
+  displayName: string;
+  email: string;
+  phone_number: string;
+  user_type: string;
 }

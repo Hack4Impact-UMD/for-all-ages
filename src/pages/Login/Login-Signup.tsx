@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 // Firebase SDK usage moved behind service helpers
 import { useNavigate } from "react-router-dom";
 import styles from "./Login.module.css";
+import faaLogo from "/faa logo.png";
 import { auth } from "../../firebase";
 import { useAuth } from "../../auth/AuthProvider";
 import {
@@ -11,6 +12,10 @@ import {
   signupWithEmailPassword,
   resendVerificationEmail,
 } from "../../services/auth";
+import {
+  subscribeToProgramState,
+  type ProgramState,
+} from "../../services/programState";
 
 type Tab = "login" | "signup";
 
@@ -51,12 +56,34 @@ function LoginSignup() {
   const [resendLoading, setResendLoading] = useState(false);
   const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
   const {isAdmin} = useAuth()
+  const [programState, setProgramState] = useState<ProgramState | null>(null);
+  const [programStateLoading, setProgramStateLoading] = useState(true);
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [showSignupPassword, setShowSignupPassword] = useState(false);
+  const [showSignupConfirmPassword, setShowSignupConfirmPassword] = useState(false);
 
   //verification panel if a user is signed in but not yet verified
   const needsVerification = useMemo(
     () => Boolean(user && !emailVerified),
     [user, emailVerified],
   );
+
+  const signupsClosed = Boolean(programState?.matches_final);
+
+  useEffect(() => {
+    setProgramStateLoading(true);
+    const unsubscribe = subscribeToProgramState(
+      (state) => {
+        setProgramState(state);
+        setProgramStateLoading(false);
+      },
+      () => {
+        setProgramState(null);
+        setProgramStateLoading(false);
+      },
+    );
+    return unsubscribe;
+  }, []);
 
   /**
    * Redirects authenticated & verified users away from this page
@@ -78,6 +105,9 @@ function LoginSignup() {
 
   useEffect(() => {
     setError(null);
+    setShowLoginPassword(false);
+    setShowSignupPassword(false);
+    setShowSignupConfirmPassword(false);
   }, [tab]);
 
   const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -117,6 +147,13 @@ function LoginSignup() {
 
   // Handles user signup
   const handleSignup = async () => {
+    if (signupsClosed) {
+      setError(null);
+      setStatusMessage(
+        "Signups have closed for this cohort. Please contact the admin team if you're interested in joining.",
+      );
+      return;
+    }
     if (signupForm.password !== signupForm.confirmPassword) {
       setError("Passwords do not match.");
       return;
@@ -212,7 +249,7 @@ function LoginSignup() {
       <div className={styles.logoSection}>
         <div className={styles.logoCard}>
           <img 
-            src="/faa logo.png" 
+            src={faaLogo}
             alt="For All Ages Logo" 
             className={styles.logoImage}
           />
@@ -234,6 +271,9 @@ function LoginSignup() {
               className={`${styles.tab} ${tab === "signup" ? styles.activeTab : ""}`}
               onClick={() => setTab("signup")}
               type="button"
+              disabled={programStateLoading}
+              aria-disabled={programStateLoading}
+              title={programStateLoading ? "Loading signup availability..." : undefined}
             >
               Sign Up
             </button>
@@ -263,7 +303,7 @@ function LoginSignup() {
                     Password
                   </label>
                   <input
-                    type="password"
+                    type={showLoginPassword ? "text" : "password"}
                     id="loginPassword"
                     name="password"
                     className={styles.input}
@@ -272,6 +312,17 @@ function LoginSignup() {
                     autoComplete="current-password"
                     required
                   />
+                  <div className={styles.showPasswordRow}>
+                    <input
+                      type="checkbox"
+                      id="showLoginPassword"
+                      checked={showLoginPassword}
+                      onChange={(e) => setShowLoginPassword(e.target.checked)}
+                    />
+                    <label htmlFor="showLoginPassword" className={styles.showPasswordLabel}>
+                      Show password
+                    </label>
+                  </div>
                 </div>
 
                 <button
@@ -291,6 +342,16 @@ function LoginSignup() {
                   {loginLoading ? "Logging In..." : "Log-In"}
                 </button>
               </>
+            ) : signupsClosed ? (
+              <div className={styles.statusMessage} role="status">
+                <p style={{ margin: 0, fontWeight: 700 }}>
+                  Signups have closed for this cohort
+                </p>
+                <p style={{ margin: "8px 0 0" }}>
+                  If you’re interested in joining, please contact the admin team at{" "}
+                  <a href="mailto:info@forallages.org">info@forallages.org</a>.
+                </p>
+              </div>
             ) : (
               <>
                 <div className={styles.inputGroup}>
@@ -344,7 +405,7 @@ function LoginSignup() {
                     Password
                   </label>
                   <input
-                    type="password"
+                    type={showSignupPassword ? "text" : "password"}
                     id="signupPassword"
                     name="password"
                     className={styles.input}
@@ -353,6 +414,17 @@ function LoginSignup() {
                     autoComplete="new-password"
                     required
                   />
+                  <div className={styles.showPasswordRow}>
+                    <input
+                      type="checkbox"
+                      id="showSignupPassword"
+                      checked={showSignupPassword}
+                      onChange={(e) => setShowSignupPassword(e.target.checked)}
+                    />
+                    <label htmlFor="showSignupPassword" className={styles.showPasswordLabel}>
+                      Show password
+                    </label>
+                  </div>
                 </div>
 
                 <div className={styles.inputGroup}>
@@ -360,7 +432,7 @@ function LoginSignup() {
                     Confirm Password
                   </label>
                   <input
-                    type="password"
+                    type={showSignupConfirmPassword ? "text" : "password"}
                     id="confirmPassword"
                     name="confirmPassword"
                     className={styles.input}
@@ -369,6 +441,17 @@ function LoginSignup() {
                     autoComplete="new-password"
                     required
                   />
+                  <div className={styles.showPasswordRow}>
+                    <input
+                      type="checkbox"
+                      id="showSignupConfirmPassword"
+                      checked={showSignupConfirmPassword}
+                      onChange={(e) => setShowSignupConfirmPassword(e.target.checked)}
+                    />
+                    <label htmlFor="showSignupConfirmPassword" className={styles.showPasswordLabel}>
+                      Show confirm password
+                    </label>
+                  </div>
                   {signupForm.password &&
                     signupForm.confirmPassword &&
                     signupForm.password !== signupForm.confirmPassword && (
@@ -379,7 +462,7 @@ function LoginSignup() {
                 <button
                   type="submit"
                   className={`${styles.submitButton} ${!isSignupValid || signupLoading ? styles.disabled : ""}`}
-                  disabled={!isSignupValid || signupLoading}
+                  disabled={!isSignupValid || signupLoading || programStateLoading}
                 >
                   {signupLoading ? "Signing Up..." : "Sign Up"}
                 </button>

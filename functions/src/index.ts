@@ -2,7 +2,6 @@ import * as admin from "firebase-admin";
 import busboy from "busboy";
 // import * as functions from "firebase-functions";
 import { onRequest, onCall, HttpsError } from "firebase-functions/v2/https";
-import { onSchedule } from "firebase-functions/v2/scheduler";
 
 import { MatchingConfig } from "./types";
 import { MatchingService } from "./matching/src/services/matchingService";
@@ -21,7 +20,6 @@ const PARTICIPANTS = "participants";
 type ProgramState = {
   started: boolean;
   matches_final: boolean;
-  week: number;
 };
 
 function buildNumericScoreRanges(form: any): Record<string, { min: number; max: number }> {
@@ -157,35 +155,6 @@ export const upsertUser = onRequest(async (req, res) => {
   }
 });
 
-// run to deply to cloud --> firebase deploy --only functions:incrementProgramWeek
-// Cron job to run matching every day at midnight
-export const incrementProgramWeek = onSchedule(
-  // Saturday at 11:59 PM Eastern Time "59 23 * * 6"
-  // FOR TESTING PURPOSES ONLY: runs every 1 min "*/1 * * * *"
-  { schedule: "59 23 * * 6", timeZone: "America/New_York" },
-  async () => {
-    console.log("HERE*****");
-    const ref = admin.firestore().doc("config/programState");
-
-    await admin.firestore().runTransaction(async (tx) => {
-      const snap = await tx.get(ref);
-      if (!snap.exists) return;
-
-      const data = snap.data() as ProgramState;
-
-      // ONLY RUN IF PROGRAM HAS STARTED
-      if (!data.started) return;
-
-      const currentWeek = data.week ?? 1;
-      const nextWeek = currentWeek + 1; // optionally cap this
-
-      tx.update(ref, {
-        week: nextWeek,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-    });
-  },
-);
 
 export const computeMatchScore = onRequest(async (req, res) => {
   // CORS headers
