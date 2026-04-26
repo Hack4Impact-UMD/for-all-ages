@@ -777,21 +777,25 @@ const FormBuilder: React.FC = () => {
 
               {/* Bottom nav */}
               <div className={styles.bottomBar}>
-                <div className={styles.bottomLeft}>
-                  <button
-                    type="button"
-                    className={styles.addQuestionBtn}
-                    onClick={handleAddQuestion}
-                  >
-                    <span className={styles.addQuestionPlus}>+</span>
-                    Add question
-                  </button>
-                </div>
 
+                {/* "Step x of x" label  */}
+                <span className={styles.stepLabel}>
+                  Step {activeSectionIndex + 1} of {sections.length}
+                </span>
+
+                {/* Buttons: Add question, Go back, Continue */}
                 <div className={styles.bottomCenter}>
-                  <span className={styles.stepLabel}>
-                    Step {activeSectionIndex + 1} of {sections.length}
-                  </span>
+                  <div className={styles.addQuestionDiv}>
+                    <button
+                      type="button"
+                      className={styles.addQuestionBtn}
+                      onClick={handleAddQuestion}
+                    >
+                      <span className={styles.addQuestionPlus}>+</span>
+                      Add question
+                    </button>
+                  </div>
+                  
                   <div className={styles.navBtns}>
                     <button
                       type="button"
@@ -817,8 +821,6 @@ const FormBuilder: React.FC = () => {
                     </button>
                   </div>
                 </div>
-
-                <div className={styles.bottomRight} />
               </div>
             </>
           )}

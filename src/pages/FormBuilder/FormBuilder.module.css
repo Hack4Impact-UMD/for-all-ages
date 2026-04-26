@@ -822,30 +822,23 @@
 
 .bottomBar {
   display: flex;
-  align-items: center;
-  margin-top: 28px;
-  padding-top: 16px;
-}
-
-.bottomLeft {
-  flex: 1;
-  display: flex;
-  align-items: center;
-}
-.bottomCenter {
-  display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 10px;
-}
-.bottomRight {
-  flex: 1;
+  margin-top: 28px;
 }
 
-.navBtns {
-  display: flex;
-  gap: 10px;
+.bottomCenter {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
+  width: 100%;
+  margin-top: 1rem;
+  gap: 10px;
+}
+
+.addQuestionDiv {
+  display: flex;
+  grid-column: 1;
+  justify-self: start;
 }
 
 .addQuestionBtn {
@@ -875,6 +868,13 @@
   font-size: 14px;
   font-weight: 600;
   color: var(--blue);
+}
+
+.navBtns {
+  display: flex;
+  grid-column: 2;
+  gap: 10px;
+  justify-self: center;
 }
 
 .navBtn {
