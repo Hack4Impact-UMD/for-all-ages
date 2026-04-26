@@ -1,3 +1,15 @@
+.surfaceTight {
+  padding-top: 88px;
+}
+
+.pageTitle {
+  margin: 0 0 16px 0;
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #ffffff;
+  text-align: center;
+}
+
 .controlsPanel {
   display: grid;
   gap: 1.25rem;
