@@ -1,12 +1,17 @@
 .modalBackdrop {
+  --modal-top-offset: 88px;
+  --modal-bottom-extra: 0.75rem;
   position: fixed;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   background: rgba(15, 23, 42, 0.55);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: grid;
+  place-items: center;
   z-index: 100;
-  padding: 1.5rem;
+  padding: calc(var(--modal-top-offset) + 1.5rem) 1.5rem calc(1.5rem + var(--modal-bottom-extra));
+  overflow-y: auto;
 }
 
 .modalCard {
@@ -15,17 +20,26 @@
   border-radius: 24px;
   border: 4px solid #0f6bb1;
   box-shadow: 0 24px 60px rgba(15, 107, 177, 0.35);
-  padding: 1.75rem;
-  max-height: min(90vh, 640px);
-  overflow-y: auto;
+  max-height: min(calc(100dvh - var(--modal-top-offset) - 3rem - var(--modal-bottom-extra)), 640px);
+  overflow: hidden;
   position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.modalContent {
+  height: 100%;
+  overflow-y: auto;
+  padding: 1.75rem;
+  box-sizing: border-box;
+  scrollbar-gutter: stable;
 }
 
 .xbutton {
   cursor: pointer;
   position: absolute;
   top: 1rem;
-  right: 1rem;
+  right: 1.75rem;
 }
 
 .userName {
