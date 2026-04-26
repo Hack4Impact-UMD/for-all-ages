@@ -585,28 +585,6 @@ const FormBuilder: React.FC = () => {
             </button>
           </div>
         )}
-          <div className={styles.topBarActions}>
-            <button
-              type="button"
-              className={styles.cancelBtn}
-              onClick={() => {
-                if (savedFormRef.current) loadForm(savedFormRef.current);
-              }}
-              disabled={!savedFormRef.current}
-            >
-              Cancel
-            </button>
-
-            <button
-              type="button"
-              className={styles.saveBtn}
-              onClick={handleSave}
-              disabled={saving}
-            >
-              {saving ? "Saving…" : "Save"}
-            </button>
-      </div>
-
         {/* Program title */}
         <div className={styles.programHeader}>
           <h1 className={styles.programTitle}>Tea @ 3</h1>
@@ -722,6 +700,12 @@ const FormBuilder: React.FC = () => {
                   deleteSection(activeSection.id);
                   setEditingQuestionId(null);
                 }}
+                onCancel={() => {
+                  if (savedFormRef.current) loadForm(savedFormRef.current);
+                }}
+                onSave={handleSave}
+                saving={saving}
+                canCancel={!!savedFormRef.current}
               />
 
               {/* Questions */}
@@ -838,12 +822,20 @@ function SectionTitleEditor({
   onPreview,
   onRename,
   onDelete,
+  onCancel,
+  onSave,
+  saving,
+  canCancel,
 }: {
   section: EditorSection;
   locked?: boolean;
   onPreview: () => void;
   onRename: (title: string) => void;
   onDelete: () => void;
+  onCancel: () => void;
+  onSave: () => void;
+  saving: boolean;
+  canCancel: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(section.title ?? "");
@@ -889,22 +881,38 @@ function SectionTitleEditor({
           />
         </div>
       )}
-      <div className={styles.sectionTitleActionsRow}>
+      <div className={`${styles.sectionTitleActionsRow}`}>
         <button
           type="button"
-          className={`${styles.sectionActionBtn} ${styles.sectionActionBtnWithIcon} ${styles.sectionDeleteBtn} ${locked ? styles.sectionTitleActionsDeleteDisabled : ""}`}
+          className={`${styles.cancelBtn} ${styles.titleRowBtn} ${styles.saveAndCancelBtns}`}
+          onClick={onCancel}
+          disabled={!canCancel}
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          className={`${styles.saveBtn}  ${styles.titleRowBtn} ${styles.saveAndCancelBtns}`}
+          onClick={onSave}
+          disabled={saving}
+        >
+          {saving ? "Saving..." : "Save"}
+        </button>
+        <button
+          type="button"
+          className={`${styles.sectionDeleteBtn} ${styles.titleRowBtn} ${locked ? styles.sectionTitleActionsDeleteDisabled : ""}`}
           disabled={locked}
           onClick={onDelete}
           title="Delete section"
         >
-            <span className={styles.sectionActionBtnIcon} aria-hidden="true">
+            <span className={styles.deleteBtnIcon} aria-hidden="true">
               <DeleteOutlineIcon fontSize="inherit" />
             </span>
           Delete Section
         </button>
         <button
           type="button"
-          className={styles.previewModeBtn}
+          className={`${styles.previewModeBtn}`}
           onClick={onPreview}
           title="Preview section"
         >
