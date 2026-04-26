@@ -278,10 +278,10 @@
   gap: 6px;
   height: 32px;
   padding: 0 15px;
-  border: none;
+  border: 1.5px solid currentColor;
   border-radius: var(--radius-sm);
-  background: #c6d6e3;
-  color: #3f5f76;
+  background: none;
+  color: #0E6BAE;
   font-family: "IBM Plex Sans", sans-serif;
   font-size: 14px;
   line-height: normal;
@@ -289,9 +289,11 @@
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 
-.previewModeBtn:hover {
-  background: #b7ccde;
-  border-color: #9eb6c7;
+.previewModeBtn:hover,
+.previewModeBtn:enabled:focus-visible,
+.previewModeBtn:enabled:active {
+  background: var(--blue-light);
+  border: 1.5px solid currentColor;
 }
 
 .previewModeBtnIcon {
@@ -374,8 +376,6 @@
 .sectionActionBtn {
   background: none;
   border: none;
-  border-left: 1px solid var(--gray-200);
-  color: var(--gray-500);
   border-radius: 0;
   height: 32px;
   padding: 0 8px;
@@ -392,9 +392,6 @@
 }
 .sectionActionBtn:first-child {
   border-left: none;
-}
-.sectionActionBtn:hover {
-  background: var(--blue-light);
 }
 
 .sectionDeleteBtn {
