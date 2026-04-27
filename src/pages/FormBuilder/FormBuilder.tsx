@@ -3,6 +3,9 @@ import type { BannerState, Form, Question, QuestionType } from "../../types";
 import { db } from "../../firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from '@mui/icons-material/Delete';
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
@@ -173,21 +176,21 @@ function InlineEditor({
         <div className={styles.inlineToolbarActions}>
           <button
             type="button"
-            className={styles.tbBtn}
+            className={`${styles.tbBtn} ${styles.upBtn}`}
             onClick={onMoveUp}
             disabled={index === 0}
             title="Move up"
           >
-            ∧
+            < KeyboardArrowUpIcon />
           </button>
           <button
             type="button"
-            className={styles.tbBtn}
+            className={`${styles.tbBtn} ${styles.downBtn}`}
             onClick={onMoveDown}
             disabled={index === total - 1}
             title="Move down"
           >
-            ∨
+            < KeyboardArrowDownIcon />
           </button>
           {!question.locked && (
             <button
@@ -196,7 +199,7 @@ function InlineEditor({
               onClick={onDelete}
               title="Delete question"
             >
-              ❌
+              < DeleteIcon />
             </button>
           )}
         </div>
