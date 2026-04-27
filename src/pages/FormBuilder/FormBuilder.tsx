@@ -687,7 +687,7 @@ const FormBuilder: React.FC = () => {
                 </h2>
                 <button
                   type="button"
-                  className={styles.previewModeBtn}
+                  className={`${styles.previewModeBtn} ${styles.titleRowBtn}`}
                   onClick={() => setIsPreviewMode(false)}
                 >
                   <span
@@ -954,7 +954,7 @@ function SectionTitleEditor({
         </button>
         <button
           type="button"
-          className={`${styles.previewModeBtn}`}
+          className={`${styles.previewModeBtn} ${styles.titleRowBtn}`}
           onClick={onPreview}
           title="Preview section"
         >

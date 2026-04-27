@@ -20,7 +20,7 @@
   --gray-900: #111827;
   --shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
   --radius: 16px;
-  --radius-sm: 8px;
+  --radius-sm: 10px;
 }
 
 .page {
@@ -221,6 +221,7 @@
 }
 
 .contentCard {
+  font-family: 'Inter';
   background: white;
   border-radius: var(--radius);
   box-shadow: var(--shadow);
@@ -242,12 +243,14 @@
   margin: 0;
   font-size: 28px;
   font-weight: 800;
+  font-family: 'Merriweather';
   color: var(--gray-900);
   cursor: text;
 }
 .sectionTitleInput {
   font-size: 28px;
   font-weight: 800;
+  font-family: 'Merriweather';
   border: none;
   border-radius: 0px;
   border-bottom: 2px solid var(--blue);
@@ -285,13 +288,11 @@
 
 .titleRowBtn {
   border-radius: var(--radius-sm);
-  border: none;
   height: 32px;
   padding: 0 8px;
   font-family: "IBM Plex Sans", sans-serif;
   font-size: 14px;
   line-height: 1;
-  transition: background 0.15s;
   cursor: pointer;
 }
 
@@ -299,15 +300,16 @@
   border-left: none;
 }
 
+.titleRowBtn:enabled:hover {
+  filter: brightness(0.95);
+  transition: filter 0.15s ease;
+  border: currentColor;
+}
+
 .saveAndCancelBtns {
   padding: 0 1.5rem;
   min-width: max-content;
   width: 6rem;
-}
-
-.saveAndCancelBtns:hover:not(:disabled) {
-  filter: brightness(0.95);
-  transition: filter 0.15s ease;
 }
 
 .saveAndCancelBtns:disabled {
@@ -363,36 +365,9 @@
 .deleteBtn:enabled:active {
   background: var(--red-light);
   color: #d13434;
-  border-color: #d13434;
+  border: 1.5px solid currentColor;
   outline: none;
   box-shadow: none;
-}
-
-.previewModeBtn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 32px;
-  padding: 0 15px;
-  border-radius: var(--radius-sm);
-  background: #CEDDED;
-  border: currentColor;
-  color: #2B2B2B;
-  font-family: "IBM Plex Sans", sans-serif;
-  font-size: 14px;
-  line-height: normal;
-  cursor: pointer;
-  transition:
-    background 0.15s ease,
-    border-color 0.15s ease;
-}
-
-.previewModeBtn:hover,
-.previewModeBtn:enabled:focus-visible,
-.previewModeBtn:enabled:active {
-  filter: brightness(0.95);
-  transition: filter 0.15s ease;
-  border: currentColor;
 }
 
 .previewModeBtnIcon {
@@ -405,6 +380,16 @@
   border: 1px solid #2B2B2B;
   color: #2B2B2B;
   font-size: 10px;
+}
+
+.previewModeBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 15px;
+  background: #CEDDED;
+  border: currentColor;
+  color: #2B2B2B;
 }
 
 .previewPanel {
@@ -422,6 +407,7 @@
   margin: 0;
   font-size: 28px;
   font-weight: 800;
+  font-family: 'Merriweather';
   color: var(--gray-900);
 }
 
@@ -457,12 +443,14 @@
 .qPreview {
   display: flex;
   flex-direction: column;
+  align-items: start;
   gap: 8px;
   color: black;
 }
 
 .qPreviewLabel {
   font-size: 15px;
+  font-weight: 500;
   color: var(--gray-900);
 }
 .qPreviewPlaceholder {
@@ -668,6 +656,7 @@
 
 .inlineEditorCard {
   border: 2px solid var(--blue);
+  border-left-width: 0.5rem;
   border-radius: var(--radius-sm);
   padding: 16px 20px;
   background: white;
@@ -678,7 +667,7 @@
 
 .inlineTitleInput {
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 500;
   border: none;
   border-bottom: 1.5px solid var(--gray-200);
   outline: none;
@@ -699,7 +688,7 @@
 }
 
 .inlineTypeInput {
-  font-size: 13px;
+  font-size: 15px;
   border: 1px solid var(--gray-200);
   border-radius: var(--radius-sm);
   outline: none;
@@ -836,6 +825,10 @@
   width: 100%;
   margin-top: 1rem;
   gap: 10px;
+}
+
+.bottomCenter button {
+  border-radius: var(--radius-sm);
 }
 
 .addQuestionDiv {
