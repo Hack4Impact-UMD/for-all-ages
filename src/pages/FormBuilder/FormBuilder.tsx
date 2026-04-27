@@ -409,6 +409,7 @@ function SectionTab({
 
 const FormBuilder: React.FC = () => {
   const savedFormRef = useRef<Form | null>(null);
+  const activeEditorRef = useRef<HTMLDivElement | null>(null);
 
   const {
     sections,
@@ -577,6 +578,23 @@ const FormBuilder: React.FC = () => {
 
   const resolvedEditingId = resolveEditingId(activeSection);
 
+  useEffect(() => {
+    if (!resolvedEditingId) return;
+
+    const handleDocumentPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+
+      if (activeEditorRef.current?.contains(target)) return;
+      setEditingQuestionId(null);
+    };
+
+    document.addEventListener("pointerdown", handleDocumentPointerDown);
+    return () => {
+      document.removeEventListener("pointerdown", handleDocumentPointerDown);
+    };
+  }, [resolvedEditingId]);
+
   return (
     <div className={styles.page}>
       {/* Top wrapper for sections  */}
@@ -736,33 +754,34 @@ const FormBuilder: React.FC = () => {
 
                   if (isEditing) {
                     return (
-                      <InlineEditor
-                        key={q.id}
-                        question={q}
-                        index={i}
-                        total={activeSection.questions.length}
-                        sectionId={activeSection.id}
-                        onUpdate={(partial) =>
-                          updateQuestionField(activeSection.id, q.id, partial)
-                        }
-                        onDelete={() => {
-                          deleteQuestion(activeSection.id, q.id);
-                          setEditingQuestionId(null);
-                        }}
-                        onMoveUp={() => {
-                          if (i > 0) {
-                            reorderQuestions(activeSection.id, i, i - 1);
-                            setEditingQuestionId(q.id);
+                      <div key={q.id} ref={activeEditorRef}>
+                        <InlineEditor
+                          question={q}
+                          index={i}
+                          total={activeSection.questions.length}
+                          sectionId={activeSection.id}
+                          onUpdate={(partial) =>
+                            updateQuestionField(activeSection.id, q.id, partial)
                           }
-                        }}
-                        onMoveDown={() => {
-                          if (i < activeSection.questions.length - 1) {
-                            reorderQuestions(activeSection.id, i, i + 1);
-                            setEditingQuestionId(q.id);
-                          }
-                        }}
-                        onDone={() => setEditingQuestionId(null)}
-                      />
+                          onDelete={() => {
+                            deleteQuestion(activeSection.id, q.id);
+                            setEditingQuestionId(null);
+                          }}
+                          onMoveUp={() => {
+                            if (i > 0) {
+                              reorderQuestions(activeSection.id, i, i - 1);
+                              setEditingQuestionId(q.id);
+                            }
+                          }}
+                          onMoveDown={() => {
+                            if (i < activeSection.questions.length - 1) {
+                              reorderQuestions(activeSection.id, i, i + 1);
+                              setEditingQuestionId(q.id);
+                            }
+                          }}
+                          onDone={() => setEditingQuestionId(null)}
+                        />
+                      </div>
                     );
                   }
 
@@ -781,9 +800,10 @@ const FormBuilder: React.FC = () => {
 
               {/* Bottom nav */}
               <div className={styles.bottomBar}>
-                {/* Buttons: Add question, Go back, Continue */}
+                {/* Buttons div for: Add question, Go back, Continue */}
                 <div className={styles.bottomCenter}>
                   <div className={styles.addQuestionDiv}>
+                    {/* "Add question" button */}
                     <button
                       type="button"
                       className={styles.addQuestionBtn}
@@ -795,6 +815,7 @@ const FormBuilder: React.FC = () => {
                   </div>
 
                   <div className={styles.navBtns}>
+                    {/* "Go Back" button */}
                     <button
                       type="button"
                       className={styles.navBtn}
@@ -805,6 +826,8 @@ const FormBuilder: React.FC = () => {
                     >
                       Go Back
                     </button>
+
+                    {/* "Continue" button */}
                     <button
                       type="button"
                       className={`${styles.navBtn} ${styles.navBtnPrimary}`}
@@ -833,7 +856,7 @@ const FormBuilder: React.FC = () => {
   );
 };
 
-// Section title editor and delete section button
+// Section title editor, Cancel/Save buttons, Delete Section button, and Preview button
 
 function SectionTitleEditor({
   section,
