@@ -48,31 +48,6 @@
   justify-content: flex-end;
 }
 
-.cancelBtn {
-  background: #718796;
-  color: white;
-}
-
-.cancelBtn:hover:not(:disabled) {
-  background: var(--gray-500);
-}
-.cancelBtn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.saveBtn {
-  background: #2b2b2b;
-  color: white;
-}
-.saveBtn:hover:not(:disabled) {
-  background: var(--gray-700);
-}
-.saveBtn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 .banner {
   margin: 0;
   margin-top: 0.5rem;
@@ -257,70 +232,6 @@
   gap: 0;
 }
 
-.previewModeBtn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 32px;
-  padding: 0 15px;
-  border: 1.5px solid currentColor;
-  border-radius: var(--radius-sm);
-  background: none;
-  color: #0e6bae;
-  font-family: "IBM Plex Sans", sans-serif;
-  font-size: 14px;
-  line-height: normal;
-  cursor: pointer;
-  transition:
-    background 0.15s ease,
-    border-color 0.15s ease;
-}
-
-.previewModeBtn:hover,
-.previewModeBtn:enabled:focus-visible,
-.previewModeBtn:enabled:active {
-  background: var(--blue-light);
-  border: 1.5px solid currentColor;
-}
-
-.previewModeBtnIcon {
-  width: 14px;
-  height: 14px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  border: 1px solid #9eb6c7;
-  background: #dce7ef;
-  color: #4e6f86;
-  font-size: 10px;
-}
-
-.previewPanel {
-  margin-top: 4px;
-}
-
-.previewTopRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 24px;
-}
-
-.previewSectionTitle {
-  margin: 0;
-  font-size: 28px;
-  font-weight: 800;
-  color: var(--gray-900);
-}
-
-.previewingHint {
-  font-size: 22px;
-  font-weight: 500;
-  font-style: italic;
-  color: #5f8cab;
-}
-
 .sectionTitleRow {
   display: flex;
   align-items: center;
@@ -356,12 +267,20 @@
   overflow: hidden;
 }
 
+.sectionTitleActionsRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .sectionTitleActionsDeleteDisabled {
   opacity: 1;
 }
 
 :global(button:disabled) {
   cursor: not-allowed;
+  filter: none;
+  transition: none;
 }
 
 .titleRowBtn {
@@ -376,6 +295,43 @@
   cursor: pointer;
 }
 
+.titleRowBtn:first-child {
+  border-left: none;
+}
+
+.saveAndCancelBtns {
+  padding: 0 1.5rem;
+  min-width: max-content;
+  width: 6rem;
+}
+
+.saveAndCancelBtns:hover:not(:disabled) {
+  filter: brightness(0.95);
+  transition: filter 0.15s ease;
+}
+
+.saveAndCancelBtns:disabled {
+  background: #818386;
+}
+
+.cancelBtn {
+  background: #718796;
+  color: white;
+}
+
+.cancelBtn:disabled {
+  opacity: 0.5;
+}
+
+.saveBtn {
+  background: #2b2b2b;
+  color: white;
+}
+
+.saveBtn:disabled {
+  opacity: 0.5;
+}
+
 .deleteBtnIcon {
   width: 18px;
   height: 18px;
@@ -388,19 +344,7 @@
   line-height: 1;
 }
 
-.titleRowBtn:first-child {
-  border-left: none;
-}
-
-.saveAndCancelBtns:disabled {
-  background: #818386;
-}
-
-.saveAndCancelBtns {
-  padding: 0 1.5rem;
-}
-
-.sectionDeleteBtn {
+.deleteBtn {
   background: none;
   color: #d13434;
   border: 1.5px solid currentColor;
@@ -410,13 +354,13 @@
   align-items: center;
   gap: 6px;
 }
-.sectionDeleteBtn:disabled {
+.deleteBtn:disabled {
   color: #818386;
   border: 1.5px solid currentColor;
 }
-.sectionDeleteBtn:enabled:hover,
-.sectionDeleteBtn:enabled:focus-visible,
-.sectionDeleteBtn:enabled:active {
+.deleteBtn:enabled:hover,
+.deleteBtn:enabled:focus-visible,
+.deleteBtn:enabled:active {
   background: var(--red-light);
   color: #d13434;
   border-color: #d13434;
@@ -424,10 +368,68 @@
   box-shadow: none;
 }
 
-.sectionTitleActionsRow {
+.previewModeBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 15px;
+  border-radius: var(--radius-sm);
+  background: #CEDDED;
+  border: currentColor;
+  color: #2B2B2B;
+  font-family: "IBM Plex Sans", sans-serif;
+  font-size: 14px;
+  line-height: normal;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.previewModeBtn:hover,
+.previewModeBtn:enabled:focus-visible,
+.previewModeBtn:enabled:active {
+  filter: brightness(0.95);
+  transition: filter 0.15s ease;
+  border: currentColor;
+}
+
+.previewModeBtnIcon {
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  border: 1px solid #2B2B2B;
+  color: #2B2B2B;
+  font-size: 10px;
+}
+
+.previewPanel {
+  margin-top: 4px;
+}
+
+.previewTopRow {
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.previewSectionTitle {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--gray-900);
+}
+
+.previewingHint {
+  font-size: 22px;
+  font-weight: 500;
+  font-style: italic;
+  color: #5f8cab;
 }
 
 .questionsList {

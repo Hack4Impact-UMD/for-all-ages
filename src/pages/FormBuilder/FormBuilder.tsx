@@ -919,7 +919,7 @@ function SectionTitleEditor({
         </button>
         <button
           type="button"
-          className={`${styles.sectionDeleteBtn} ${styles.titleRowBtn} ${locked ? styles.sectionTitleActionsDeleteDisabled : ""}`}
+          className={`${styles.deleteBtn} ${styles.titleRowBtn} ${locked ? styles.sectionTitleActionsDeleteDisabled : ""}`}
           disabled={locked}
           onClick={onDelete}
           title="Delete section"
