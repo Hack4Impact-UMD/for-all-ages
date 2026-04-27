@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap");
 
 :root {
   --blue: #0f6bb1;
@@ -29,8 +29,7 @@
   flex-direction: column;
   background: var(--gray-100);
   width: 100%;
-  font-family:
-    "Merriweather", serif;
+  font-family: "Merriweather", serif;
   color: var(--gray-900);
 }
 
@@ -40,7 +39,6 @@
   color: var(--gray-500);
   font-size: 1rem;
 }
-
 
 .topBarActions {
   display: flex;
@@ -64,7 +62,7 @@
 }
 
 .saveBtn {
-  background: #2B2B2B;
+  background: #2b2b2b;
   color: white;
 }
 .saveBtn:hover:not(:disabled) {
@@ -196,7 +194,7 @@
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: #2B2B2B;
+  background: #2b2b2b;
   color: white;
   font-size: 15px;
   font-weight: 700;
@@ -251,7 +249,7 @@
   background: white;
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-  width: min(1000px,100%);
+  width: min(1000px, 100%);
   box-sizing: border-box;
   padding: 36px 40px 28px;
   display: flex;
@@ -268,12 +266,14 @@
   border: 1.5px solid currentColor;
   border-radius: var(--radius-sm);
   background: none;
-  color: #0E6BAE;
+  color: #0e6bae;
   font-family: "IBM Plex Sans", sans-serif;
   font-size: 14px;
   line-height: normal;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .previewModeBtn:hover,
@@ -402,7 +402,7 @@
 
 .sectionDeleteBtn {
   background: none;
-  color: #D13434;
+  color: #d13434;
   border: 1.5px solid currentColor;
   border-radius: var(--radius-sm);
   box-sizing: border-box;
@@ -418,8 +418,8 @@
 .sectionDeleteBtn:enabled:focus-visible,
 .sectionDeleteBtn:enabled:active {
   background: var(--red-light);
-  color: #D13434;
-  border-color: #D13434;
+  color: #d13434;
+  border-color: #d13434;
   outline: none;
   box-shadow: none;
 }
@@ -794,7 +794,7 @@
   font-size: 13px;
   outline: none;
   background: var(--gray-50);
-  color: var(--gray-700); 
+  color: var(--gray-700);
   font-family: inherit;
 }
 .inlineRangeInput:focus {
@@ -846,7 +846,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  background: #2B2B2B;
+  background: #2b2b2b;
   color: white;
   border: none;
   border-radius: 999px;
@@ -880,7 +880,7 @@
 }
 
 .navBtn {
-  background: #64748B;
+  background: #64748b;
   color: white;
   border: none;
   border-radius: 999px;
@@ -899,7 +899,7 @@
 }
 
 .navBtnPrimary {
-  background: #0E6BAE !important;
+  background: #0e6bae !important;
 }
 .navBtnPrimary:hover:not(:disabled) {
   background: var(--blue-dark) !important;
@@ -924,7 +924,6 @@
 .emptyAddBtn:hover {
   background: var(--blue-dark);
 }
-
 
 .questionSelect {
   font-size: 15px;
@@ -954,4 +953,36 @@
 .lockedWarning {
   color: red;
   font-size: 12px;
+}
+
+.inlineToggle input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid var(--gray-400);
+  border-radius: 3px;
+  background-color: transparent;
+  display: inline-grid;
+  place-content: center;
+  cursor: pointer;
+}
+
+.inlineToggle input[type="checkbox"]::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  transform: scale(0);
+  transition: transform 0.1s ease-in-out;
+  background-color: var(--blue);
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+}
+
+.inlineToggle input[type="checkbox"]:checked {
+  border-color: var(--blue);
+  background-color: transparent;
+}
+
+.inlineToggle input[type="checkbox"]:checked::before {
+  transform: scale(1);
 }
