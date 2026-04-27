@@ -707,6 +707,7 @@ const FormBuilder: React.FC = () => {
                 previewForm={previewForm}
                 previewInitialStep={activeSectionIndex}
                 compactPreview
+                onPreviewStepChange={setActiveSectionIndex}
               />
             </div>
           ) : loading ? (
