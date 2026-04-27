@@ -1,20 +1,23 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import styles from "./PreProgram.module.css";
 import { useNavigate } from "react-router-dom";
 import SearchIcon from "@mui/icons-material/Search";
-import SettingsIcon from '@mui/icons-material/Settings';
+import FilterListIcon from "@mui/icons-material/FilterList";
+import SettingsIcon from "@mui/icons-material/Settings";
 import AutorenewIcon from "@mui/icons-material/Autorenew";
 import SendIcon from "@mui/icons-material/Send";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
-import { db, getUser, matchAll } from "../../firebase";
+import { auth, db, getUser, matchAll } from "../../firebase";
 import {
   collection,
   deleteDoc,
   doc,
   getDocs,
+  query,
   serverTimestamp,
   setDoc,
   updateDoc,
+  where,
   writeBatch,
 } from "firebase/firestore";
 import {
@@ -23,10 +26,16 @@ import {
   subscribeToProgramState,
   type ProgramState,
 } from "../../services/programState";
-import type { BackendMatch, UI_Match, MatchStatus } from "../../types";
+import type {
+  BackendMatch,
+  UI_Match,
+  MatchStatus,
+  FormResponse,
+} from "../../types";
 import SettingsPopup from "./SettingsPopup";
+import ParticipantInfoPopup from "../Dashboard/components/ParticipantInfoPopup/ParticipantInfoPopup";
 
-const APPROVAL_THRESHOLD = 0.8; // 80%
+const DEFAULT_APPROVAL_THRESHOLD = 0.8; // 80%
 const DEV_MODE = true; // ← flip to false before deploying to production
 
 // Collections to wipe on End Program
@@ -35,6 +44,7 @@ const COLLECTIONS_TO_CLEAR = [
   "matches",
   "logs",
   "weeks",
+  "waitlist",
 ];
 
 const PreProgram = () => {
@@ -48,20 +58,65 @@ const PreProgram = () => {
   );
   const [startingProgram, setStartingProgram] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
-  const [confirmAction, setConfirmAction] = useState<"start" | "finalize" | "endProgram" | null>(null);
+  const [confirmAction, setConfirmAction] = useState<
+    "start" | "finalize" | "endProgram" | null
+  >(null);
 
   // End Program state
   const [endConfirmText, setEndConfirmText] = useState("");
   const [endingProgram, setEndingProgram] = useState(false);
   const [endProgramError, setEndProgramError] = useState<string | null>(null);
 
-  const [settingsPopup, setSettingsPopup] = useState(false)
+  const [settingsPopup, setSettingsPopup] = useState(false);
+
+  const [statusFilterOpen, setStatusFilterOpen] = useState(false);
+  const [selectedStatuses, setSelectedStatuses] = useState<MatchStatus[]>([]);
+
+  const statusFilterRef = useRef<HTMLDivElement | null>(null);
+
+  const [selectedUser, setSelectedUser] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [formResponses, setFormResponses] = useState<FormResponse | null>(null);
+  const [formLoading, setFormLoading] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const navigate = useNavigate();
 
   useEffect(() => {
-    loadMatches();
-  }, []);
+    if (!selectedUser?.id) {
+      setFormResponses(null);
+      setFormLoading(false);
+      setFormError(null);
+      return;
+    }
+
+    setFormLoading(true);
+    setFormError(null);
+
+    const q = query(
+      collection(db, "FormResponse"),
+      where("uid", "==", selectedUser.id),
+    );
+
+    getDocs(q)
+      .then((snapshot) => {
+        if (snapshot.empty) {
+          setFormResponses(null);
+        } else {
+          const doc = snapshot.docs[0].data() as FormResponse;
+          setFormResponses(doc);
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load form responses", err);
+        setFormError("Could not load form responses.");
+      })
+      .finally(() => {
+        setFormLoading(false);
+      });
+  }, [selectedUser]);
 
   const sortMatches = (list: UI_Match[]) => {
     const order: Record<MatchStatus, number> = {
@@ -103,8 +158,10 @@ const PreProgram = () => {
 
         const pct = Math.round(m.scores.finalScore * 100);
 
+        const approvalThreshold = (programState?.autoApprovalThreshold ?? DEFAULT_APPROVAL_THRESHOLD * 100) / 100;
+
         const status: MatchStatus =
-          m.scores.finalScore >= APPROVAL_THRESHOLD ? "Approved" : "Pending";
+          m.scores.finalScore >= approvalThreshold ? "Approved" : "Pending";
 
         return {
           name1: u1.displayName,
@@ -114,6 +171,7 @@ const PreProgram = () => {
           confidence: pct,
           status,
           score: m.scores.finalScore,
+          approvedBy: status === "Approved" ? "Auto-Approved" : "",
         };
       }),
     );
@@ -151,7 +209,7 @@ const PreProgram = () => {
     return [...pairRows, ...unmatchedStudentRows, ...unmatchedSeniorRows];
   };
 
-  const loadMatches = async () => {
+  const loadMatches = useCallback(async () => {
     const matchesRef = collection(db, "matches");
     const snap = await getDocs(matchesRef);
 
@@ -161,9 +219,15 @@ const PreProgram = () => {
     if (!snap.empty) {
       const pairRows: UI_Match[] = await Promise.all(
         snap.docs.map(async (d) => {
-          const data = d.data() as any;
-          const p1 = data.participant1_id as string;
-          const p2 = data.participant2_id as string;
+          const data = d.data() as {
+            participant1_id?: string;
+            participant2_id?: string;
+            similarity?: number;
+            status?: string;
+            approvedBy?: string;
+          };
+          const p1 = data.participant1_id ?? "";
+          const p2 = data.participant2_id ?? "";
           const similarity = data.similarity ?? 0;
 
           matchedIds.add(p1);
@@ -173,6 +237,8 @@ const PreProgram = () => {
           const u2 = await getUser(p2);
 
           const rawStatus = (data.status as string | undefined) || "";
+          const approvalThreshold = programState?.autoApprovalThreshold ?? 80;
+
           let status: MatchStatus;
           if (rawStatus === "approved") {
             status = "Approved";
@@ -180,12 +246,14 @@ const PreProgram = () => {
             status = "Pending";
           } else {
             status =
-              similarity >= 80
+              similarity >= approvalThreshold
                 ? "Approved"
                 : similarity > 0
                   ? "Pending"
                   : "No Match";
           }
+
+          const approvedBy = (data.approvedBy as string | undefined) ?? "";
 
           return {
             name1: u1.displayName,
@@ -196,6 +264,7 @@ const PreProgram = () => {
             status,
             score: similarity / 100,
             matchId: d.id,
+            approvedBy,
           };
         }),
       );
@@ -207,14 +276,23 @@ const PreProgram = () => {
     const participantsRef = collection(db, "participants");
     const participantsSnap = await getDocs(participantsRef);
 
+    // Fetch waitlisted IDs to exclude from unmatched rows
+    const waitlistSnap = await getDocs(collection(db, "waitlist"));
+    const waitlistedIds = new Set(waitlistSnap.docs.map((d) => d.id));
+
     const unmatchedRows: UI_Match[] = [];
 
     participantsSnap.forEach((pDoc) => {
-      const data = pDoc.data() as any;
+      const data = pDoc.data() as {
+        displayName?: string | null;
+        name?: string | null;
+        fullName?: string | null;
+        user_type?: string | null;
+        userType?: string | null;
+      };
       const id = pDoc.id;
-      console.log("CHECKING: " + id)
       if (matchedIds.has(id)) return;
-      console.log(id + " NOT FOUND IN MATCHIDS")
+      if (waitlistedIds.has(id)) return;
       const displayName =
         data.displayName ?? data.name ?? data.fullName ?? "Unnamed participant";
       const userType = (data.user_type ?? data.userType) as
@@ -222,7 +300,6 @@ const PreProgram = () => {
         | "Adult"
         | "Senior"
         | undefined;
-      console.log(userType)
       if (userType === "Student") {
         unmatchedRows.push({
           name1: displayName,
@@ -254,6 +331,22 @@ const PreProgram = () => {
 
     const sorted = sortMatches(combined);
     setMatches(sorted);
+  }, []);
+
+  useEffect(() => {
+    loadMatches();
+  }, [loadMatches]);
+
+  const [banner, setBanner] = useState<{
+    message: string;
+    type: "success" | "error";
+  } | null>(null);
+
+  const getConfidenceCategory = (confidence?: number) => {
+    if (confidence == null) return null;
+    if (confidence > 80) return "high";
+    if (confidence > 50) return "medium";
+    return "low";
   };
 
   const storeMatches = async (list: UI_Match[]): Promise<UI_Match[]> => {
@@ -277,11 +370,11 @@ const PreProgram = () => {
 
       const newDocRef = doc(colRef);
       writeBatchRef.set(newDocRef, {
-        day_of_call: -1,
         participant1_id: m.participant1_id,
         participant2_id: m.participant2_id,
         similarity: m.confidence,
         status: m.status === "Approved" ? "approved" : "pending",
+        approvedBy: m.approvedBy ?? "",
       });
 
       withIds.push({ ...m, matchId: newDocRef.id });
@@ -290,6 +383,54 @@ const PreProgram = () => {
     await writeBatchRef.commit();
     console.log("Matches stored successfully.");
     return withIds;
+  };
+
+  const updateMatchStatuses = async (newThreshold: number) => {
+    try {
+      const matchesRef = collection(db, "matches");
+      const snap = await getDocs(matchesRef);
+
+      if (snap.empty) {
+        console.log("No matches to update");
+        return;
+      }
+
+      const batch = writeBatch(db);
+      let updateCount = 0;
+
+      snap.docs.forEach((matchDoc) => {
+        const data = matchDoc.data();
+        const similarity = data.similarity ?? 0;
+        const currentStatus = data.status;
+        const currentApprovedBy = data.approvedBy ?? "";
+
+        const newStatus = similarity >= newThreshold ? "approved" : "pending";
+        const shouldClearApprovedBy = newStatus !== "approved" && currentApprovedBy;
+
+        if (newStatus !== currentStatus || shouldClearApprovedBy) {
+          batch.update(matchDoc.ref, {
+            status: newStatus,
+            approvedBy:
+              newStatus === "approved"
+                ? currentApprovedBy || "Auto-Approved"
+                : "",
+          });
+          updateCount++;
+        }
+      });
+
+      if (updateCount > 0) {
+        await batch.commit();
+        console.log(`Updated status for ${updateCount} matches`);
+      } else {
+        console.log("No matches needed status updates");
+      }
+
+      // Reload matches to reflect changes in UI
+      await loadMatches();
+    } catch (error) {
+      console.error("Error updating match statuses:", error);
+    }
   };
 
   const handleMatch = async () => {
@@ -356,27 +497,23 @@ const PreProgram = () => {
    */
   const handleExportData = async () => {
     try {
-      const exportCollections = [
-        "participants",
-        "matches",
-        "logs",
-        "weeks",
-      ];
+      const exportCollections = ["participants", "matches", "logs", "weeks"];
 
       for (const colName of exportCollections) {
         const snap = await getDocs(collection(db, colName));
         if (snap.empty) continue;
 
-        const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const rows: Array<Record<string, unknown>> = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
         // Collect all keys
         const allKeys = Array.from(
-          new Set(rows.flatMap((r) => Object.keys(r)))
+          new Set(rows.flatMap((r) => Object.keys(r))),
         );
 
         const escapeCell = (val: unknown): string => {
           if (val === null || val === undefined) return "";
-          const str = typeof val === "object" ? JSON.stringify(val) : String(val);
+          const str =
+            typeof val === "object" ? JSON.stringify(val) : String(val);
           // Wrap in quotes if contains comma, quote, or newline
           if (str.includes(",") || str.includes('"') || str.includes("\n")) {
             return `"${str.replace(/"/g, '""')}"`;
@@ -387,7 +524,7 @@ const PreProgram = () => {
         const csvLines = [
           allKeys.join(","),
           ...rows.map((r) =>
-            allKeys.map((k) => escapeCell((r as any)[k])).join(",")
+            allKeys.map((k) => escapeCell(r[k])).join(",")
           ),
         ];
 
@@ -417,7 +554,10 @@ const PreProgram = () => {
 
       if (DEV_MODE) {
         // Simulate the operation without touching Firestore
-        console.log("[DEV_MODE] End Program triggered. Would have cleared:", COLLECTIONS_TO_CLEAR);
+        console.log(
+          "[DEV_MODE] End Program triggered. Would have cleared:",
+          COLLECTIONS_TO_CLEAR,
+        );
         console.log("[DEV_MODE] Would have reset config/programState to:", {
           matches_final: false,
           started: false,
@@ -446,7 +586,8 @@ const PreProgram = () => {
         started: false,
         updatedAt: serverTimestamp(),
         week: 0,
-      });
+        currentParticipants: 0,
+      }, { merge: true });
 
       // Clear local state
       setMatches([]);
@@ -461,17 +602,31 @@ const PreProgram = () => {
   };
 
   const handleStatusChange = async (
-    index: number,
+    matchId: string | undefined,
     newStatus: MatchStatus | "Separate",
   ) => {
+    const index = matches.findIndex((m) => m.matchId === matchId);
+    if (index === -1) return;
+
     const updated = [...matches];
     const match = updated[index];
 
-    if (match.status === "No Match") return;
+    if (!match || match.status === "No Match") return;
 
-    // Handles the deletion of the match and update Firebase statuses
-    if (newStatus === "Separate") {
-      if (match.matchId) {
+    try {
+      let adminName = "Unknown Admin";
+
+      if (newStatus === "Approved") {
+        const currentUid = auth.currentUser?.uid;
+        if (currentUid) {
+          const adminUser = await getUser(currentUid);
+          adminName = adminUser.displayName ?? "Unknown Admin";
+        }
+      }
+
+      if (newStatus === "Separate") {
+        if (!match.matchId) return;
+
         const newUnmatchedStudent: UI_Match = {
           name1: match.name1,
           name2: "No match yet",
@@ -480,6 +635,7 @@ const PreProgram = () => {
           confidence: undefined,
           status: "No Match",
           score: 0,
+          approvedBy: "",
         };
 
         const newUnmatchedSenior: UI_Match = {
@@ -490,6 +646,7 @@ const PreProgram = () => {
           confidence: undefined,
           status: "No Match",
           score: 0,
+          approvedBy: "",
         };
 
         const newUpdated = updated.filter((m) => m.matchId !== match.matchId);
@@ -498,26 +655,75 @@ const PreProgram = () => {
 
         const deleteMatchRef = doc(db, "matches", match.matchId);
         await deleteDoc(deleteMatchRef);
+
+        setBanner({
+          message: "Match separated successfully.",
+          type: "success",
+        });
+        setTimeout(() => setBanner(null), 3000);
+        return;
       }
 
-      return;
+      match.status = newStatus;
+      match.approvedBy = newStatus === "Approved" ? adminName : "";
+
+      setMatches(sortMatches(updated));
+
+      if (!match.matchId) return;
+
+      const matchRef = doc(db, "matches", match.matchId);
+      const firestoreStatus = newStatus === "Approved" ? "approved" : "pending";
+
+      await updateDoc(matchRef, {
+        status: firestoreStatus,
+        approvedBy: newStatus === "Approved" ? adminName : "",
+      });
+
+      setBanner({
+        message: `Match marked as ${newStatus} successfully.`,
+        type: "success",
+      });
+      setTimeout(() => setBanner(null), 3000);
+    } catch (err) {
+      console.error("Failed to update match status:", err);
+      setBanner({
+        message: "Failed to update match status.",
+        type: "error",
+      });
+      setTimeout(() => setBanner(null), 3000);
     }
-
-    match.status = newStatus;
-    setMatches(sortMatches(updated));
-
-    if (!match.matchId) return;
-
-    const matchRef = doc(db, "matches", match.matchId);
-    const firestoreStatus = newStatus === "Approved" ? "approved" : "pending";
-    await updateDoc(matchRef, { status: firestoreStatus });
   };
 
-  const filteredMatches = matches.filter(
-    (m) =>
-      m.name1.toLowerCase().includes(search.toLowerCase()) ||
-      m.name2.toLowerCase().includes(search.toLowerCase()),
-  );
+  const filteredMatches = matches.filter((m) => {
+    const searchValue = search.toLowerCase();
+    const matchesSearch =
+      m.name1.toLowerCase().includes(searchValue) ||
+      m.name2.toLowerCase().includes(searchValue);
+
+    const matchesStatus =
+      selectedStatuses.length === 0 || selectedStatuses.includes(m.status);
+
+    return matchesSearch && matchesStatus;
+  });
+
+  useEffect(() => {
+    if (!statusFilterOpen) return;
+
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      if (!statusFilterRef.current) return;
+      if (!statusFilterRef.current.contains(event.target as Node)) {
+        setStatusFilterOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
+  }, [statusFilterOpen]);
 
   // global bools for program state
   const programStarted = programState?.started ?? false;
@@ -585,10 +791,7 @@ const PreProgram = () => {
           >
             Manual Rematch
           </button>
-          <button
-            className={styles.exportBtn}
-            onClick={handleExportData}
-          >
+          <button className={styles.exportBtn} onClick={handleExportData}>
             Export Data
           </button>
           <button
@@ -611,7 +814,6 @@ const PreProgram = () => {
       {confirmAction && (
         <div className={styles.confirmOverlay}>
           <div className={styles.confirmCard}>
-
             {/* ── Start / Finalize dialogs (unchanged) ── */}
             {(confirmAction === "start" || confirmAction === "finalize") && (
               <>
@@ -660,7 +862,10 @@ const PreProgram = () => {
                 <p className={styles.confirmText}>
                   We recommend exporting your data first.
                 </p>
-                <div className={styles.confirmActions} style={{ marginBottom: 14 }}>
+                <div
+                  className={styles.confirmActions}
+                  style={{ marginBottom: 14 }}
+                >
                   <button
                     className={styles.exportBtn}
                     onClick={handleExportData}
@@ -683,7 +888,10 @@ const PreProgram = () => {
                 {endProgramError && (
                   <div className={styles.stateError}>{endProgramError}</div>
                 )}
-                <div className={styles.confirmActions} style={{ marginTop: 16 }}>
+                <div
+                  className={styles.confirmActions}
+                  style={{ marginTop: 16 }}
+                >
                   <button
                     className={styles.cancelButton}
                     onClick={() => {
@@ -708,35 +916,131 @@ const PreProgram = () => {
                 </div>
               </>
             )}
-
           </div>
+        </div>
+      )}
+
+      {banner && (
+        <div className={`${styles.banner} ${styles[banner.type]}`}>
+          {banner.message}
         </div>
       )}
 
       {/* ── Match Table ── */}
       <div className={styles.container}>
+        <div className={styles.filterBar} ref={statusFilterRef}>
+          <button
+            type="button"
+            className={styles.filterButton}
+            onClick={() => setStatusFilterOpen((open) => !open)}
+          >
+            <FilterListIcon className={styles.filterIcon} />
+            <span>Filter by pair status</span>
+          </button>
+
+          {statusFilterOpen && (
+            <div className={styles.filterPopover}>
+              {(["No Match", "Pending", "Approved"] as MatchStatus[]).map(
+                (status) => (
+                  <label key={status} className={styles.filterOption}>
+                    <input
+                      type="checkbox"
+                      checked={selectedStatuses.includes(status)}
+                      onChange={() =>
+                        setSelectedStatuses((prev) =>
+                          prev.includes(status)
+                            ? prev.filter((s) => s !== status)
+                            : [...prev, status],
+                        )
+                      }
+                    />
+                    <span>{status}</span>
+                  </label>
+                ),
+              )}
+              <button
+                type="button"
+                className={styles.clearFilterButton}
+                onClick={() => setSelectedStatuses([])}
+              >
+                Clear filters
+              </button>
+            </div>
+          )}
+        </div>
+
         <table className={styles.table}>
           <thead>
             <tr>
               <th>Student</th>
-              <th>Senior</th>
+              <th>Older Adult</th>
               <th>Final Score %</th>
               <th>Status</th>
+              <th>Approved By</th>
             </tr>
           </thead>
           <tbody>
             {filteredMatches.length === 0 ? (
               <tr>
-                <td colSpan={4} className={styles.empty}>
+                <td colSpan={5} className={styles.empty}>
                   No matches yet.
                 </td>
               </tr>
             ) : (
               filteredMatches.map((m, i) => (
                 <tr key={i}>
-                  <td>{m.name1}</td>
-                  <td>{m.name2}</td>
-                  <td>{m.confidence != null ? `${m.confidence}%` : "—"}</td>
+                  <td>
+                    {m.participant1_id ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSelectedUser({ id: m.participant1_id!, name: m.name1 })
+                        }
+                        className={styles.nameButton}
+                      >
+                        {m.name1}
+                      </button>
+                    ) : (
+                      m.name1
+                    )}
+                  </td>
+                  <td>
+                    {m.participant2_id ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSelectedUser({ id: m.participant2_id!, name: m.name2 })
+                        }
+                        className={styles.nameButton}
+                      >
+                        {m.name2}
+                      </button>
+                    ) : (
+                      m.name2
+                    )}
+                  </td>
+                  <td>
+                    {m.confidence != null ? (
+                      <span
+                        className={`${styles.score} ${
+                          getConfidenceCategory(m.confidence) === "high"
+                            ? styles.high
+                            : getConfidenceCategory(m.confidence) === "medium"
+                              ? styles.medium
+                              : styles.low
+                        }`}
+                      >
+                        {m.confidence}%{" "}
+                        {getConfidenceCategory(m.confidence) === "high"
+                          ? "High"
+                          : getConfidenceCategory(m.confidence) === "medium"
+                            ? "Medium"
+                            : "Low"}
+                      </span>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
                   <td>
                     {m.status === "No Match" ? (
                       <span className={`${styles.noMatch}`}>No Match</span>
@@ -744,7 +1048,10 @@ const PreProgram = () => {
                       <select
                         value={m.status}
                         onChange={(e) =>
-                          handleStatusChange(i, e.target.value as MatchStatus | "Separate")
+                          handleStatusChange(
+                            m.matchId,
+                            e.target.value as MatchStatus | "Separate"
+                          )
                         }
                         className={`${styles.status} ${
                           m.status === "Approved"
@@ -758,13 +1065,24 @@ const PreProgram = () => {
                       </select>
                     )}
                   </td>
+                  <td>{m.approvedBy || "—"}</td>
                 </tr>
               ))
             )}
           </tbody>
         </table>
       </div>
-      <SettingsPopup isOpened={settingsPopup} close={()=>{setSettingsPopup(false)}} program={programState} setProgram = {setProgramState}></SettingsPopup>
+      <SettingsPopup isOpened={settingsPopup} close={()=>{setSettingsPopup(false)}} program={programState} setProgram = {setProgramState} onThresholdChange={updateMatchStatuses}></SettingsPopup>
+
+      {selectedUser ? (
+        <ParticipantInfoPopup
+          userName={selectedUser.name}
+          onClose={() => setSelectedUser(null)}
+          formResponses={formResponses}
+          loading={formLoading}
+          error={formError}
+        />
+      ) : null}
     </div>
   );
 };

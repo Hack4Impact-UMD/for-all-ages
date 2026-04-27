@@ -14,18 +14,6 @@
     transform: translateY(-2px);
 }
 
-.studentCard {
-    /* Modifier class for student cards */
-}
-
-.adultCard {
-    /* Modifier class for adult cards */
-}
-
-.selected {
-    /* Modifier class for selected state */
-}
-
 .participantCard.studentCard.selected {
     color: #2e7d32;
     background: #e8f5e9;
@@ -44,38 +32,21 @@
     font-size: 1.1rem;
 }
 
+.participantPronouns {
+    font-size: 0.8rem;
+    color: #666;
+    margin-bottom: 0.2rem;
+}
+
 .participantSchool {
     font-size: 0.95rem;
 }
 
-.interests {
-    margin-top: 0.5rem;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    justify-content: flex-start;
+.compatibilityScore {
+    margin-top: 0.35rem;
+    font-size: 0.82rem;
+    color: #0f6bb1;
+    font-weight: 600;
 }
 
-.interestTag {
-    padding: 0.35rem 0.75rem;
-    background: rgba(15, 107, 177, 0.1);
-    border-radius: 1rem;
-    font-size: 0.85rem;
-    font-weight: 500;
-}
-
-.studentInterests .interestTag,
-.adultInterests .interestTag {
-    font-size: 0.75rem;
-    padding: 0.25rem 0.6rem;
-    color: white;
-}
-
-.studentInterests .interestTag {
-    background: #2C6133;
-}
-
-.adultInterests .interestTag {
-    background: #EAB419;
-}
 

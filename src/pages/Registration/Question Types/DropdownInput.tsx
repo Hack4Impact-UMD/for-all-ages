@@ -10,8 +10,8 @@ export default function DropdownInput({
   className?: string;
 }) {
   return (
-    <select name={name} required={required} className={className}>
-      <option value="" disabled>
+    <select name={name} required={required} className={className} defaultValue="">
+      <option value="">
         Select an option
       </option>
       {options.map((opt) => (

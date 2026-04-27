@@ -1,32 +1,51 @@
 import Dialog from "@mui/material/Dialog";
 import styles from "./PreProgram.module.css";
 import type { ProgramState } from "../../types";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../../firebase";
 interface SettingsPopupProps {
     isOpened: boolean
     close: ()=>void
     program: ProgramState | null
-    setProgram: Function
+    setProgram: React.Dispatch<React.SetStateAction<ProgramState | null>>
+    onThresholdChange?: (newThreshold: number) => Promise<void>
 }
 
-export default function SettingsPopup ({isOpened, close, program, setProgram}: SettingsPopupProps) {
-    const [numWeeks, setNumWeeks] = useState(program?.numWeeks);
-    const [maxParticipants, setMaxParticipants] = useState(program?.maxParticipants);
+export default function SettingsPopup ({isOpened, close, program, setProgram, onThresholdChange}: SettingsPopupProps) {
+    const [numWeeks, setNumWeeks] = useState(program?.numWeeks ?? 1);
+    const [maxParticipants, setMaxParticipants] = useState(program?.maxParticipants ?? 2);
+    const [autoApprovalThreshold, setAutoApprovalThreshold] = useState(
+        program?.autoApprovalThreshold ?? 80,
+    );
+    const [originalThreshold, setOriginalThreshold] = useState(program?.autoApprovalThreshold ?? 80);
     const [changed, setChanged] = useState(false);
 
     useEffect(()=>{
-        setNumWeeks(program?.numWeeks)
-        setMaxParticipants(program?.maxParticipants)
+        const threshold = program?.autoApprovalThreshold ?? 80;
+        setNumWeeks(program?.numWeeks ?? 1)
+        setMaxParticipants(program?.maxParticipants ?? 2)
+        setAutoApprovalThreshold(threshold)
+        setOriginalThreshold(threshold)
         setChanged(false)
     },[program, isOpened])
 
     useEffect(()=>{
-        if (program && (numWeeks != program.numWeeks || maxParticipants != program.maxParticipants)) {
-            setChanged(true);
+        if (!program) {
+            setChanged(false);
+            return;
         }
-    },[numWeeks, maxParticipants]) 
+
+        if (
+            numWeeks != program.numWeeks ||
+            maxParticipants != program.maxParticipants ||
+            autoApprovalThreshold != (program.autoApprovalThreshold ?? 80)
+        ) {
+            setChanged(true);
+        } else {
+            setChanged(false);
+        }
+    },[numWeeks, maxParticipants, autoApprovalThreshold, program])
 
     const handleSave = async () => {
         if (!program) return;
@@ -34,9 +53,12 @@ export default function SettingsPopup ({isOpened, close, program, setProgram}: S
         try {
             const programRef = doc(db, "config", "programState");
 
+            const clampedThreshold = Math.min(100, Math.max(0, Number(autoApprovalThreshold)));
+
             await updateDoc(programRef, {
                 numWeeks: Number(numWeeks),
                 maxParticipants: Number(maxParticipants),
+                autoApprovalThreshold: clampedThreshold,
             });
 
             setProgram((prev: ProgramState | null) =>
@@ -45,9 +67,15 @@ export default function SettingsPopup ({isOpened, close, program, setProgram}: S
                         ...prev,
                         numWeeks: Number(numWeeks),
                         maxParticipants: Number(maxParticipants),
+                        autoApprovalThreshold: clampedThreshold,
                     }
                     : prev
             );
+
+            // Check if threshold changed and update match statuses
+            if (onThresholdChange && clampedThreshold !== originalThreshold) {
+                await onThresholdChange(clampedThreshold);
+            }
 
             close();
         } catch (error) {
@@ -66,8 +94,28 @@ export default function SettingsPopup ({isOpened, close, program, setProgram}: S
                 </div>
 
                 <div className={styles.settingsRow}>
+                    <p>Current Participants: </p>
+                    <span>{program?.currentParticipants ?? 0}</span>
+                </div>
+
+                <div className={styles.settingsRow}>
                     <p>Maximum Number of Participants: </p>
                     <input className={styles.numberInput} min={2} type="number" step={2} value={maxParticipants} disabled={program?.started || program?.matches_final} onChange={(e)=>{setMaxParticipants(Number(e.target.value))}}></input>
+                </div>
+
+                <div className={styles.settingsRow}>
+                    <p>Automatic Approval Threshold (%) : </p>
+                    <input
+                        className={styles.numberInput}
+                        min={0}
+                        max={100}
+                        type="number"
+                        value={autoApprovalThreshold}
+                        disabled={program?.started || program?.matches_final}
+                        onChange={(e) => {
+                            setAutoApprovalThreshold(Number(e.target.value));
+                        }}
+                    />
                 </div>
 
                 {program?.started || program?.matches_final ? <p className={styles.warning}>One more more settings may not be editable if the program has started or matches have been made final.</p> : ""}

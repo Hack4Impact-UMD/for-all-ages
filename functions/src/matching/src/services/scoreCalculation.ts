@@ -35,10 +35,10 @@ export function calculateAllPairwiseScores(
         // Calculate FRQ score (embedding similarity)
         const frqScore = cosineSimilarity(student.embedding, senior.embedding);
         
-        // Calculate quantifiable score (Q1, Q2, Q3 similarity)
+        // Calculate quantifiable score similarity dynamically
         const quantScore = quantifiableScoreSimilarity(
-          { q1: student.q1, q2: student.q2, q3: student.q3 },
-          { q1: senior.q1, q2: senior.q2, q3: senior.q3 },
+          student.numericAnswers,
+          senior.numericAnswers,
           config
         );
         
