@@ -301,15 +301,15 @@
 }
 
 .titleRowBtn:enabled:hover {
-  filter: brightness(0.95);
+  filter: brightness(0.90);
   transition: filter 0.15s ease;
-  border: currentColor;
 }
 
 .saveAndCancelBtns {
   padding: 0 1.5rem;
   min-width: max-content;
   width: 6rem;
+  border: currentColor;
 }
 
 .saveAndCancelBtns:disabled {
@@ -332,6 +332,10 @@
 
 .saveBtn:disabled {
   opacity: 0.5;
+}
+
+.saveBtn:enabled:hover {
+  background: var(--gray-700);
 }
 
 .deleteBtnIcon {
@@ -915,7 +919,8 @@
   transition: background 0.15s;
 }
 .navBtn:hover:not(:disabled) {
-  background: var(--gray-500);
+  filter: brightness(0.90);
+  transition: filter 0.15s ease;
 }
 .navBtn:disabled {
   opacity: 0.4;
