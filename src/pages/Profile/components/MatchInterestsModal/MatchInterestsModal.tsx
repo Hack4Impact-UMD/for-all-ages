@@ -1,19 +1,31 @@
 import React from "react";
 import styles from "../../Profile.module.css";
+import type { MatchableProfileResponseForDisplay } from "../../Profile";
 
 interface MatchInterestsModalProps {
   open: boolean;
   matchName?: string;
-  matchInterests?: string;
+  matchableResponses: MatchableProfileResponseForDisplay[];
   onClose: () => void;
 }
 
 const MatchInterestsModal: React.FC<MatchInterestsModalProps> = ({
   open,
   matchName,
-  matchInterests,
+  matchableResponses,
   onClose,
 }) => {
+  React.useEffect(() => {
+    if (!open) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [open]);
+
   if (!open) return null;
 
   const handleBackdropClick = () => {
@@ -26,11 +38,6 @@ const MatchInterestsModal: React.FC<MatchInterestsModalProps> = ({
 
   const displayName =
     matchName && matchName.trim().length > 0 ? matchName : "Your match";
-
-  const displayInterests =
-    matchInterests && matchInterests.trim().length > 0
-      ? matchInterests
-      : "No interests response available.";
 
   return (
     <div className={styles.modalBackdrop} onClick={handleBackdropClick}>
@@ -47,7 +54,40 @@ const MatchInterestsModal: React.FC<MatchInterestsModalProps> = ({
         </div>
 
         <div className={styles.modalBody}>
-          <p>{displayInterests}</p>
+          {matchableResponses.length > 0 ? (
+            <div className={styles.matchableResponses}>
+              {matchableResponses.map((response) => (
+                <article
+                  key={response.title}
+                  className={styles.matchableResponseCard}
+                >
+                  <div className={styles.matchableResponseHeader}>
+                    <h4 className={styles.matchableQuestion}>
+                      {response.title}
+                    </h4>
+                  </div>
+
+                  {response.type === "slider" ? (
+                    <div className={styles.sliderResponse}>
+                      <span className={styles.sliderValue}>
+                        {response.answer}
+                      </span>
+                    </div>
+                  ) : (
+                    <textarea
+                      className={styles.matchableTextResponse}
+                      value={String(response.answer)}
+                      readOnly
+                    />
+                  )}
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className={styles.emptyMatchableResponses}>
+              <span>No matchable responses available.</span>
+            </div>
+          )}
         </div>
       </div>
     </div>

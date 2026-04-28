@@ -466,7 +466,8 @@
   font-weight: 600;
   text-align: center;
   box-sizing: border-box;
-  width: 50%;
+  min-width: 104px;
+  width: 64%;
 }
 
 .pending {
@@ -489,7 +490,8 @@
   font-weight: 600;
   text-align: center;
   box-sizing: border-box;
-  width: 50%;
+  min-width: 104px;
+  width: 64%;
   display: inline-block;
 }
 

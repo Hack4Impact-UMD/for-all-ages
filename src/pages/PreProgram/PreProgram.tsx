@@ -24,6 +24,7 @@ import {
   finalizeMatches,
   startProgram,
   subscribeToProgramState,
+  unfinalizeMatches,
   type ProgramState,
 } from "../../services/programState";
 import type {
@@ -59,7 +60,7 @@ const PreProgram = () => {
   const [startingProgram, setStartingProgram] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
   const [confirmAction, setConfirmAction] = useState<
-    "start" | "finalize" | "endProgram" | null
+    "start" | "finalize" | "unfinalize" | "endProgram" | null
   >(null);
 
   // End Program state
@@ -488,6 +489,20 @@ const PreProgram = () => {
     }
   };
 
+  const handleUnfinalizeMatches = async () => {
+    try {
+      setProgramStateError(null);
+      setFinalizing(true);
+      await unfinalizeMatches();
+    } catch (err) {
+      console.error("Failed to unlock matches", err);
+      setProgramStateError("Failed to unlock matches. Please try again.");
+    } finally {
+      setFinalizing(false);
+      setConfirmAction(null);
+    }
+  };
+
   // ── Export Data ──────────────────────────────────────────────────────────────
 
   /**
@@ -757,13 +772,17 @@ const PreProgram = () => {
                 : "Start Program"}
           </button>
           <button
-            onClick={() => setConfirmAction("finalize")}
+            onClick={() =>
+              setConfirmAction(matchesFinalized ? "unfinalize" : "finalize")
+            }
             className={styles.adminBtn}
-            disabled={programStateLoading || finalizing || matchesFinalized}
+            disabled={programStateLoading || finalizing}
           >
             <LockOutlinedIcon className={styles.icon} />
             {matchesFinalized
-              ? "Matches Locked"
+              ? finalizing
+                ? "Unlocking..."
+                : "Matches Locked"
               : finalizing
                 ? "Locking..."
                 : "Lock In All Matches"}
@@ -779,15 +798,20 @@ const PreProgram = () => {
           <button
             onClick={handleMatch}
             className={styles.rematchBtn}
-            disabled={matching}
+            disabled={matching || matchesFinalized}
           >
             <AutorenewIcon className={styles.icon} />
-            {matching ? "Creating..." : "Create Matches"}
+            {matchesFinalized
+              ? "Matches Locked"
+              : matching
+                ? "Creating..."
+                : "Create Matches"}
           </button>
 
           <button
             className={styles.adminBtn}
             onClick={() => navigate("/admin/rematching")}
+            disabled={matchesFinalized}
           >
             Manual Rematch
           </button>
@@ -814,18 +838,24 @@ const PreProgram = () => {
       {confirmAction && (
         <div className={styles.confirmOverlay}>
           <div className={styles.confirmCard}>
-            {/* ── Start / Finalize dialogs (unchanged) ── */}
-            {(confirmAction === "start" || confirmAction === "finalize") && (
+            {/* ── Start / Finalize / Unlock dialogs ── */}
+            {(confirmAction === "start" ||
+              confirmAction === "finalize" ||
+              confirmAction === "unfinalize") && (
               <>
                 <h3 className={styles.confirmTitle}>
                   {confirmAction === "start"
                     ? "Starting the Program"
-                    : "Finalizing..."}
+                    : confirmAction === "finalize"
+                      ? "Finalizing..."
+                      : "Unlock Matches"}
                 </h3>
                 <p className={styles.confirmText}>
                   {confirmAction === "start"
                     ? "Are you sure you want to start the program?"
-                    : "Are you sure you want to lock all matches?"}
+                    : confirmAction === "finalize"
+                      ? "Are you sure you want to lock all matches?"
+                      : "Are you sure you want to unlock all matches? Participants will no longer be able to view finalized match details until matches are locked again."}
                 </p>
                 <div className={styles.confirmActions}>
                   <button
@@ -840,7 +870,9 @@ const PreProgram = () => {
                     onClick={
                       confirmAction === "start"
                         ? handleStartProgram
-                        : handleFinalizeMatches
+                        : confirmAction === "finalize"
+                          ? handleFinalizeMatches
+                          : handleUnfinalizeMatches
                     }
                     disabled={startingProgram || finalizing}
                   >
@@ -1047,6 +1079,7 @@ const PreProgram = () => {
                     ) : (
                       <select
                         value={m.status}
+                        disabled={matchesFinalized}
                         onChange={(e) =>
                           handleStatusChange(
                             m.matchId,
