@@ -2,7 +2,6 @@ import * as admin from "firebase-admin";
 import busboy from "busboy";
 // import * as functions from "firebase-functions";
 import { onRequest, onCall, HttpsError } from "firebase-functions/v2/https";
-import { onSchedule } from "firebase-functions/v2/scheduler";
 
 import { MatchingConfig } from "./types";
 import { MatchingService } from "./matching/src/services/matchingService";
@@ -21,8 +20,74 @@ const PARTICIPANTS = "participants";
 type ProgramState = {
   started: boolean;
   matches_final: boolean;
-  week: number;
 };
+
+function buildNumericScoreRanges(form: any): Record<string, { min: number; max: number }> {
+  const scoreRanges: Record<string, { min: number; max: number }> = {};
+  const usedKeys = new Set<string>();
+  let nextNumericIndex = 1;
+
+  const getNextNumericKey = (): string => {
+    while (usedKeys.has(`numeric${nextNumericIndex}`)) {
+      nextNumericIndex += 1;
+    }
+    const key = `numeric${nextNumericIndex}`;
+    usedKeys.add(key);
+    nextNumericIndex += 1;
+    return key;
+  };
+
+  if (!form || !Array.isArray(form.sections)) {
+    return scoreRanges;
+  }
+
+  form.sections.forEach((section: any) => {
+    if (!Array.isArray(section.questions)) {
+      return;
+    }
+
+    section.questions.forEach((q: any) => {
+      if (!q.matchable || (q.type !== "Slider" && q.type !== "Number" && typeof q.min !== "number")) {
+        return;
+      }
+
+      const existingKey =
+        typeof q.numericKey === "string" && q.numericKey.trim().length > 0
+          ? q.numericKey.trim()
+          : "";
+
+      const key =
+        existingKey && !usedKeys.has(existingKey)
+          ? existingKey
+          : getNextNumericKey();
+
+      usedKeys.add(key);
+      scoreRanges[key] = {
+        min: q.min ?? 1,
+        max: q.max ?? 5,
+      };
+    });
+  });
+
+  return scoreRanges;
+}
+
+// Helper to fetch dynamic score ranges from the creator's form config
+async function getDynamicMatchingConfig(): Promise<Partial<MatchingConfig>> {
+  const formSnap = await admin.firestore().doc("config/registrationForm").get();
+  let scoreRanges: Record<string, { min: number; max: number }> = {};
+  
+  if (formSnap.exists) {
+    const form = formSnap.data();
+    scoreRanges = buildNumericScoreRanges(form);
+  }
+
+  return {
+    frqWeight: 0.7,
+    quantWeight: 0.3,
+    scoreRanges
+  };
+}
 
 export const matchAll = onRequest(async (req, res) => {
   // CORS headers
@@ -36,11 +101,9 @@ export const matchAll = onRequest(async (req, res) => {
     return;
   }
 
-  let frqWeight = 0.7;
-  let quantWeight = 0.3;
-
-  const config: Partial<MatchingConfig> = { frqWeight, quantWeight };
-  const service = new MatchingService(config);
+  // Fetch the dynamically constructed config with the creator's min/max ranges
+  const config = await getDynamicMatchingConfig();
+  const service = new MatchingService(config as MatchingConfig);
   const result = await service.runMatching();
 
   res.status(200).json({
@@ -68,9 +131,12 @@ export const upsertUser = onRequest(async (req, res) => {
   try {
     const { uid, textResponses, numericResponses, user_type, pronouns } = req.body;
 
+    // Validate using Object.keys since numericResponses is now a Record/Object
+    const hasText = textResponses && textResponses.length > 0;
+    const hasNumeric = numericResponses && Object.keys(numericResponses).length > 0;
+
     // If there are no matchable responses, just return success
-    if ((!textResponses || textResponses.length === 0) && 
-        (!numericResponses || numericResponses.length === 0)) {
+    if (!hasText && !hasNumeric) {
       res.status(200).json({ message: "No responses to upsert." });
       return;
     }
@@ -78,7 +144,7 @@ export const upsertUser = onRequest(async (req, res) => {
     await upsertFreeResponse(
       uid,
       textResponses || [],
-      numericResponses || [],
+      numericResponses || {},
       user_type,
       pronouns
     );
@@ -141,36 +207,6 @@ export const addToWaitlist = onRequest(async (req, res) => {
   }
 });
 
-// run to deply to cloud --> firebase deploy --only functions:incrementProgramWeek
-// Cron job to run matching every day at midnight
-export const incrementProgramWeek = onSchedule(
-  // Saturday at 11:59 PM Eastern Time "59 23 * * 6"
-  // FOR TESTING PURPOSES ONLY: runs every 1 min "*/1 * * * *"
-  { schedule: "59 23 * * 6", timeZone: "America/New_York" },
-  async () => {
-    console.log("HERE*****");
-    const ref = admin.firestore().doc("config/programState");
-
-    await admin.firestore().runTransaction(async (tx) => {
-      const snap = await tx.get(ref);
-      if (!snap.exists) return;
-
-      const data = snap.data() as ProgramState;
-
-      // ONLY RUN IF PROGRAM HAS STARTED
-      if (!data.started) return;
-
-      const currentWeek = data.week ?? 1;
-      const nextWeek = currentWeek + 1; // optionally cap this
-
-      tx.update(ref, {
-        week: nextWeek,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-    });
-  },
-);
-
 export const computeMatchScore = onRequest(async (req, res) => {
   // CORS headers
   res.set("Access-Control-Allow-Origin", CORS_ORIGIN);
@@ -195,7 +231,9 @@ export const computeMatchScore = onRequest(async (req, res) => {
       return;
     }
 
-    const result = await computeMatchScoreService(uid1, uid2);
+    // Fetch the dynamically constructed config with the creator's min/max ranges
+    const config = await getDynamicMatchingConfig();
+    const result = await computeMatchScoreService(uid1, uid2, config); // Pass config dynamically
 
     res.status(200).json(result);
   } catch (err) {

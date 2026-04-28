@@ -3,9 +3,7 @@ export interface ParticipantWithEmbedding {
   user_type: 'student' | 'adult' | string;
   pronouns?: string;
   embedding: number[];
-  q1?: number;
-  q2?: number;
-  q3?: number;
+  numericAnswers?: Record<string, number>; // Replaces hardcoded q1, q2, q3
   metadata?: Record<string, unknown>;
 }
 
@@ -34,14 +32,8 @@ export interface Match {
 export interface MatchingConfig {
   frqWeight: number;
   quantWeight: number;
-  scoreRanges: {
-    q1Min: number;
-    q1Max: number;
-    q2Min: number;
-    q2Max: number;
-    q3Min: number;
-    q3Max: number;
-  };
+  // Score ranges are now mapped dynamically by question ID
+  scoreRanges: Record<string, { min: number; max: number }>;
   confidenceThresholds: {
     high: number;
     medium: number;
@@ -79,14 +71,7 @@ export interface MatchingResult {
 export const DEFAULT_MATCHING_CONFIG: MatchingConfig = {
   frqWeight: 0.7,
   quantWeight: 0.3,
-  scoreRanges: {
-    q1Min: 1,
-    q1Max: 5,
-    q2Min: 1,
-    q2Max: 5,
-    q3Min: 1,
-    q3Max: 5,
-  },
+  scoreRanges: {}, // Should be hydrated dynamically from Firebase config
   confidenceThresholds: {
     high: 0.8,
     medium: 0.6,

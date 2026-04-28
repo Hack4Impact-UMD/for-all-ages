@@ -61,10 +61,10 @@ export async function computeMatchScore(
     frqScore = 0;
   }
 
-  // Compute quantifiable score (SSD normalized)
+  // Compute quantifiable score 
   const quantScore = quantifiableScoreSimilarity(
-    { q1: a.q1, q2: a.q2, q3: a.q3 },
-    { q1: b.q1, q2: b.q2, q3: b.q3 },
+    a.numericAnswers,
+    b.numericAnswers,
     cfg
   );
 

@@ -4,7 +4,7 @@ import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 import styles from "./Registration.module.css";
 import { useAuth } from "../../auth/AuthProvider";
 import { db } from "../../firebase";
-import { phoneNumberRegex } from "../../regex";
+import { formatPhone, stripPhone, isValidPhone } from "../../utils/phone";
 import { upsertUser } from "../../firebase";
 import { PREFERENCE_QUESTION_LABELS } from "./preferenceQuestions";
 import type { RegistrationFormState } from "../../types";
@@ -57,6 +57,8 @@ const Registration = () => {
     emailVerified,
     participant,
     participantLoading,
+    programState,
+    programStateLoading,
   } = useAuth();
 
   const [form, setForm] = useState<RegistrationFormState>(() =>
@@ -96,6 +98,8 @@ const Registration = () => {
     participant,
     navigate,
   ]);
+
+  const signupsClosed = Boolean(programState?.matches_final);
 
   // When the user types into any input/select/textarea, update that field in form state
   const handleInputChange = (
@@ -257,10 +261,24 @@ const Registration = () => {
   };
 
   // Show loading while auth is still loading
-  if (authLoading || participantLoading) {
+  if (authLoading || participantLoading || programStateLoading) {
     return (
       <div id={styles.page}>
         <p className={styles.message}>Loading your registration details...</p>
+      </div>
+    );
+  }
+
+  if (signupsClosed) {
+    return (
+      <div id={styles.page}>
+        <div className={styles.card}>
+          <h2 className={styles.cardTitle}>Signups have closed for this cohort</h2>
+          <p>
+            If you’re interested in joining, please contact the admin team at{" "}
+            <a href="mailto:info@forallages.org">info@forallages.org</a>.
+          </p>
+        </div>
       </div>
     );
   }

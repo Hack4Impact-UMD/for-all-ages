@@ -55,6 +55,25 @@ button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
 }
 
+select:not([multiple]) {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding-right: 2.5rem;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #64748b 50%),
+    linear-gradient(135deg, #64748b 50%, transparent 50%);
+  background-position:
+    calc(100% - 1.1rem) calc(50% - 0.08rem),
+    calc(100% - 0.8rem) calc(50% - 0.08rem);
+  background-size: 0.36rem 0.36rem, 0.36rem 0.36rem;
+  background-repeat: no-repeat;
+}
+
+select:not([multiple])::-ms-expand {
+  display: none;
+}
+
 @media (prefers-color-scheme: light) {
   :root {
     color: #213547;
