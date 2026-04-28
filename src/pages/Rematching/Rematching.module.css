@@ -132,6 +132,8 @@
     border: 2px solid rgba(15, 107, 177, 0.2);
     border-radius: 0.5rem;
     font-size: 0.9rem;
+    background-color: #ffffff;
+    color: #1d1d1d;
 }
 
 .searchInput:focus {
