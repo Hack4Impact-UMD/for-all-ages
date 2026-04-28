@@ -461,7 +461,7 @@
   padding: 6px 16px;
   border-radius: 9999px;
   font-family: "Merriweather", serif;
-  font-size: 14px;
+  font-size: 12px;
   border: none;
   font-weight: 600;
   text-align: center;
@@ -543,6 +543,7 @@
   padding: 6px 12px;
   border-radius: 9999px;
   font-weight: 600;
+  font-size: 12px;
   display: inline-block;
 }
 
@@ -586,6 +587,12 @@
   color: inherit;
   cursor: pointer;
   padding: 0;
+}
+
+.table th,
+.table td {
+  vertical-align: middle;
+  text-align: left;
 }
 
 @media (max-width: 1100px) {
