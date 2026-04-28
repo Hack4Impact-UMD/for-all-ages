@@ -424,6 +424,11 @@
   gap: 0.75rem;
 }
 
+.toggle {
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+}
+
 /* responsize design */
 
 @media (max-width: 1200px) {

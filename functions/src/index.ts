@@ -155,6 +155,57 @@ export const upsertUser = onRequest(async (req, res) => {
   }
 });
 
+export const addToWaitlist = onRequest(async (req, res) => {
+  // CORS headers
+  res.set("Access-Control-Allow-Origin", CORS_ORIGIN);
+  res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type");
+
+  // Handle CORS preflight
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+
+  if (req.method !== "POST") {
+    res.status(405).json({ error: "Method not allowed. Use POST." });
+    return;
+  }
+
+  try {
+    const { uid, textResponses, numericResponses, user_type, pronouns } = req.body;
+
+    if (!uid) {
+      res.status(400).json({ error: "Missing required field: uid" });
+      return;
+    }
+
+    const db = admin.firestore();
+
+    // Add to waitlist collection
+    await db.collection("waitlist").doc(uid).set({
+      uid: uid,
+      addedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // Upsert their data to Pinecone for potential matching
+    if ((textResponses && textResponses.length > 0) || 
+        (numericResponses && numericResponses.length > 0)) {
+      await upsertFreeResponse(
+        uid,
+        textResponses || [],
+        numericResponses || [],
+        user_type,
+        pronouns
+      );
+    }
+
+    res.status(200).json({ message: "Participant added to waitlist successfully." });
+  } catch (err) {
+    console.error("Error adding to waitlist:", err);
+    res.status(500).json({ error: String(err) });
+  }
+});
 
 export const computeMatchScore = onRequest(async (req, res) => {
   // CORS headers

@@ -100,6 +100,7 @@ export default function AdminDashboard() {
   const [formResponses, setFormResponses] = useState<FormResponse | null>(null);
   const [formLoading, setFormLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [waitlistedIds, setWaitlistedIds] = useState<Set<string>>(new Set());
 
   const handleModalClose = useCallback(() => {
     setIsModalOpen(false);
@@ -166,6 +167,23 @@ export default function AdminDashboard() {
     };
   }, []);
 
+  // Fetch waitlisted participant IDs
+  useEffect(() => {
+    const unsubscribe = onSnapshot(
+      collection(db, "waitlist"),
+      (snapshot) => {
+        const waitlistedSet = new Set(snapshot.docs.map((doc) => doc.id));
+        setWaitlistedIds(waitlistedSet);
+      },
+      (err) => {
+        console.error("Failed to load waitlist", err);
+      },
+    );
+
+    return () => unsubscribe();
+  }, []);
+
+  // Recomputes only when admins or searchTerm change
   const filteredAdmins = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
 
@@ -439,14 +457,21 @@ export default function AdminDashboard() {
                     filteredAdmins.map((admin) => (
                       <tr key={admin.id}>
                         <td data-label="Name" className={styles.colName}>
-                          <button
-                            type="button"
-                            onClick={() => setSelectedUser(admin)}
-                            aria-label={`View form response details for ${admin.name}`}
-                            className={styles.nameButton}
-                          >
-                            {admin.name}
-                          </button>
+                          <div>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedUser(admin)}
+                              aria-label={`View form response details for ${admin.name}`}
+                              className={styles.nameButton}
+                            >
+                              {admin.name}
+                            </button>
+                            {waitlistedIds.has(admin.id) ? (
+                              <div style={{ fontSize: "0.75rem", color: "#d5b500", marginTop: "0.25rem" }}>
+                                Waitlisted
+                              </div>
+                            ) : null}
+                          </div>
                         </td>
                         <td data-label="Role" className={styles.colRole}>
                           {admin.role === "Admin"
@@ -487,7 +512,7 @@ export default function AdminDashboard() {
                           data-label="Promote"
                           className={`${styles.deleteCell} ${styles.colPromote}`}
                         >
-                          {admin.role === "Participant" ? (
+                          {admin.role === "Participant" && !waitlistedIds.has(admin.id) ? (
                             <button
                               type="button"
                               className={styles.smallActionButton}
