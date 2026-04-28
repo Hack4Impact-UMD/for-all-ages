@@ -26,6 +26,7 @@ import type {
 import MatchInterestsModal from "./components/MatchInterestsModal/MatchInterestsModal";
 import ProfilePictureEdit from "./components/ProfilePictureEdit/ProfilePictureEdit";
 import { useAuth } from "../../auth/AuthProvider";
+import ProfilePicture from "./components/ProfilePicture/ProfilePicture";
 
 // Birthday display is disabled for now because it is not part of the
 // current registration form. Keep this formatter here for when birthday
@@ -317,6 +318,7 @@ const Profile = () => {
         }
 
         let matchName = "";
+        let matchId = "";
 
         if (!isAdmin) {
           try {
@@ -324,6 +326,7 @@ const Profile = () => {
             if (matches.length > 0) {
               const firstMatch = matches[0];
               const partnerId = getPartnerId(firstMatch, fbUser.uid);
+              matchId = partnerId;
 
               const partnerRef = doc(db, "participants", partnerId);
               const partnerFormResponseRef = doc(db, "FormResponse", partnerId);
@@ -381,6 +384,7 @@ const Profile = () => {
           status,
           matchName,
           matchInterests: "",
+          matchId
         };
 
         setUser(profile);
@@ -735,7 +739,7 @@ const Profile = () => {
           {shouldShowMatchCard && (
             <div className={styles.infoCard}>
               <h3>Your Match</h3>
-              <div className={styles.matchCircle}></div>
+              <ProfilePicture size={150} uid={user.matchId}></ProfilePicture>
               <p className={styles.matchText}>
                 {user.matchName && user.matchName.trim().length > 0
                   ? user.matchName
