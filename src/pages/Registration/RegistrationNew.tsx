@@ -258,6 +258,7 @@ type RegistrationNewProps = {
   previewForm?: Form;
   previewInitialStep?: number;
   compactPreview?: boolean;
+  onPreviewStepChange?: (step: number) => void;
 };
 
 const RegistrationNew = ({
@@ -265,6 +266,7 @@ const RegistrationNew = ({
   previewForm,
   previewInitialStep,
   compactPreview = false,
+  onPreviewStepChange,
 }: RegistrationNewProps) => {
   const navigate = useNavigate();
   const { user, loading: authLoading, programState, programStateLoading } = useAuth();
@@ -322,6 +324,13 @@ const RegistrationNew = ({
     }
     setCurrentStep(previewInitialStep);
   }, [previewInitialStep, previewMode]);
+
+  useEffect(() => {
+    if (!previewMode || !onPreviewStepChange) {
+      return;
+    }
+    onPreviewStepChange(currentStep);
+  }, [currentStep, onPreviewStepChange, previewMode]);
 
   const getQuestionEntries = (formConfig: Form): QuestionWithFieldName[] => {
     const entries: QuestionWithFieldName[] = [];
@@ -840,9 +849,6 @@ const RegistrationNew = ({
             {!previewMode && submitError && (
               <div className={styles.errorBanner} role="alert">{submitError}</div>
             )}
-            <div className={styles.stepIndicator}>
-              Step {currentStep + 1} of {totalSteps}
-            </div>
             <div className={styles.navButtons}>
               {!isFirstStep && (
                 <button type="button" className={styles.btnBack} onClick={goBack}>
@@ -862,6 +868,9 @@ const RegistrationNew = ({
                   {previewMode ? "Submit" : submitting ? "Submitting..." : "Submit"}
                 </button>
               )}
+            </div>
+            <div className={styles.stepIndicator}>
+              Step {currentStep + 1} of {totalSteps}
             </div>
           </>
         }

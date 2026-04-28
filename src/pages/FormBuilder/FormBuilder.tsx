@@ -2,7 +2,10 @@ import React, { useEffect, useRef, useState } from "react";
 import type { BannerState, Form, Question, QuestionType } from "../../types";
 import { db } from "../../firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
-import EditIcon from '@mui/icons-material/Edit';
+import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from '@mui/icons-material/Delete';
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
@@ -70,9 +73,7 @@ function QuestionPreview({ question }: { question: Question }) {
       )}
 
       {question.type === "long_input" && (
-        <textarea
-          className={styles.qMockTextarea}
-        />
+        <textarea className={styles.qMockTextarea} />
       )}
 
       {question.type === "text" && (
@@ -87,14 +88,14 @@ function QuestionPreview({ question }: { question: Question }) {
               ? "Select..."
               : "Select"}
           </span>
-          <span className={styles.qMockSelectArrow}>▼</span>
+          <span className={styles.qMockSelectArrow}>⌄</span>
         </div>
       )}
 
       {question.type === "multiple" && (
         <div className={styles.qMockSelect}>
           <span className={styles.qMockSelectText}>Select...</span>
-          <span className={styles.qMockSelectArrow}>▼</span>
+          <span className={styles.qMockSelectArrow}>⌄</span>
         </div>
       )}
 
@@ -136,11 +137,7 @@ function QuestionPreview({ question }: { question: Question }) {
         />
       )}
       {question.type === "address" && (
-        <input
-          className={styles.qMockInput}
-          disabled
-          placeholder="Address"
-        />
+        <input className={styles.qMockInput} disabled placeholder="Address" />
       )}
 
       {question.type === "profilePicture" && (
@@ -149,7 +146,6 @@ function QuestionPreview({ question }: { question: Question }) {
     </div>
   );
 }
-
 
 type InlineEditorProps = {
   question: EditorQuestion;
@@ -173,8 +169,6 @@ function InlineEditor({
   onMoveDown,
   onDone,
 }: InlineEditorProps) {
-
-
   return (
     <div className={styles.inlineEditorWrapper}>
       {/* Floating toolbar — compact icons aligned right, hides delete button if locked question */}
@@ -182,42 +176,52 @@ function InlineEditor({
         <div className={styles.inlineToolbarActions}>
           <button
             type="button"
-            className={styles.tbBtn}
+            className={`${styles.tbBtn} ${styles.upBtn}`}
             onClick={onMoveUp}
             disabled={index === 0}
             title="Move up"
           >
-            ∧
+            < KeyboardArrowUpIcon />
           </button>
           <button
             type="button"
-            className={styles.tbBtn}
+            className={`${styles.tbBtn} ${styles.downBtn}`}
             onClick={onMoveDown}
             disabled={index === total - 1}
             title="Move down"
           >
-            ∨
+            < KeyboardArrowDownIcon />
           </button>
-          {!question.locked && <button
-            type="button"
-            className={`${styles.tbBtn} ${styles.tbBtnDelete}`}
-            onClick={onDelete}
-            title="Delete question"
-          >
-            ❌
-          </button>}
+          {!question.locked && (
+            <button
+              type="button"
+              className={`${styles.tbBtn} ${styles.tbBtnDelete}`}
+              onClick={onDelete}
+              title="Delete question"
+            >
+              < DeleteIcon />
+            </button>
+          )}
         </div>
       </div>
 
       {/* Blue-bordered editing card */}
-      <div className={styles.inlineEditorCard}
-      onKeyDown={(e) => { if (e.key === "Enter") onDone(); }}>
+      <div
+        className={styles.inlineEditorCard}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") onDone();
+        }}
+      >
         <input
           className={styles.inlineTitleInput}
           value={question.title ?? ""}
           placeholder="Question Title"
           disabled={question.locked}
-          onChange={(e) => e.target.value.length < 100 ? onUpdate({ title: e.target.value }): null}
+          onChange={(e) =>
+            e.target.value.length < 100
+              ? onUpdate({ title: e.target.value })
+              : null
+          }
           autoFocus
         />
 
@@ -226,13 +230,21 @@ function InlineEditor({
             className={styles.inlineTypeInput}
             value={question.description ?? ""}
             placeholder="Question Description"
-            onChange={(e) => e.target.value.length < 50 ? onUpdate({ description: e.target.value }) : null}
+            onChange={(e) =>
+              e.target.value.length < 50
+                ? onUpdate({ description: e.target.value })
+                : null
+            }
           />
 
-          <select  className = {styles.questionSelect}  
-          disabled={question.locked}
-          value={question.type}
-          onChange={(e) => {onUpdate({ type: e.target.value as QuestionType })}}>
+          <select
+            className={styles.questionSelect}
+            disabled={question.locked}
+            value={question.type}
+            onChange={(e) => {
+              onUpdate({ type: e.target.value as QuestionType });
+            }}
+          >
             <option value={""}>Select a question Type</option>
             {(
               Object.entries(QUESTION_TYPE_LABELS) as [QuestionType, string][]
@@ -251,7 +263,7 @@ function InlineEditor({
           question.type === "multiple") && (
           <div className={styles.inlineOptionsBlock}>
             {(question.options ?? []).map((opt, i) => (
-              <div key={i}className={styles.inlineOptionRow}>
+              <div key={i} className={styles.inlineOptionRow}>
                 <input
                   className={styles.inlineOptionInput}
                   value={opt}
@@ -322,17 +334,26 @@ function InlineEditor({
             />
             Required
           </label>
-          <label className={styles.inlineToggle}>
-            <input
-              type="checkbox"
-              checked={question.matchable}
-              onChange={(e) => onUpdate({ matchable: e.target.checked })}
-            />
-            Matchable
-          </label>
+          {(question.type === "short_input" ||
+            question.type === "medium_input" ||
+            question.type === "long_input" ||
+            question.type === "Slider") && (
+            <label className={styles.inlineToggle}>
+              <input
+                type="checkbox"
+                checked={question.matchable}
+                onChange={(e) => onUpdate({ matchable: e.target.checked })}
+              />
+              Matchable
+            </label>
+          )}
         </div>
 
-        <p className={styles.lockedWarning}>{question.locked ? "This question is required for the program and cannot be removed." : ""}</p>
+        <p className={styles.lockedWarning}>
+          {question.locked
+            ? "This question is required for the program and cannot be removed."
+            : ""}
+        </p>
       </div>
     </div>
   );
@@ -391,6 +412,7 @@ function SectionTab({
 
 const FormBuilder: React.FC = () => {
   const savedFormRef = useRef<Form | null>(null);
+  const activeEditorRef = useRef<HTMLDivElement | null>(null);
 
   const {
     sections,
@@ -461,28 +483,28 @@ const FormBuilder: React.FC = () => {
     if (from !== -1 && to !== -1) reorderSections(from, to);
   };
 
-  // Checks to see if each section is valid 
+  // Checks to see if each section is valid
   const validateForm = (formToSave: Form) => {
-    let valid = true
+    let valid = true;
 
     //at least one section
     if (formToSave.sections.length === 0) {
-      valid = false
+      valid = false;
     }
 
     //all questions have a title and type
-    formToSave.sections.forEach((section)=>{
+    formToSave.sections.forEach((section) => {
       if (section.questions.length == 0) {
         valid = false;
       }
-      section.questions.forEach((question)=>{
+      section.questions.forEach((question) => {
         if (question.title === "" || question.type == null) {
           valid = false;
         }
-      })
-    })
+      });
+    });
     return valid;
-  }
+  };
 
   // Function to save to FireBase
   const handleSave = async () => {
@@ -490,15 +512,16 @@ const FormBuilder: React.FC = () => {
       setSaving(true);
       setBanner(null);
       const formToSave = getForm();
-      
+
       if (!validateForm(formToSave)) {
         setBanner({
           type: "error",
-          message: "Please fill out all required fields and have at least 1 question per section.",
+          message:
+            "Please fill out all required fields and have at least 1 question per section.",
         });
-        return
+        return;
       }
-      
+
       await setDoc(doc(db, "config", "registrationForm"), formToSave, {
         merge: false,
       });
@@ -558,12 +581,27 @@ const FormBuilder: React.FC = () => {
 
   const resolvedEditingId = resolveEditingId(activeSection);
 
+  useEffect(() => {
+    if (!resolvedEditingId) return;
+
+    const handleDocumentPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+
+      if (activeEditorRef.current?.contains(target)) return;
+      setEditingQuestionId(null);
+    };
+
+    document.addEventListener("pointerdown", handleDocumentPointerDown);
+    return () => {
+      document.removeEventListener("pointerdown", handleDocumentPointerDown);
+    };
+  }, [resolvedEditingId]);
+
   return (
     <div className={styles.page}>
-
       {/* Top wrapper for sections  */}
       <div className={styles.blueWrap}>
-
         {/* Success/error banner */}
         {banner && (
           <div
@@ -585,28 +623,6 @@ const FormBuilder: React.FC = () => {
             </button>
           </div>
         )}
-          <div className={styles.topBarActions}>
-            <button
-              type="button"
-              className={styles.cancelBtn}
-              onClick={() => {
-                if (savedFormRef.current) loadForm(savedFormRef.current);
-              }}
-              disabled={!savedFormRef.current}
-            >
-              Cancel
-            </button>
-
-            <button
-              type="button"
-              className={styles.saveBtn}
-              onClick={handleSave}
-              disabled={saving}
-            >
-              {saving ? "Saving…" : "Save"}
-            </button>
-      </div>
-
         {/* Program title */}
         <div className={styles.programHeader}>
           <h1 className={styles.programTitle}>Tea @ 3</h1>
@@ -674,10 +690,13 @@ const FormBuilder: React.FC = () => {
                 </h2>
                 <button
                   type="button"
-                  className={styles.previewModeBtn}
+                  className={`${styles.previewModeBtn} ${styles.titleRowBtn}`}
                   onClick={() => setIsPreviewMode(false)}
                 >
-                  <span className={styles.previewModeBtnIcon} aria-hidden="true">
+                  <span
+                    className={styles.previewModeBtnIcon}
+                    aria-hidden="true"
+                  >
                     <EditOutlinedIcon fontSize="inherit" />
                   </span>
                   Edit
@@ -688,6 +707,7 @@ const FormBuilder: React.FC = () => {
                 previewForm={previewForm}
                 previewInitialStep={activeSectionIndex}
                 compactPreview
+                onPreviewStepChange={setActiveSectionIndex}
               />
             </div>
           ) : loading ? (
@@ -722,6 +742,12 @@ const FormBuilder: React.FC = () => {
                   deleteSection(activeSection.id);
                   setEditingQuestionId(null);
                 }}
+                onCancel={() => {
+                  if (savedFormRef.current) loadForm(savedFormRef.current);
+                }}
+                onSave={handleSave}
+                saving={saving}
+                canCancel={!!savedFormRef.current}
               />
 
               {/* Questions */}
@@ -732,33 +758,34 @@ const FormBuilder: React.FC = () => {
 
                   if (isEditing) {
                     return (
-                      <InlineEditor
-                        key={q.id}
-                        question={q}
-                        index={i}
-                        total={activeSection.questions.length}
-                        sectionId={activeSection.id}
-                        onUpdate={(partial) =>
-                          updateQuestionField(activeSection.id, q.id, partial)
-                        }
-                        onDelete={() => {
-                          deleteQuestion(activeSection.id, q.id);
-                          setEditingQuestionId(null);
-                        }}
-                        onMoveUp={() => {
-                          if (i > 0) {
-                            reorderQuestions(activeSection.id, i, i - 1);
-                            setEditingQuestionId(q.id);
+                      <div key={q.id} ref={activeEditorRef}>
+                        <InlineEditor
+                          question={q}
+                          index={i}
+                          total={activeSection.questions.length}
+                          sectionId={activeSection.id}
+                          onUpdate={(partial) =>
+                            updateQuestionField(activeSection.id, q.id, partial)
                           }
-                        }}
-                        onMoveDown={() => {
-                          if (i < activeSection.questions.length - 1) {
-                            reorderQuestions(activeSection.id, i, i + 1);
-                            setEditingQuestionId(q.id);
-                          }
-                        }}
-                        onDone={() => setEditingQuestionId(null)}
-                      />
+                          onDelete={() => {
+                            deleteQuestion(activeSection.id, q.id);
+                            setEditingQuestionId(null);
+                          }}
+                          onMoveUp={() => {
+                            if (i > 0) {
+                              reorderQuestions(activeSection.id, i, i - 1);
+                              setEditingQuestionId(q.id);
+                            }
+                          }}
+                          onMoveDown={() => {
+                            if (i < activeSection.questions.length - 1) {
+                              reorderQuestions(activeSection.id, i, i + 1);
+                              setEditingQuestionId(q.id);
+                            }
+                          }}
+                          onDone={() => setEditingQuestionId(null)}
+                        />
+                      </div>
                     );
                   }
 
@@ -777,22 +804,22 @@ const FormBuilder: React.FC = () => {
 
               {/* Bottom nav */}
               <div className={styles.bottomBar}>
-                <div className={styles.bottomLeft}>
-                  <button
-                    type="button"
-                    className={styles.addQuestionBtn}
-                    onClick={handleAddQuestion}
-                  >
-                    <span className={styles.addQuestionPlus}>+</span>
-                    Add question
-                  </button>
-                </div>
-
+                {/* Buttons div for: Add question, Go back, Continue */}
                 <div className={styles.bottomCenter}>
-                  <span className={styles.stepLabel}>
-                    Step {activeSectionIndex + 1} of {sections.length}
-                  </span>
+                  <div className={styles.addQuestionDiv}>
+                    {/* "Add question" button */}
+                    <button
+                      type="button"
+                      className={styles.addQuestionBtn}
+                      onClick={handleAddQuestion}
+                    >
+                      <span className={styles.addQuestionPlus}>+</span>
+                      Add question
+                    </button>
+                  </div>
+
                   <div className={styles.navBtns}>
+                    {/* "Go Back" button */}
                     <button
                       type="button"
                       className={styles.navBtn}
@@ -803,6 +830,8 @@ const FormBuilder: React.FC = () => {
                     >
                       Go Back
                     </button>
+
+                    {/* "Continue" button */}
                     <button
                       type="button"
                       className={`${styles.navBtn} ${styles.navBtnPrimary}`}
@@ -818,7 +847,10 @@ const FormBuilder: React.FC = () => {
                   </div>
                 </div>
 
-                <div className={styles.bottomRight} />
+                {/* "Step x of n" label  */}
+                <span className={styles.stepLabel}>
+                  Step {activeSectionIndex + 1} of {sections.length}
+                </span>
               </div>
             </>
           )}
@@ -828,7 +860,7 @@ const FormBuilder: React.FC = () => {
   );
 };
 
-// Section title editor and delete section button
+// Section title editor, Cancel/Save buttons, Delete Section button, and Preview button
 
 function SectionTitleEditor({
   section,
@@ -836,12 +868,20 @@ function SectionTitleEditor({
   onPreview,
   onRename,
   onDelete,
+  onCancel,
+  onSave,
+  saving,
+  canCancel,
 }: {
   section: EditorSection;
   locked?: boolean;
   onPreview: () => void;
   onRename: (title: string) => void;
   onDelete: () => void;
+  onCancel: () => void;
+  onSave: () => void;
+  saving: boolean;
+  canCancel: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(section.title ?? "");
@@ -887,10 +927,38 @@ function SectionTitleEditor({
           />
         </div>
       )}
-      <div className={styles.sectionTitleActionsRow}>
+      <div className={`${styles.sectionTitleActionsRow}`}>
         <button
           type="button"
-          className={styles.previewModeBtn}
+          className={`${styles.saveBtn}  ${styles.titleRowBtn} ${styles.saveAndCancelBtns}`}
+          onClick={onSave}
+          disabled={saving}
+        >
+          {saving ? "Saving..." : "Save"}
+        </button>
+                <button
+          type="button"
+          className={`${styles.cancelBtn} ${styles.titleRowBtn} ${styles.saveAndCancelBtns}`}
+          onClick={onCancel}
+          disabled={!canCancel}
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          className={`${styles.deleteBtn} ${styles.titleRowBtn} ${locked ? styles.sectionTitleActionsDeleteDisabled : ""}`}
+          disabled={locked}
+          onClick={onDelete}
+          title="Delete section"
+        >
+          <span className={styles.deleteBtnIcon} aria-hidden="true">
+            <DeleteOutlineIcon fontSize="inherit" />
+          </span>
+          Delete Section
+        </button>
+        <button
+          type="button"
+          className={`${styles.previewModeBtn} ${styles.titleRowBtn}`}
           onClick={onPreview}
           title="Preview section"
         >
@@ -898,19 +966,6 @@ function SectionTitleEditor({
             <VisibilityOutlinedIcon fontSize="inherit" />
           </span>
           Preview
-        </button>
-
-        <button
-          type="button"
-          className={`${styles.sectionActionBtn} ${styles.sectionActionBtnWithIcon} ${styles.sectionDeleteBtn} ${locked ? styles.sectionTitleActionsDeleteDisabled : ""}`}
-          disabled={locked}
-          onClick={onDelete}
-          title="Delete section"
-        >
-            <span className={styles.sectionActionBtnIcon} aria-hidden="true">
-              <DeleteOutlineIcon fontSize="inherit" />
-            </span>
-          Delete Section
         </button>
       </div>
     </div>

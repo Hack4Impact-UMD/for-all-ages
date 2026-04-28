@@ -462,53 +462,64 @@
 
 .stepIndicator {
   text-align: center;
-  color: #127BBE;
-  font-size: 1rem;
+  color: #0f6bb1;
+  font-size: 14px;
   font-weight: 600;
-  margin-top: 1.5rem;
+  margin-top: 1rem;
+  font-family: 'Inter', sans-serif;
 }
 
 .navButtons {
   display: flex;
   justify-content: center;
-  gap: 1rem;
+  gap: 10px;
   margin-top: 1rem;
 }
 
 .btnBack {
-  padding: 0.35rem 2rem;
-  border-radius: 8px;
-  font-size: 1rem;
+  padding: 10px 24px;
+  border-radius: 10px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
   font-weight: 600;
-  font-family: inherit;
+  font-family: 'Inter', sans-serif;
   cursor: pointer;
-  background: #1a6baa;
+  background: #64748b;
   color: white;
   border: none;
+  transition: filter 0.15s ease;
 }
 
-.btnBack:hover {
-  background: #155a8f;
+.btnBack:hover:not(:disabled) {
+  filter: brightness(0.90);
 }
 
 .btnContinue {
-  padding: 0.35rem 2rem;
-  border-radius: 8px;
-  font-size: 1rem;
+  padding: 10px 24px;
+  border-radius: 10px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
   font-weight: 600;
-  font-family: inherit;
+  font-family: 'Inter', sans-serif;
   cursor: pointer;
-  background: #127BBE;
+  background: #0e6bae;
   color: white;
   border: none;
+  transition: background 0.15s;
 }
 
-.btnContinue:hover {
-  background: #0e6199;
+.btnContinue:hover:not(:disabled) {
+  background: #0a4f87;
 }
 
 .btnContinue:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
