@@ -27,6 +27,14 @@ function isAdminRole(role?: string | null) {
   );
 }
 
+function isSubadminRole(role?: string | null) {
+  if (!role) return false;
+  const normalized = role.toLowerCase();
+  return (
+    normalized === "subadmin"
+  );
+}
+
 type AuthCtx = {
   user: User | null;
   loading: boolean;
@@ -40,6 +48,7 @@ type AuthCtx = {
   waitlistLoading: boolean;
   refreshUser: () => Promise<void>;
   isAdmin: boolean;
+  isSubadmin: boolean;
 };
 
 const AuthContext = createContext<AuthCtx>({
@@ -59,6 +68,7 @@ const AuthContext = createContext<AuthCtx>({
 
   refreshUser: async () => {},
   isAdmin: false,
+  isSubadmin: false
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -215,6 +225,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       refreshUser,
       isAdmin: isAdminRole(role),
+      isSubadmin: isSubadminRole(role)
     };
   }, [
     user,

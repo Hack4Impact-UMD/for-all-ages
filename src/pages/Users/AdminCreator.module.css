@@ -328,6 +328,7 @@
   padding: 1.75rem;
   max-height: min(90vh, 640px);
   overflow-y: auto;
+  margin-top: 50px;
 }
 
 .modalHeader {

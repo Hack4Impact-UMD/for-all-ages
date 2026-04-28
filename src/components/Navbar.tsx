@@ -27,11 +27,16 @@ const PARTICIPANT_NAV_ITEMS: NavItem[] = [
   { label: "Profile", path: "/profile" },
 ];
 
+const SUBADMIN_NAV_ITEMS: NavItem[] = [
+  { label: "Users", path: "/admin/creator" },
+  { label: "Profile", path: "/profile" },
+];
+
 const DEFAULT_NAV_ITEMS: NavItem[] = [{ label: "Login", path: "/" }];
 
 export default function Navbar({ navItems }: NavbarProps) {
   const location = useLocation();
-  const { participantLoading, isAdmin, programState, programStateLoading } =
+  const { participantLoading, isAdmin, programState, programStateLoading, isSubadmin} =
     useAuth();
 
   // Automatically determine navItems based on user type if not provided
@@ -44,6 +49,10 @@ export default function Navbar({ navItems }: NavbarProps) {
     }
 
     // Return appropriate navItems based on user type
+    if (isSubadmin) {
+      return SUBADMIN_NAV_ITEMS;
+    }
+
     if (isAdmin) {
       return ADMIN_NAV_ITEMS;
     }
