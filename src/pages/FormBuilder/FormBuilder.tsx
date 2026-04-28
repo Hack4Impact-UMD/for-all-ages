@@ -930,19 +930,19 @@ function SectionTitleEditor({
       <div className={`${styles.sectionTitleActionsRow}`}>
         <button
           type="button"
-          className={`${styles.cancelBtn} ${styles.titleRowBtn} ${styles.saveAndCancelBtns}`}
-          onClick={onCancel}
-          disabled={!canCancel}
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
           className={`${styles.saveBtn}  ${styles.titleRowBtn} ${styles.saveAndCancelBtns}`}
           onClick={onSave}
           disabled={saving}
         >
           {saving ? "Saving..." : "Save"}
+        </button>
+                <button
+          type="button"
+          className={`${styles.cancelBtn} ${styles.titleRowBtn} ${styles.saveAndCancelBtns}`}
+          onClick={onCancel}
+          disabled={!canCancel}
+        >
+          Cancel
         </button>
         <button
           type="button"
