@@ -281,7 +281,9 @@ export default function AdminDashboard() {
 
   return (
     <div className={layoutStyles.page}>
-      <div className={layoutStyles.surface}>
+      <div className={`${layoutStyles.surface} ${styles.surfaceTight}`}>
+        <h1 className={styles.pageTitle}>Manage Users</h1>
+
         <section className={styles.controlsPanel}>
           <div className={styles.toolbarRow}>
             <div className={styles.searchArea}>
