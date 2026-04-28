@@ -56,6 +56,16 @@
   min-width: 0;
 }
 
+.btnWrapper {
+  flex: 1;
+  min-width: 0;
+}
+
+.btnWrapper button {
+  width: 100% !important;
+  height: 100%;
+}
+
 .adminBtn,
 .rematchBtn,
 .exportBtn,

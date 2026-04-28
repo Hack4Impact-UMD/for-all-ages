@@ -32,6 +32,7 @@ import type {
 } from "../../types";
 import SettingsPopup from "./SettingsPopup";
 import ParticipantInfoPopup from "../Dashboard/components/ParticipantInfoPopup/ParticipantInfoPopup";
+import Button from "../../components/Button";
 
 const APPROVAL_THRESHOLD = 0.8; // 80%
 const DEV_MODE = true; // ← flip to false before deploying to production
@@ -684,32 +685,49 @@ const PreProgram = () => {
         </div>
 
         <div className={styles.buttonGroup}>
-          <button
-            onClick={() => setSettingsPopup(true)}
-            className={styles.adminBtn}
-          >
-            <SettingsIcon className={styles.icon} />
-            Program Settings
-          </button>
-
-          <button
-            onClick={handleMatch}
-            className={styles.rematchBtn}
-            disabled={matching}
-          >
-            <AutorenewIcon className={styles.icon} />
-            {matching ? "Creating..." : "Create Matches"}
-          </button>
-
-          <button
-            className={styles.adminBtn}
-            onClick={() => navigate("/admin/rematching")}
-          >
-            Manual Rematch
-          </button>
-          <button className={styles.exportBtn} onClick={handleExportData}>
-            Export Data
-          </button>
+          <div className={styles.btnWrapper}>
+            <Button
+              type="Primary"
+              text="Program Settings"
+              height={48}
+              width={175}
+              fontSize={14}
+              icon={SettingsIcon}
+              onClick={() => setSettingsPopup(true)}
+            />
+          </div>
+          <div className={styles.btnWrapper}>
+            <Button
+              type="Primary"
+              text={matching ? "Creating..." : "Create Matches"}
+              height={48}
+              width={175}
+              fontSize={14}
+              icon={AutorenewIcon}
+              disabled={matching}
+              onClick={handleMatch}
+            />
+          </div>
+          <div className={styles.btnWrapper}>
+            <Button
+              type="Primary"
+              text="Manual Rematch"
+              height={48}
+              width={175}
+              fontSize={14}
+              onClick={() => navigate("/admin/rematching")}
+            />
+          </div>
+          <div className={styles.btnWrapper}>
+            <Button
+              type="Primary"
+              text="Export Data"
+              height={48}
+              width={175}
+              fontSize={14}
+              onClick={handleExportData}
+            />
+          </div>
         </div>
         {programStateError && (
           <div className={styles.stateError}>{programStateError}</div>
