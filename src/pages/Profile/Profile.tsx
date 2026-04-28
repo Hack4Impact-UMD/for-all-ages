@@ -1,6 +1,7 @@
 import styles from "./Profile.module.css";
 import { useState, useEffect } from "react";
-import { phoneNumberRegex, dateRegex } from "../../regex";
+import { dateRegex } from "../../regex";
+import { formatPhone, stripPhone, isValidPhone } from "../../utils/phone";
 import EditIcon from "@mui/icons-material/Edit";
 import {
   signOut,
@@ -16,6 +17,7 @@ import { getMatchesByParticipant, getPartnerId } from "../../services/matches";
 import type { ErrorState, ParticipantDoc, UserProfile } from "../../types";
 import MatchInterestsModal from "./components/MatchInterestsModal/MatchInterestsModal";
 import ProfilePictureEdit from "./components/ProfilePictureEdit/ProfilePictureEdit";
+import { useAuth } from "../../auth/AuthProvider";
 
 const toDisplayBirthday = (raw: string | undefined | null): string => {
   if (!raw) return "";
@@ -55,6 +57,44 @@ const toStorageBirthday = (raw: string | undefined | null): string => {
   return raw;
 };
 
+// Given the date string of the start time, formate the start date
+const formatProgramDate = (iso: string | null | undefined): string => {
+  if (!iso) {
+    return "—"
+  };
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) {
+    return "—"
+  };
+  return d.toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+};
+
+// Given the date string of the start time, formate the end date using the numWeeks in Firestore
+const computeProgramEndDate = (
+  startIso: string | null | undefined,
+  numWeeks: number,
+): string => {
+
+  if (!startIso) {
+    return "—";
+  };
+  const d = new Date(startIso);
+
+  if (isNaN(d.getTime())) {
+    return "—"
+  };
+  d.setDate(d.getDate() + numWeeks * 7);
+  return d.toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+};
+
 const getErrorMessage = (error: unknown, fallback: string): string => {
   if (error instanceof Error && error.message) {
     return error.message;
@@ -78,6 +118,7 @@ const getFirebaseErrorCode = (error: unknown): string | undefined => {
 
 const Profile = () => {
   const navigate = useNavigate();
+  const { programState } = useAuth();
 
   const [user, setUser] = useState<UserProfile | null>(null);
 
@@ -182,7 +223,7 @@ const Profile = () => {
           name: data.displayName ?? data.name ?? fbUser.displayName ?? "",
           email: data.email ?? fbUser.email ?? "",
           pronouns: data.pronouns ?? "",
-          phone: data.phoneNumber ?? "",
+          phone: formatPhone(data.phoneNumber ?? ""),
           birthday: toDisplayBirthday(data.dateOfBirth),
           addressLine1: addr.line1 ?? "",
           addressCity: addr.city ?? "",
@@ -254,7 +295,7 @@ const Profile = () => {
     if (errors[name as keyof ErrorState]) {
       setErrors((prev) => ({ ...prev, [name]: undefined }));
     }
-    setUser({ ...user, [name]: value });
+    setUser({ ...user, [name]: name === "phone" ? formatPhone(value) : value });
   };
 
   const validateProfile = () => {
@@ -267,8 +308,8 @@ const Profile = () => {
     }
 
     if (!isAdmin) {
-      if (!phoneNumberRegex.test(user.phone)) {
-        newErrors.phone = "Invalid phone format";
+      if (user.phone && !isValidPhone(user.phone)) {
+        newErrors.phone = "Please enter a valid 10-digit phone number.";
       }
 
       if (user.birthday && !dateRegex.test(user.birthday)) {
@@ -323,7 +364,7 @@ const Profile = () => {
         ? {}
         : {
             pronouns: user.pronouns,
-            phoneNumber: user.phone,
+            phoneNumber: stripPhone(user.phone),
             dateOfBirth: normalizedBirthday,
             interests: user.interests,
             address: {
@@ -522,6 +563,7 @@ const Profile = () => {
 
   return (
     <div className={styles.page}>
+      <div className={styles.pageTitle}>Your Profile</div>
       <div className={styles.container}>
         <div className={styles.leftColumn}>
           <div className={styles.infoCard}>
@@ -552,18 +594,26 @@ const Profile = () => {
             </div>
           )}
 
-          {!isAdmin && (
+          {/* If user is an admin or program has not started, hide the program info box */}
+          {!isAdmin && programState?.started && (
             <div className={styles.infoCard}>
               <h3>Program Info</h3>
               <p>
                 <strong>Start Date:</strong>
                 <br />
-                <span className={styles.date}>{user.startDate}</span>
+                <span className={styles.date}>
+                  {formatProgramDate(programState.startDate)}
+                </span>
               </p>
               <p>
                 <strong>End Date:</strong>
                 <br />
-                <span className={styles.date}>{user.endDate}</span>
+                <span className={styles.date}>
+                  {computeProgramEndDate(
+                    programState.startDate,
+                    programState.numWeeks ?? 20,
+                  )}
+                </span>
               </p>
             </div>
           )}

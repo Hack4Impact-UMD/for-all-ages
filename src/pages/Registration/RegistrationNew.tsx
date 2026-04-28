@@ -1,5 +1,5 @@
 import styles from "./Registration.module.css";
-import { phoneNumberRegex } from "../../regex";
+import { stripPhone, isValidPhone } from "../../utils/phone";
 import type { Form, Question, Section, FormResponse, Participant, Questions, RawAddress } from "../../types";
 import { useRef, useState, useEffect } from "react";
 import ShortInput from "./Question Types/ShortInput";
@@ -258,6 +258,7 @@ type RegistrationNewProps = {
   previewForm?: Form;
   previewInitialStep?: number;
   compactPreview?: boolean;
+  onPreviewStepChange?: (step: number) => void;
 };
 
 const RegistrationNew = ({
@@ -265,6 +266,7 @@ const RegistrationNew = ({
   previewForm,
   previewInitialStep,
   compactPreview = false,
+  onPreviewStepChange,
 }: RegistrationNewProps) => {
   const navigate = useNavigate();
   const { user, loading: authLoading, programState, programStateLoading } = useAuth();
@@ -322,6 +324,13 @@ const RegistrationNew = ({
     }
     setCurrentStep(previewInitialStep);
   }, [previewInitialStep, previewMode]);
+
+  useEffect(() => {
+    if (!previewMode || !onPreviewStepChange) {
+      return;
+    }
+    onPreviewStepChange(currentStep);
+  }, [currentStep, onPreviewStepChange, previewMode]);
 
   const getQuestionEntries = (formConfig: Form): QuestionWithFieldName[] => {
     const entries: QuestionWithFieldName[] = [];
@@ -625,12 +634,12 @@ const RegistrationNew = ({
       if (phoneEntry) {
         const phone = (formData.get(phoneEntry.fieldName) as string) || "";
         const confirmPhone = (formData.get(`${phoneEntry.fieldName}_confirm`) as string) || "";
-        if (phone && !phoneNumberRegex.test(phone)) {
-          setSubmitError("Please enter a valid phone number.");
+        if (phone && !isValidPhone(phone)) {
+          setSubmitError("Please enter a valid 10-digit phone number.");
           setSubmitting(false);
           return;
         }
-        if (phone !== confirmPhone) {
+        if (stripPhone(phone) !== stripPhone(confirmPhone)) {
           setSubmitError("Phone numbers must match.");
           setSubmitting(false);
           return;
@@ -840,9 +849,6 @@ const RegistrationNew = ({
             {!previewMode && submitError && (
               <div className={styles.errorBanner} role="alert">{submitError}</div>
             )}
-            <div className={styles.stepIndicator}>
-              Step {currentStep + 1} of {totalSteps}
-            </div>
             <div className={styles.navButtons}>
               {!isFirstStep && (
                 <button type="button" className={styles.btnBack} onClick={goBack}>
@@ -862,6 +868,9 @@ const RegistrationNew = ({
                   {previewMode ? "Submit" : submitting ? "Submitting..." : "Submit"}
                 </button>
               )}
+            </div>
+            <div className={styles.stepIndicator}>
+              Step {currentStep + 1} of {totalSteps}
             </div>
           </>
         }

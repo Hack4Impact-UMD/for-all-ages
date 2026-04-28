@@ -1,3 +1,18 @@
+.page {
+    min-height: 100vh;
+    width: 100%;
+    background: #3879B9;
+}
+
+.surface {
+    width: 100%;
+    padding: 100px 60px 40px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+}
+
 .scheduleSection {
     gap: 1.5rem;
     align-items: stretch;
@@ -13,7 +28,15 @@
     overflow-x: auto;
 }
 
-/* ── Header ─────────────────────────────────────────── */
+/*  Header */
+
+.pageTitle{
+    margin: 0;
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #ffffff;
+    text-align: center;
+}
 
 .scheduleHeader {
     display: grid;
@@ -60,7 +83,7 @@
     color: rgba(15, 107, 177, 0.5);
 }
 
-/* ── Week header ─────────────────────────────────────── */
+/* Week header */
 
 .weekHeader {
     display: flex;
@@ -69,17 +92,20 @@
     min-width: 0;
 }
 
+
 .weekTitle {
-    margin: 0 4rem 0 0 ;
-    font-size: 1.5rem;
+    margin: 0;
+    font-size: 1.65rem;
     font-weight: 700;
+    text-align: left;
     color: #0f4f86;
 }
 
 .weekDateRange {
-    margin: 0.35rem 0 0;
+    margin: 0.25rem 0 0 0 ;
     font-size: 1rem;
     font-weight: 400;
+    text-align: left;
     color: #3a3a3a;
 }
 
@@ -107,7 +133,7 @@
 }
 
 
-/* ── Stats row ───────────────────────────────────────── */
+/* Statistics */
 
 .statsRow {
     display: flex;
@@ -162,7 +188,7 @@
     margin-left: 0.5rem;
 }
 
-/* ── Filter bar ──────────────────────────────────────── */
+/* Filter */
 
 .filterBar {
     position: relative;
@@ -241,7 +267,7 @@
     text-decoration: underline;
 }
 
-/* ── Match table ─────────────────────────────────────── */
+/* Match Table*/
 
 .matchTable {
     width: 100%;
@@ -301,7 +327,7 @@
     flex-shrink: 0;
 }
 
-/* ── Progress blocks ─────────────────────────────────── */
+/* Progress blocks */
 
 .progressBlocks {
     display: flex;
@@ -338,7 +364,6 @@
     outline-offset: 1px;
 }
 
-/* ── Misc ────────────────────────────────────────────── */
 
 .noResults {
     color: #0f4f86;

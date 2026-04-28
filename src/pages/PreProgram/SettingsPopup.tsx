@@ -1,7 +1,7 @@
 import Dialog from "@mui/material/Dialog";
 import styles from "./PreProgram.module.css";
 import type { ProgramState } from "../../types";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../../firebase";
 import Button from "../../components/Button";
@@ -51,6 +51,8 @@ export default function SettingsPopup({
     useEffect(() => {
         if (program && (numWeeks != program.numWeeks || maxParticipants != program.maxParticipants)) {
             setChanged(true);
+        } else {
+            setChanged(false);
         }
     }, [numWeeks, maxParticipants]);
 
@@ -75,9 +77,12 @@ export default function SettingsPopup({
         try {
             const programRef = doc(db, "config", "programState");
 
+            const clampedThreshold = Math.min(100, Math.max(0, Number(autoApprovalThreshold)));
+
             await updateDoc(programRef, {
                 numWeeks: Number(numWeeks),
                 maxParticipants: Number(maxParticipants),
+                autoApprovalThreshold: clampedThreshold,
             });
 
             setProgram((prev: ProgramState | null) =>
@@ -86,9 +91,15 @@ export default function SettingsPopup({
                         ...prev,
                         numWeeks: Number(numWeeks),
                         maxParticipants: Number(maxParticipants),
+                        autoApprovalThreshold: clampedThreshold,
                     }
                     : prev
             );
+
+            // Check if threshold changed and update match statuses
+            if (onThresholdChange && clampedThreshold !== originalThreshold) {
+                await onThresholdChange(clampedThreshold);
+            }
 
             close();
         } catch (error) {

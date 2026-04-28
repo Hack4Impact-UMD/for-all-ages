@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import styles from "./Dashboard.module.css";
+import userStyles from "./UserDashboard.module.css"
 import WeekSelector from "./components/WeekSelector/WeekSelector";
 import LogCallForm from "./components/LogCallForm/LogCallForm";
 import { useAuth } from "../../auth/AuthProvider";
@@ -29,8 +30,8 @@ export default function UserDashboard() {
   }, [numWeeks]);
 
   return (
-    <div className={styles.page}>
-      <div className={styles.surface}>
+    <div className={userStyles.page}>
+      <div className={userStyles.surface}>
         <section className={styles.selectorSection}>
           <WeekSelector
             weeks={weekLabels}

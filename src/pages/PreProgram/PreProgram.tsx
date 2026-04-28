@@ -3,9 +3,11 @@ import styles from "./PreProgram.module.css";
 import { useNavigate } from "react-router-dom";
 import SearchIcon from "@mui/icons-material/Search";
 import FilterListIcon from "@mui/icons-material/FilterList";
-import SettingsIcon from '@mui/icons-material/Settings';
+import SettingsIcon from "@mui/icons-material/Settings";
 import AutorenewIcon from "@mui/icons-material/Autorenew";
-import { db, getUser, matchAll } from "../../firebase";
+import SendIcon from "@mui/icons-material/Send";
+import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
+import { auth, db, getUser, matchAll } from "../../firebase";
 import {
   collection,
   deleteDoc,
@@ -34,7 +36,7 @@ import SettingsPopup from "./SettingsPopup";
 import ParticipantInfoPopup from "../Dashboard/components/ParticipantInfoPopup/ParticipantInfoPopup";
 import Button from "../../components/Button";
 
-const APPROVAL_THRESHOLD = 0.8; // 80%
+const DEFAULT_APPROVAL_THRESHOLD = 0.8; // 80%
 const DEV_MODE = true; // ← flip to false before deploying to production
 
 // Collections to wipe on End Program
@@ -157,8 +159,10 @@ const PreProgram = () => {
 
         const pct = Math.round(m.scores.finalScore * 100);
 
+        const approvalThreshold = (programState?.autoApprovalThreshold ?? DEFAULT_APPROVAL_THRESHOLD * 100) / 100;
+
         const status: MatchStatus =
-          m.scores.finalScore >= APPROVAL_THRESHOLD ? "Approved" : "Pending";
+          m.scores.finalScore >= approvalThreshold ? "Approved" : "Pending";
 
         return {
           name1: u1.displayName,
@@ -168,6 +172,7 @@ const PreProgram = () => {
           confidence: pct,
           status,
           score: m.scores.finalScore,
+          approvedBy: status === "Approved" ? "Auto-Approved" : "",
         };
       }),
     );
@@ -220,6 +225,7 @@ const PreProgram = () => {
             participant2_id?: string;
             similarity?: number;
             status?: string;
+            approvedBy?: string;
           };
           const p1 = data.participant1_id ?? "";
           const p2 = data.participant2_id ?? "";
@@ -232,6 +238,8 @@ const PreProgram = () => {
           const u2 = await getUser(p2);
 
           const rawStatus = (data.status as string | undefined) || "";
+          const approvalThreshold = programState?.autoApprovalThreshold ?? 80;
+
           let status: MatchStatus;
           if (rawStatus === "approved") {
             status = "Approved";
@@ -239,12 +247,14 @@ const PreProgram = () => {
             status = "Pending";
           } else {
             status =
-              similarity >= 80
+              similarity >= approvalThreshold
                 ? "Approved"
                 : similarity > 0
                   ? "Pending"
                   : "No Match";
           }
+
+          const approvedBy = (data.approvedBy as string | undefined) ?? "";
 
           return {
             name1: u1.displayName,
@@ -255,6 +265,7 @@ const PreProgram = () => {
             status,
             score: similarity / 100,
             matchId: d.id,
+            approvedBy,
           };
         }),
       );
@@ -364,6 +375,7 @@ const PreProgram = () => {
         participant2_id: m.participant2_id,
         similarity: m.confidence,
         status: m.status === "Approved" ? "approved" : "pending",
+        approvedBy: m.approvedBy ?? "",
       });
 
       withIds.push({ ...m, matchId: newDocRef.id });
@@ -372,6 +384,54 @@ const PreProgram = () => {
     await writeBatchRef.commit();
     console.log("Matches stored successfully.");
     return withIds;
+  };
+
+  const updateMatchStatuses = async (newThreshold: number) => {
+    try {
+      const matchesRef = collection(db, "matches");
+      const snap = await getDocs(matchesRef);
+
+      if (snap.empty) {
+        console.log("No matches to update");
+        return;
+      }
+
+      const batch = writeBatch(db);
+      let updateCount = 0;
+
+      snap.docs.forEach((matchDoc) => {
+        const data = matchDoc.data();
+        const similarity = data.similarity ?? 0;
+        const currentStatus = data.status;
+        const currentApprovedBy = data.approvedBy ?? "";
+
+        const newStatus = similarity >= newThreshold ? "approved" : "pending";
+        const shouldClearApprovedBy = newStatus !== "approved" && currentApprovedBy;
+
+        if (newStatus !== currentStatus || shouldClearApprovedBy) {
+          batch.update(matchDoc.ref, {
+            status: newStatus,
+            approvedBy:
+              newStatus === "approved"
+                ? currentApprovedBy || "Auto-Approved"
+                : "",
+          });
+          updateCount++;
+        }
+      });
+
+      if (updateCount > 0) {
+        await batch.commit();
+        console.log(`Updated status for ${updateCount} matches`);
+      } else {
+        console.log("No matches needed status updates");
+      }
+
+      // Reload matches to reflect changes in UI
+      await loadMatches();
+    } catch (error) {
+      console.error("Error updating match statuses:", error);
+    }
   };
 
   const handleMatch = async () => {
@@ -571,6 +631,16 @@ const PreProgram = () => {
     if (!match || match.status === "No Match") return;
 
     try {
+      let adminName = "Unknown Admin";
+
+      if (newStatus === "Approved") {
+        const currentUid = auth.currentUser?.uid;
+        if (currentUid) {
+          const adminUser = await getUser(currentUid);
+          adminName = adminUser.displayName ?? "Unknown Admin";
+        }
+      }
+
       if (newStatus === "Separate") {
         if (!match.matchId) return;
 
@@ -582,6 +652,7 @@ const PreProgram = () => {
           confidence: undefined,
           status: "No Match",
           score: 0,
+          approvedBy: "",
         };
 
         const newUnmatchedSenior: UI_Match = {
@@ -592,6 +663,7 @@ const PreProgram = () => {
           confidence: undefined,
           status: "No Match",
           score: 0,
+          approvedBy: "",
         };
 
         const newUpdated = updated.filter((m) => m.matchId !== match.matchId);
@@ -610,6 +682,8 @@ const PreProgram = () => {
       }
 
       match.status = newStatus;
+      match.approvedBy = newStatus === "Approved" ? adminName : "";
+
       setMatches(sortMatches(updated));
 
       if (!match.matchId) return;
@@ -617,7 +691,10 @@ const PreProgram = () => {
       const matchRef = doc(db, "matches", match.matchId);
       const firestoreStatus = newStatus === "Approved" ? "approved" : "pending";
 
-      await updateDoc(matchRef, { status: firestoreStatus });
+      await updateDoc(matchRef, {
+        status: firestoreStatus,
+        approvedBy: newStatus === "Approved" ? adminName : "",
+      });
 
       setBanner({
         message: `Match marked as ${newStatus} successfully.`,
@@ -626,7 +703,6 @@ const PreProgram = () => {
       setTimeout(() => setBanner(null), 3000);
     } catch (err) {
       console.error("Failed to update match status:", err);
-
       setBanner({
         message: "Failed to update match status.",
         type: "error",
@@ -874,7 +950,7 @@ const PreProgram = () => {
                         setSelectedStatuses((prev) =>
                           prev.includes(status)
                             ? prev.filter((s) => s !== status)
-                            : [...prev, status]
+                            : [...prev, status],
                         )
                       }
                     />
@@ -893,7 +969,6 @@ const PreProgram = () => {
           )}
         </div>
 
-        
         <table className={styles.table}>
           <thead>
             <tr>
@@ -901,12 +976,13 @@ const PreProgram = () => {
               <th>Older Adult</th>
               <th>Final Score %</th>
               <th>Status</th>
+              <th>Approved By</th>
             </tr>
           </thead>
           <tbody>
             {filteredMatches.length === 0 ? (
               <tr>
-                <td colSpan={4} className={styles.empty}>
+                <td colSpan={5} className={styles.empty}>
                   No matches yet.
                 </td>
               </tr>
@@ -989,6 +1065,7 @@ const PreProgram = () => {
                       </select>
                     )}
                   </td>
+                  <td>{m.approvedBy || "—"}</td>
                 </tr>
               ))
             )}
