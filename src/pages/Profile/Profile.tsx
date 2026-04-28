@@ -523,6 +523,7 @@ const Profile = () => {
 
   return (
     <div className={styles.page}>
+      <div className={styles.pageTitle}>Your Profile</div>
       <div className={styles.container}>
         <div className={styles.leftColumn}>
           <div className={styles.infoCard}>
