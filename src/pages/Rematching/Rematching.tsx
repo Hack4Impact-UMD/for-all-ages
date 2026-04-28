@@ -16,6 +16,7 @@ import {
 } from "firebase/firestore";
 import { auth, db, computeMatchScore, getUser } from "../../firebase";
 import type { Form, Question, RematchingParticipant } from "../../types";
+import { useAuth } from "../../auth/AuthProvider";
 
 export type { RematchingParticipant } from "../../types";
 
@@ -110,6 +111,7 @@ const getParticipantPronouns = (
 
 export default function Rematching() {
   const navigate = useNavigate();
+  const { programState, programStateLoading } = useAuth();
   const [students, setStudents] = useState<RematchingParticipant[]>([]);
   const [adults, setAdults] = useState<RematchingParticipant[]>([]);
   const [approvedCount, setApprovedCount] = useState<number>(0);
@@ -550,6 +552,36 @@ export default function Rematching() {
   };
 
   const isMatchButtonDisabled = !selectedStudent || !selectedAdult || saving;
+
+  if (programStateLoading) {
+    return (
+      <div className={`${layoutStyles.page} ${styles.rematchingPage}`}>
+        <div className={`${layoutStyles.surface} ${styles.rematchingSurface}`}>
+          <div className={styles.loadingState}>Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (programState?.matches_final) {
+    return (
+      <div className={`${layoutStyles.page} ${styles.rematchingPage}`}>
+        <div className={`${layoutStyles.surface} ${styles.rematchingSurface}`}>
+          <button
+            type="button"
+            className={styles.backButton}
+            onClick={() => navigate("/admin/main")}
+            aria-label="Back to PreProgram"
+          >
+            ←
+          </button>
+          <div className={styles.lockedState}>
+            Matches are locked. Unlock matches before manually rematching.
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`${layoutStyles.page} ${styles.rematchingPage}`}>

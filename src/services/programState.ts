@@ -48,3 +48,9 @@ export async function finalizeMatches() {
   });
 }
 
+export async function unfinalizeMatches() {
+  await updateDoc(programStateRef, {
+    matches_final: false,
+    updatedAt: serverTimestamp(),
+  });
+}
