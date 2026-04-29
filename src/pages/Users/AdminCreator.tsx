@@ -640,7 +640,7 @@ function PromoteModal({ participant, onClose, onSuccess }: PromoteModalProps) {
             process.
           </p>
 
-          {/* <div className={styles.field}>
+          <div className={styles.field}>
             <label htmlFor="promote-university">University Name</label>
             <input
               id="promote-university"
@@ -654,9 +654,7 @@ function PromoteModal({ participant, onClose, onSuccess }: PromoteModalProps) {
               placeholder="University name"
               autoFocus
             />
-          </div> */}
-          <DropdownInput name={"Uni"} options={[]} required={false}>
-          </DropdownInput>
+          </div>
 
           {error ? <div className={styles.errorMessage}>{error}</div> : null}
 

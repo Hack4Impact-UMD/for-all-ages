@@ -711,7 +711,7 @@ const RegistrationNew = ({
       }
 
       
-      if (shouldWaitlist) {
+      if (shouldWaitlist && user) {
         const waitlistRef = doc(db, "waitlist", user.uid);
         await setDoc(waitlistRef, { uid: user.uid, createdAt: serverTimestamp() });
         navigate("/waiting", { replace: true });

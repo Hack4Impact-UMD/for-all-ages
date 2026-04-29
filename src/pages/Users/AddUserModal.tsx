@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import type { Role } from "../../types";
 import { useAuth } from "../../auth/AuthProvider";
-import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { FirebaseError } from "firebase/app";
 import { getDocs, query, collection, where } from "firebase/firestore";
 import { db } from "../../firebase";
@@ -9,7 +9,6 @@ import { inviteAdminAccount, assignAdminRoleToExistingUser } from "../../service
 import { friendlyAuthError } from "../../utils/firebaseErrors";
 import styles from "./AdminCreator.module.css";
 import { emailRegex } from "../../regex";
-import DropdownInput from "../Registration/Question Types/DropdownInput";
 import { getUniversityOptions } from "../Registration/helpers";
 
 type AddAdminModalProps = {

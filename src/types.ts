@@ -53,6 +53,10 @@ export interface Participant {
     isManualEntry?: boolean
     createdAt?: Timestamp | null
     updatedAt?: Timestamp | null
+
+    //this really should not be here
+    startDate?: string
+    endDate?: string
 }
 
 export type ParticipantDoc = Partial<Participant>;

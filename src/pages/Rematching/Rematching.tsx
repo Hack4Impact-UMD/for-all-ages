@@ -286,7 +286,7 @@ export default function Rematching() {
 
       // Process waitlisted participants
       const responsesByUidMap = new Map(responsesByUid);
-      waitlistedByUid.forEach((waitlistData, uid) => {
+      waitlistedByUid.forEach((uid) => {
         const participantDoc = participantsMap.get(uid);
         if (!participantDoc) return;
 
