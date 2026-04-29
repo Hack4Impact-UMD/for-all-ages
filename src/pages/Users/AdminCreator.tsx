@@ -25,7 +25,6 @@ import type {
 import ParticipantInfoPopup from "../Dashboard/components/ParticipantInfoPopup/ParticipantInfoPopup";
 import { formatPhone } from "../../utils/phone";
 import { useAuth } from "../../auth/AuthProvider";
-import DropdownInput from "../Registration/Question Types/DropdownInput";
 import AddUserModal from "./AddUserModal";
 import Button from "../../components/Button";
 
