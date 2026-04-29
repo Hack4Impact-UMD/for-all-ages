@@ -27,13 +27,17 @@ const PARTICIPANT_NAV_ITEMS: NavItem[] = [
   { label: "Profile", path: "/profile" },
 ];
 
-const DEFAULT_NAV_ITEMS: NavItem[] = [
-  { label: "Login", path: "/" },
+const SUBADMIN_NAV_ITEMS: NavItem[] = [
+  { label: "Users", path: "/admin/creator" },
+  { label: "Profile", path: "/profile" },
 ];
+
+const DEFAULT_NAV_ITEMS: NavItem[] = [{ label: "Login", path: "/" }];
 
 export default function Navbar({ navItems }: NavbarProps) {
   const location = useLocation();
-  const { participant, participantLoading, isAdmin } = useAuth();
+  const { participantLoading, isAdmin, programState, programStateLoading, isSubadmin} =
+    useAuth();
 
   // Automatically determine navItems based on user type if not provided
   const determinedNavItems = useMemo(() => {
@@ -45,12 +49,37 @@ export default function Navbar({ navItems }: NavbarProps) {
     }
 
     // Return appropriate navItems based on user type
+    if (isSubadmin) {
+      return SUBADMIN_NAV_ITEMS;
+    }
+
     if (isAdmin) {
       return ADMIN_NAV_ITEMS;
     }
 
     return PARTICIPANT_NAV_ITEMS;
-  }, [navItems, participant, participantLoading]);
+  }, [navItems, participantLoading, isAdmin]);
+
+  const adminProgramStatusText = useMemo(() => {
+    if (programStateLoading) {
+      return "Loading program status...";
+    }
+    if (!programState) {
+      return "Program status unavailable";
+    }
+
+    const registrationText = programState.matches_final
+      ? "Registrations Closed"
+      : "Registrations Open";
+    const programText = programState.started
+      ? "Program Started"
+      : "Program Not Started";
+
+    return `${registrationText}, ${programText}`;
+  }, [programState, programStateLoading]);
+
+  const registrationClosed = Boolean(programState?.matches_final);
+  const programStarted = Boolean(programState?.started);
 
   return (
     <div className={styles.bar}>
@@ -80,7 +109,38 @@ export default function Navbar({ navItems }: NavbarProps) {
           );
         })}
       </div>
-      <div className={styles.right}></div>
+      <div className={styles.right}>
+        {isAdmin && (
+          <div className={styles.adminStatusIndicator}>
+            {programStateLoading || !programState ? (
+              <span>{adminProgramStatusText}</span>
+            ) : (
+              <div className={styles.adminStatusList}>
+                <div className={styles.adminStatusRow}>
+                  <span
+                    className={`${styles.adminStatusDot} ${registrationClosed ? styles.statusNegative : styles.statusPositive}`}
+                    aria-hidden="true"
+                  />
+                  <span>
+                    {registrationClosed
+                      ? "Registration closed"
+                      : "Registration open"}
+                  </span>
+                </div>
+                <div className={styles.adminStatusRow}>
+                  <span
+                    className={`${styles.adminStatusDot} ${programStarted ? styles.statusPositive : styles.statusNegative}`}
+                    aria-hidden="true"
+                  />
+                  <span>
+                    {programStarted ? "Program started" : "Program not started"}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

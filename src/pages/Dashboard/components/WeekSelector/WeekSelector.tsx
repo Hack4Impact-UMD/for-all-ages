@@ -1,12 +1,22 @@
 import styles from './WeekSelectorGlassy.module.css'
 
+type WeekStatus =
+    | 'completed'
+    | 'missed'
+    | 'future'
+    | 'current'
+    | 'submitted'
+    | 'missing'
+
 interface WeekSelectorProps {
     weeks: string[]
     subLabels?: string[]
     selectedWeekIndex: number
     onSelect: (index: number) => void
     className?: string
-    statuses?: ('completed' | 'missed' | 'future' | 'current')[]
+    statuses?: WeekStatus[]
+    maxSelectableIndex?: number
+    showCurrentIndicator?: boolean
 }
 
 export default function WeekSelector ({
@@ -15,7 +25,9 @@ export default function WeekSelector ({
     selectedWeekIndex,
     onSelect,
     className,
-    statuses = []
+    statuses = [],
+    maxSelectableIndex,
+    showCurrentIndicator = false
 }: WeekSelectorProps) {
     const handleArrowClick = (direction: number) => {
         const currentPage = Math.floor(selectedWeekIndex / weekRange);
@@ -23,7 +35,11 @@ export default function WeekSelector ({
 
         const newIndex = direction > 0 ? nextPage * weekRange : Math.min((nextPage + 1) * weekRange - 1, weeks.length - 1);
 
-        if (newIndex < 0 || newIndex >= weeks.length) {
+        if (
+            newIndex < 0 ||
+            newIndex >= weeks.length ||
+            (typeof maxSelectableIndex === 'number' && newIndex > maxSelectableIndex)
+        ) {
             return
         }
         onSelect(newIndex)
@@ -50,8 +66,14 @@ export default function WeekSelector ({
                     const actualIndex = startIndex + index;
                     const isActive = actualIndex === selectedWeekIndex
                     const status = statuses[actualIndex] || 'future';
-                    const showCheckmark = status === 'completed' || status === 'current'
+                    const showCheckmark =
+                        status === 'completed' ||
+                        status === 'submitted'
                     const subLabel = subLabels?.[actualIndex]
+                    const isDisabled =
+                        typeof maxSelectableIndex === 'number' &&
+                        actualIndex > maxSelectableIndex
+                    const isCurrent = status === 'current'
 
                     return (
                         <button
@@ -60,12 +82,16 @@ export default function WeekSelector ({
                             role="tab"
                             aria-selected={isActive}
                             className={`${styles.weekButton} ${isActive ? styles.activeWeek : ''} ${styles[status]}`.trim()}
+                            disabled={isDisabled}
                             onClick={() => onSelect(actualIndex)}
                         >
                             {subLabel ? (
                                 <span className={styles.weekButtonInner}>
                                     <span className={styles.weekButtonTop}>
                                         <span className={styles.weekLabel}>{week}</span>
+                                        {showCurrentIndicator && isCurrent && (
+                                            <span className={styles.currentIndicator}>Current</span>
+                                        )}
                                         {showCheckmark && (
                                             <span className={styles.checkmark} aria-hidden="true">✓</span>
                                         )}
@@ -75,6 +101,9 @@ export default function WeekSelector ({
                             ) : (
                                 <>
                                     <span className={styles.weekLabel}>{week}</span>
+                                    {showCurrentIndicator && isCurrent && (
+                                        <span className={styles.currentIndicator}>Current</span>
+                                    )}
                                     {showCheckmark && (
                                         <span className={styles.checkmark} aria-hidden="true">✓</span>
                                     )}
@@ -88,7 +117,11 @@ export default function WeekSelector ({
                 type="button"
                 className={styles.arrowButton}
                 onClick={() => handleArrowClick(5)}
-                disabled={startIndex + weekRange >= weeks.length}
+                disabled={
+                    startIndex + weekRange >= weeks.length ||
+                    (typeof maxSelectableIndex === 'number' &&
+                        startIndex + weekRange > maxSelectableIndex)
+                }
                 aria-label="Next 5 weeks"
             >
                 &#8250;

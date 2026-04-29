@@ -176,6 +176,19 @@
     font-style: italic;
 }
 
+.lockedState {
+    width: min(640px, 100%);
+    margin: 8rem auto 0;
+    background: #ffffff;
+    color: #0f6bb1;
+    border-radius: 1rem;
+    padding: 2rem;
+    box-shadow: 0 8px 24px rgba(15, 107, 177, 0.15);
+    text-align: center;
+    font-size: 1.25rem;
+    font-weight: 700;
+}
+
 /* match details column */
 
 .matchContainer {
@@ -352,7 +365,6 @@
 
 .confirmButton,
 .findDifferentButton {
-    padding: 0.875rem 1.5rem;
     color: #ffffff;
     border: none;
     border-radius: 0.75rem;
@@ -423,6 +435,11 @@
   margin-top: 1rem;
   display: flex;
   gap: 0.75rem;
+}
+
+.toggle {
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
 }
 
 /* responsize design */

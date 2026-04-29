@@ -6,9 +6,17 @@ import layoutStyles from "../Dashboard/Dashboard.module.css";
 import ParticipantCard from "./components/ParticipantCard/ParticipantCard";
 import SelectedParticipantCard from "./components/SelectedParticipantCard/SelectedParticipantCard";
 import MatchConfidenceCircle from "./components/MatchConfidenceCircle/MatchConfidenceCircle";
-import { collection, doc, getDoc, getDocs, writeBatch } from "firebase/firestore";
-import { db, computeMatchScore } from "../../firebase";
+import Toggle from "./components/Toggle/Toggle";
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  writeBatch,
+} from "firebase/firestore";
+import { auth, db, computeMatchScore, getUser } from "../../firebase";
 import type { Form, Question, RematchingParticipant } from "../../types";
+import { useAuth } from "../../auth/AuthProvider";
 
 export type { RematchingParticipant } from "../../types";
 
@@ -17,44 +25,52 @@ type MatchableQuestionEntry = {
   type: Question["type"];
 };
 
-const filterParticipants = (participants: RematchingParticipant[], searchQuery: string) => {
+const filterParticipants = (
+  participants: RematchingParticipant[],
+  searchQuery: string,
+) => {
   if (!searchQuery.trim()) return participants;
   const searchLower = searchQuery.toLowerCase();
   return participants.filter(
     (participant) =>
       participant.name.toLowerCase().includes(searchLower) ||
-      participant.interestsText.toLowerCase().includes(searchLower)
+      participant.interestsText.toLowerCase().includes(searchLower),
   );
 };
 
-const buildMatchableQuestionEntries = (form: Form | null): MatchableQuestionEntry[] => {
+const buildMatchableQuestionEntries = (
+  form: Form | null,
+): MatchableQuestionEntry[] => {
   if (!form) return [];
   const entries: MatchableQuestionEntry[] = [];
   form.sections.forEach((section) => {
     section.questions.forEach((question) => {
-      if (question.matchable) entries.push({ title: question.title, type: question.type });
+      if (question.matchable)
+        entries.push({ title: question.title, type: question.type });
     });
   });
   return entries;
 };
 
-const normalizePronouns = (value?: string | null): string => (value ?? "").trim().toLowerCase().replace(/\\/g, "/");
+const normalizePronouns = (value?: string | null): string =>
+  (value ?? "").trim().toLowerCase().replace(/\\/g, "/");
 const normalizeRole = (value?: string | null): "student" | "adult" | null => {
   const raw = (value ?? "").trim().toLowerCase();
   if (raw === "student") return "student";
-  if (raw === "adult" || raw === "senior" || raw === "older adult") return "adult";
+  if (raw === "adult" || raw === "senior" || raw === "older adult")
+    return "adult";
   return null;
 };
 
 const shouldShowGenderWarning = (
   studentPronouns?: string | null,
-  adultPronouns?: string | null
+  adultPronouns?: string | null,
 ): boolean => {
   const student = normalizePronouns(studentPronouns);
   const adult = normalizePronouns(adultPronouns);
 
   const hasNeutralPronouns = [student, adult].some(
-    (p) => p === "they/them" || p === "other"
+    (p) => p === "they/them" || p === "other",
   );
   if (hasNeutralPronouns) return false;
 
@@ -64,12 +80,16 @@ const shouldShowGenderWarning = (
   );
 };
 
-const extractPronounsFromResponses = (participant: RematchingParticipant | null): string | null => {
+const extractPronounsFromResponses = (
+  participant: RematchingParticipant | null,
+): string | null => {
   if (!participant?.matchableAnswers) return null;
   const entries = Object.entries(participant.matchableAnswers);
   const pronounsEntry = entries.find(([title]) => {
     const normalizedTitle = title.trim().toLowerCase();
-    return normalizedTitle.includes("pronouns") || normalizedTitle.includes("gender");
+    return (
+      normalizedTitle.includes("pronouns") || normalizedTitle.includes("gender")
+    );
   });
   if (!pronounsEntry) return null;
   const [, value] = pronounsEntry;
@@ -77,29 +97,43 @@ const extractPronounsFromResponses = (participant: RematchingParticipant | null)
   return String(value).trim().replace(/\\/g, "/");
 };
 
-const getParticipantPronouns = (participant: RematchingParticipant | null): string | null => {
+const getParticipantPronouns = (
+  participant: RematchingParticipant | null,
+): string | null => {
   if (!participant) return null;
   const directPronouns =
-    typeof participant.pronouns === "string" ? participant.pronouns.trim() : null;
+    typeof participant.pronouns === "string"
+      ? participant.pronouns.trim()
+      : null;
   const responsePronouns = extractPronounsFromResponses(participant);
   return directPronouns || responsePronouns || null;
 };
 
 export default function Rematching() {
   const navigate = useNavigate();
+  const { programState, programStateLoading } = useAuth();
   const [students, setStudents] = useState<RematchingParticipant[]>([]);
   const [adults, setAdults] = useState<RematchingParticipant[]>([]);
   const [approvedCount, setApprovedCount] = useState<number>(0);
-  const [matchableQuestions, setMatchableQuestions] = useState<MatchableQuestionEntry[]>([]);
+  const [matchableQuestions, setMatchableQuestions] = useState<
+    MatchableQuestionEntry[]
+  >([]);
 
-  const [selectedStudent, setSelectedStudent] = useState<RematchingParticipant | null>(null);
-  const [selectedAdult, setSelectedAdult] = useState<RematchingParticipant | null>(null);
+  const [selectedStudent, setSelectedStudent] =
+    useState<RematchingParticipant | null>(null);
+  const [selectedAdult, setSelectedAdult] =
+    useState<RematchingParticipant | null>(null);
   const [studentCompatibilityScores, setStudentCompatibilityScores] = useState<
     Record<string, number | null>
   >({});
   const [adultCompatibilityScores, setAdultCompatibilityScores] = useState<
     Record<string, number | null>
   >({});
+
+  const [waitlistedStudents, setWaitlistedStudents] = useState<RematchingParticipant[]>([]);
+  const [waitlistedAdults, setWaitlistedAdults] = useState<RematchingParticipant[]>([]);
+  const [showWaitlistedStudents, setShowWaitlistedStudents] = useState(false);
+  const [showWaitlistedAdults, setShowWaitlistedAdults] = useState(false);
 
   const [studentSearch, setStudentSearch] = useState("");
   const [adultSearch, setAdultSearch] = useState("");
@@ -111,10 +145,12 @@ export default function Rematching() {
   const [matchLoading, setMatchLoading] = useState(false);
   const [matchError, setMatchError] = useState<string | null>(null);
   const [matchPercentage, setMatchPercentage] = useState<number | null>(null);
-  const [matchDetails, setMatchDetails] = useState<
-    | { frqScore: number; quantScore: number; finalScore: number; confidence: string }
-    | null
-  >(null);
+  const [matchDetails, setMatchDetails] = useState<{
+    frqScore: number;
+    quantScore: number;
+    finalScore: number;
+    confidence: string;
+  } | null>(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -151,7 +187,8 @@ export default function Rematching() {
       const registrationForm = registrationFormSnap.exists()
         ? (registrationFormSnap.data() as Form)
         : null;
-      const nextMatchableQuestions = buildMatchableQuestionEntries(registrationForm);
+      const nextMatchableQuestions =
+        buildMatchableQuestionEntries(registrationForm);
       setMatchableQuestions(nextMatchableQuestions);
 
       const formResponsesRef = collection(db, "FormResponse");
@@ -172,13 +209,27 @@ export default function Rematching() {
 
       const participantsRef = collection(db, "participants");
       const participantsSnap = await getDocs(participantsRef);
+      const participantsMap = new Map<string, any>();
+      participantsSnap.forEach((pDoc) => {
+        participantsMap.set(pDoc.id, { ...pDoc.data(), id: pDoc.id });
+      });
 
-      // Fetch waitlisted IDs to exclude from matching
+      // Fetch waitlisted participants
       const waitlistSnap = await getDocs(collection(db, "waitlist"));
       const waitlistedIds = new Set(waitlistSnap.docs.map((d) => d.id));
+      const waitlistedByUid = new Map<string, any>();
+      waitlistSnap.forEach((wDoc) => {
+        const data = wDoc.data() as any;
+        const uid = data.uid as string | undefined;
+        if (uid) {
+          waitlistedByUid.set(uid, data);
+        }
+      });
 
       const studentsList: RematchingParticipant[] = [];
       const adultsList: RematchingParticipant[] = [];
+      const waitlistedStudentsList: RematchingParticipant[] = [];
+      const waitlistedAdultsList: RematchingParticipant[] = [];
 
       participantsSnap.forEach((pDoc) => {
         const data = pDoc.data() as any;
@@ -191,15 +242,21 @@ export default function Rematching() {
         const userUid = (data.userUid ?? id) as string;
         if (!userType) return;
 
-        const isInPending = pendingParticipantIds.has(id) || pendingParticipantIds.has(userUid);
-        const hasCurrentMatch = allMatchedIds.has(id) || allMatchedIds.has(userUid);
+        const isInPending =
+          pendingParticipantIds.has(id) || pendingParticipantIds.has(userUid);
+        const hasCurrentMatch =
+          allMatchedIds.has(id) || allMatchedIds.has(userUid);
         if (hasCurrentMatch) return;
         if (isInPending) return;
 
         const responseAnswers =
-          responsesByUid.get(data.userUid ?? id) ?? responsesByUid.get(id) ?? {};
+          responsesByUid.get(data.userUid ?? id) ??
+          responsesByUid.get(id) ??
+          {};
         const preferenceScores = data.preferenceScores ?? {};
-        const sliderQuestions = nextMatchableQuestions.filter((q) => q.type === "Slider");
+        const sliderQuestions = nextMatchableQuestions.filter(
+          (q) => q.type === "Slider",
+        );
 
         // This natively supports N questions without breaking backward compatibility
         sliderQuestions.forEach((q, index) => {
@@ -226,6 +283,55 @@ export default function Rematching() {
 
       setStudents(studentsList);
       setAdults(adultsList);
+
+      // Process waitlisted participants
+      const responsesByUidMap = new Map(responsesByUid);
+      waitlistedByUid.forEach((waitlistData, uid) => {
+        const participantDoc = participantsMap.get(uid);
+        if (!participantDoc) return;
+
+        const rawRole = (participantDoc.user_type ?? participantDoc.userType ?? participantDoc.role ?? "") as string;
+        const userType = normalizeRole(rawRole);
+        if (!userType) return;
+
+        const responseAnswers = responsesByUidMap.get(uid) ?? {};
+        const preferenceScores = participantDoc.preferenceScores ?? {};
+        const sliderQuestions = nextMatchableQuestions.filter((q) => q.type === "Slider");
+
+        const q1Title = sliderQuestions[0]?.title;
+        const q2Title = sliderQuestions[1]?.title;
+        const q3Title = sliderQuestions[2]?.title;
+        if (q1Title && responseAnswers[q1Title] == null && preferenceScores.q1 != null) {
+          responseAnswers[q1Title] = preferenceScores.q1;
+        }
+        if (q2Title && responseAnswers[q2Title] == null && preferenceScores.q2 != null) {
+          responseAnswers[q2Title] = preferenceScores.q2;
+        }
+        if (q3Title && responseAnswers[q3Title] == null && preferenceScores.q3 != null) {
+          responseAnswers[q3Title] = preferenceScores.q3;
+        }
+
+        const waitlistedParticipant: RematchingParticipant = {
+          id: uid,
+          userUid: uid,
+          type: userType,
+          name: participantDoc.displayName ?? "Unnamed participant",
+          interestsText: participantDoc.interests ?? "",
+          school: participantDoc.university,
+          preferenceScores,
+          pronouns: participantDoc.pronouns ?? null,
+          matchableAnswers: responseAnswers,
+        };
+
+        if (userType === "student") {
+          waitlistedStudentsList.push(waitlistedParticipant);
+        } else {
+          waitlistedAdultsList.push(waitlistedParticipant);
+        }
+      });
+
+      setWaitlistedStudents(waitlistedStudentsList);
+      setWaitlistedAdults(waitlistedAdultsList);
     } catch (err) {
       console.error("Error loading rematching data:", err);
       setLoadError("Failed to load matching data.");
@@ -285,7 +391,8 @@ export default function Rematching() {
       }
       const pairs = await Promise.all(
         adults.map(async (adult) => {
-          if (!selectedStudent.userUid || !adult.userUid) return [adult.id, null] as const;
+          if (!selectedStudent.userUid || !adult.userUid)
+            return [adult.id, null] as const;
           try {
             const res = await computeMatchScore({
               uid1: selectedStudent.userUid,
@@ -295,7 +402,7 @@ export default function Rematching() {
           } catch {
             return [adult.id, null] as const;
           }
-        })
+        }),
       );
       if (!cancelled) setAdultCompatibilityScores(Object.fromEntries(pairs));
     }
@@ -314,7 +421,8 @@ export default function Rematching() {
       }
       const pairs = await Promise.all(
         students.map(async (student) => {
-          if (!student.userUid || !selectedAdult.userUid) return [student.id, null] as const;
+          if (!student.userUid || !selectedAdult.userUid)
+            return [student.id, null] as const;
           try {
             const res = await computeMatchScore({
               uid1: student.userUid,
@@ -324,7 +432,7 @@ export default function Rematching() {
           } catch {
             return [student.id, null] as const;
           }
-        })
+        }),
       );
       if (!cancelled) setStudentCompatibilityScores(Object.fromEntries(pairs));
     }
@@ -335,12 +443,22 @@ export default function Rematching() {
   }, [selectedAdult, students]);
 
   const filteredStudents = useMemo(
-    () => filterParticipants(students, studentSearch),
-    [students, studentSearch]
+    () => {
+      const participantsToFilter = showWaitlistedStudents
+        ? [...students, ...waitlistedStudents]
+        : students;
+      return filterParticipants(participantsToFilter, studentSearch);
+    },
+    [students, waitlistedStudents, showWaitlistedStudents, studentSearch]
   );
   const filteredAdults = useMemo(
-    () => filterParticipants(adults, adultSearch),
-    [adults, adultSearch]
+    () => {
+      const participantsToFilter = showWaitlistedAdults
+        ? [...adults, ...waitlistedAdults]
+        : adults;
+      return filterParticipants(participantsToFilter, adultSearch);
+    },
+    [adults, waitlistedAdults, showWaitlistedAdults, adultSearch]
   );
 
   const handleStudentClick = (student: RematchingParticipant) => {
@@ -354,13 +472,26 @@ export default function Rematching() {
 
   const handleConfirmMatch = async () => {
     if (!selectedStudent || !selectedAdult) return;
+
     if (selectedStudent.type !== "student" || selectedAdult.type !== "adult") {
-      setLoadError("Manual rematching only allows student to older adult pairs.");
+      setLoadError(
+        "Manual rematching only allows student to older adult pairs.",
+      );
       return;
     }
+
     try {
       setSaving(true);
       setLoadError(null);
+
+      let adminName = "Unknown Admin";
+      const currentUid = auth.currentUser?.uid;
+
+      if (currentUid) {
+        const adminUser = await getUser(currentUid);
+        adminName = adminUser.displayName ?? "Unknown Admin";
+      }
+
       const matchesRef = collection(db, "matches");
       const allMatchesSnap = await getDocs(matchesRef);
       const batch = writeBatch(db);
@@ -370,11 +501,13 @@ export default function Rematching() {
         const p1 = data.participant1_id;
         const p2 = data.participant2_id;
         if (!p1 || !p2) return;
+
         const involvesSelected =
           p1 === selectedStudent.id ||
           p2 === selectedStudent.id ||
           p1 === selectedAdult.id ||
           p2 === selectedAdult.id;
+
         if (involvesSelected) batch.delete(matchDoc.ref);
       });
 
@@ -383,8 +516,15 @@ export default function Rematching() {
         participant1_id: selectedStudent.id,
         participant2_id: selectedAdult.id,
         status: "approved",
-        similarity: matchPercentage != null ? Math.round(matchPercentage) : null,
+        similarity:
+          matchPercentage != null ? Math.round(matchPercentage) : null,
+        approvedBy: adminName,
       });
+
+      // Remove waitlisted participants from the waitlist collection
+      const waitlistRef = collection(db, "waitlist");
+      batch.delete(doc(waitlistRef, selectedStudent.id));
+      batch.delete(doc(waitlistRef, selectedAdult.id));
 
       await batch.commit();
       setSelectedStudent(null);
@@ -413,6 +553,36 @@ export default function Rematching() {
 
   const isMatchButtonDisabled = !selectedStudent || !selectedAdult || saving;
 
+  if (programStateLoading) {
+    return (
+      <div className={`${layoutStyles.page} ${styles.rematchingPage}`}>
+        <div className={`${layoutStyles.surface} ${styles.rematchingSurface}`}>
+          <div className={styles.loadingState}>Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (programState?.matches_final) {
+    return (
+      <div className={`${layoutStyles.page} ${styles.rematchingPage}`}>
+        <div className={`${layoutStyles.surface} ${styles.rematchingSurface}`}>
+          <button
+            type="button"
+            className={styles.backButton}
+            onClick={() => navigate("/admin/main")}
+            aria-label="Back to PreProgram"
+          >
+            ←
+          </button>
+          <div className={styles.lockedState}>
+            Matches are locked. Unlock matches before manually rematching.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={`${layoutStyles.page} ${styles.rematchingPage}`}>
       <div className={`${layoutStyles.surface} ${styles.rematchingSurface}`}>
@@ -429,7 +599,9 @@ export default function Rematching() {
           Match students with older adults based on interests and preferences
         </h2>
 
-        {loading && <div className={styles.loadingState}>Loading matches...</div>}
+        {loading && (
+          <div className={styles.loadingState}>Loading matches...</div>
+        )}
         {loadError && <div className={styles.errorState}>{loadError}</div>}
 
         <div className={styles.statistics}>
@@ -458,6 +630,8 @@ export default function Rematching() {
             onParticipantClick={handleStudentClick}
             isStudentColumn={true}
             compatibilityScores={studentCompatibilityScores}
+            showWaitlisted={showWaitlistedStudents}
+            onToggleWaitlisted={setShowWaitlistedStudents}
           />
 
           <MatchDetailsColumn
@@ -485,6 +659,8 @@ export default function Rematching() {
             onParticipantClick={handleAdultClick}
             isStudentColumn={false}
             compatibilityScores={adultCompatibilityScores}
+            showWaitlisted={showWaitlistedAdults}
+            onToggleWaitlisted={setShowWaitlistedAdults}
           />
         </div>
       </div>
@@ -492,10 +668,12 @@ export default function Rematching() {
       {genderWarningOpen && (
         <div className={styles.warningModalBackdrop} role="presentation">
           <div className={styles.warningModal} role="dialog" aria-modal="true">
-            <h3 className={styles.warningTitle}>Gender compatibility warning</h3>
+            <h3 className={styles.warningTitle}>
+              Gender compatibility warning
+            </h3>
             <p className={styles.warningText}>
-              This pairing is She/Her with He/Him. You can still continue if this is an
-              appropriate manual match.
+              This pairing is She/Her with He/Him. You can still continue if
+              this is an appropriate manual match.
             </p>
             <div className={styles.warningActions}>
               <button
@@ -533,6 +711,8 @@ interface ParticipantColumnProps {
   onParticipantClick: (participant: RematchingParticipant) => void;
   isStudentColumn: boolean;
   compatibilityScores?: Record<string, number | null>;
+  showWaitlisted: boolean;
+  onToggleWaitlisted: (show: boolean) => void;
 }
 
 function ParticipantColumn({
@@ -545,6 +725,8 @@ function ParticipantColumn({
   onParticipantClick,
   isStudentColumn,
   compatibilityScores,
+  showWaitlisted,
+  onToggleWaitlisted,
 }: ParticipantColumnProps) {
   return (
     <div className={styles.column}>
@@ -561,6 +743,15 @@ function ParticipantColumn({
             onChange={(e) => onSearchChange(e.target.value)}
           />
         </div>
+
+        <div className={styles.toggle}>
+          <Toggle 
+            checked={showWaitlisted}
+            onChange={(e) => onToggleWaitlisted(e.target.checked)}
+          />
+        </div>
+        
+
       </div>
       <div className={styles.participantsList}>
         {participants.map((participant) => {
@@ -572,12 +763,16 @@ function ParticipantColumn({
               isSelected={isSelected}
               onClick={() => onParticipantClick(participant)}
               isStudentColumn={isStudentColumn}
-              compatibilityPercentage={compatibilityScores?.[participant.id] ?? null}
+              compatibilityPercentage={
+                compatibilityScores?.[participant.id] ?? null
+              }
             />
           );
         })}
         {participants.length === 0 && (
-          <div className={styles.emptyState}>No {title.toLowerCase()} found</div>
+          <div className={styles.emptyState}>
+            No {title.toLowerCase()} found
+          </div>
         )}
       </div>
     </div>
@@ -595,7 +790,12 @@ interface MatchDetailsColumnProps {
   saving: boolean;
   matchLoading?: boolean;
   matchError?: string | null;
-  matchDetails?: { frqScore: number; quantScore: number; finalScore: number; confidence: string } | null;
+  matchDetails?: {
+    frqScore: number;
+    quantScore: number;
+    finalScore: number;
+    confidence: string;
+  } | null;
   matchableQuestions: MatchableQuestionEntry[];
 }
 
@@ -617,23 +817,34 @@ function MatchDetailsColumn({
     <div className={styles.column}>
       <div className={styles.columnHeader}>
         <h2 className={styles.columnTitle}>AI Match Suggestion</h2>
-        <p className={styles.columnSubtitle}>Review and confirm the suggested pairing</p>
+        <p className={styles.columnSubtitle}>
+          Review and confirm the suggested pairing
+        </p>
       </div>
 
       <MatchConfidenceCircle confidencePercentage={confidencePercentage} />
 
-      {matchLoading && <div className={styles.loadingState}>Calculating match...</div>}
-      {matchError && <div className={styles.errorState}>{matchError}</div>}
-      {!matchLoading && !matchError && confidencePercentage !== null && matchDetails && (
-        <div className={styles.matchSummary}>
-          <span className={styles.matchSummaryLabel}>Match breakdown</span>
-          <div className={styles.matchBreakdown}>
-            <span>Free response: {Math.round(matchDetails.frqScore * 100)}%</span>
-            <span>·</span>
-            <span>Quantitative: {Math.round(matchDetails.quantScore * 100)}%</span>
-          </div>
-        </div>
+      {matchLoading && (
+        <div className={styles.loadingState}>Calculating match...</div>
       )}
+      {matchError && <div className={styles.errorState}>{matchError}</div>}
+      {!matchLoading &&
+        !matchError &&
+        confidencePercentage !== null &&
+        matchDetails && (
+          <div className={styles.matchSummary}>
+            <span className={styles.matchSummaryLabel}>Match breakdown</span>
+            <div className={styles.matchBreakdown}>
+              <span>
+                Free response: {Math.round(matchDetails.frqScore * 100)}%
+              </span>
+              <span>·</span>
+              <span>
+                Quantitative: {Math.round(matchDetails.quantScore * 100)}%
+              </span>
+            </div>
+          </div>
+        )}
 
       <div className={styles.matchContainer}>
         <SelectedParticipantCard
@@ -657,9 +868,17 @@ function MatchDetailsColumn({
         />
 
         {(() => {
-          const frqTypes = new Set(["short_input", "medium_input", "long_input"]);
-          const numericQuestions = matchableQuestions.filter(q => !frqTypes.has(q.type));
-          const frqQuestions = matchableQuestions.filter(q => frqTypes.has(q.type));
+          const frqTypes = new Set([
+            "short_input",
+            "medium_input",
+            "long_input",
+          ]);
+          const numericQuestions = matchableQuestions.filter(
+            (q) => !frqTypes.has(q.type),
+          );
+          const frqQuestions = matchableQuestions.filter((q) =>
+            frqTypes.has(q.type),
+          );
           return (
             <>
               {numericQuestions.length > 0 && (
@@ -676,12 +895,18 @@ function MatchDetailsColumn({
                     <tbody>
                       {numericQuestions.map((question) => (
                         <tr key={question.title}>
-                          <td className={styles.quantQuestionCell}>{question.title}</td>
-                          <td className={styles.quantScoreCell}>
-                            {selectedStudent?.matchableAnswers?.[question.title] ?? "—"}
+                          <td className={styles.quantQuestionCell}>
+                            {question.title}
                           </td>
                           <td className={styles.quantScoreCell}>
-                            {selectedAdult?.matchableAnswers?.[question.title] ?? "—"}
+                            {selectedStudent?.matchableAnswers?.[
+                              question.title
+                            ] ?? "—"}
+                          </td>
+                          <td className={styles.quantScoreCell}>
+                            {selectedAdult?.matchableAnswers?.[
+                              question.title
+                            ] ?? "—"}
                           </td>
                         </tr>
                       ))}
@@ -694,16 +919,22 @@ function MatchDetailsColumn({
                   <div className={styles.quantTitle}>Free Response</div>
                   {frqQuestions.map((question) => (
                     <div key={question.title} className={styles.frqQuestion}>
-                      <div className={styles.frqQuestionTitle}>{question.title}</div>
+                      <div className={styles.frqQuestionTitle}>
+                        {question.title}
+                      </div>
                       <table className={styles.frqTable}>
-                          <tr>
-                            <td className={styles.frqCell}>
-                              {selectedStudent?.matchableAnswers?.[question.title] ?? "—"}
-                            </td>
-                            <td className={styles.frqCell}>
-                              {selectedAdult?.matchableAnswers?.[question.title] ?? "—"}
-                            </td>
-                          </tr>
+                        <tr>
+                          <td className={styles.frqCell}>
+                            {selectedStudent?.matchableAnswers?.[
+                              question.title
+                            ] ?? "—"}
+                          </td>
+                          <td className={styles.frqCell}>
+                            {selectedAdult?.matchableAnswers?.[
+                              question.title
+                            ] ?? "—"}
+                          </td>
+                        </tr>
                       </table>
                     </div>
                   ))}

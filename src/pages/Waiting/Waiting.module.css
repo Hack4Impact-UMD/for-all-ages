@@ -114,6 +114,7 @@
 
 .matchInfoCard {
     width: 100%;
+    box-sizing: border-box;
     background: #ffffff;
     border-radius: 32px;
     padding: clamp(1.5rem, 4vw, 2.75rem);

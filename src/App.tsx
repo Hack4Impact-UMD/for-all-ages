@@ -10,7 +10,7 @@ import {
 import { useAuth } from "./auth/AuthProvider";
 import UserDashboard from "./pages/Dashboard/UserDashboard";
 import AdminDashboard from "./pages/Dashboard/AdminDashboard";
-import AdminCreator from "./pages/Dashboard/AdminCreator";
+import AdminCreator from "./pages/Users/AdminCreator";
 import MatchedDashboard from "./pages/Dashboard/MatchedDashboard";
 import LoginSignup from "./pages/Login/Login-Signup";
 import Registration from "./pages/Registration/RegistrationNew";
@@ -192,6 +192,7 @@ function App() {
             <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="recap" element={<RecapPage />} />
             <Route path="creator" element={<AdminCreator />} />
+            <Route path="add-participant" element={<Registration />} />
             <Route path="main" element={<PreProgram />} />
             <Route path="rematching" element={<Rematching />} />
             <Route path="form-builder" element={<FormBuilder />} />

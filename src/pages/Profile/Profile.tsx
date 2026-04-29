@@ -1,6 +1,7 @@
 import styles from "./Profile.module.css";
 import { useState, useEffect } from "react";
-import { phoneNumberRegex, dateRegex } from "../../regex";
+// import { dateRegex } from "../../regex";
+import { formatPhone, stripPhone, isValidPhone } from "../../utils/phone";
 import EditIcon from "@mui/icons-material/Edit";
 import {
   signOut,
@@ -13,46 +14,96 @@ import { auth, db } from "../../firebase";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 import { getMatchesByParticipant, getPartnerId } from "../../services/matches";
-import type { ErrorState, ParticipantDoc, UserProfile } from "../../types";
+import type {
+  ErrorState,
+  Form,
+  FormResponse,
+  ParticipantDoc,
+  Question,
+  Questions,
+  UserProfile,
+} from "../../types";
 import MatchInterestsModal from "./components/MatchInterestsModal/MatchInterestsModal";
 import ProfilePictureEdit from "./components/ProfilePictureEdit/ProfilePictureEdit";
+import { useAuth } from "../../auth/AuthProvider";
+import ProfilePicture from "./components/ProfilePicture/ProfilePicture";
 
-const toDisplayBirthday = (raw: string | undefined | null): string => {
-  if (!raw) return "";
-  if (/^(0[1-9]|1[0-2])\/(0[1-9]|[12]\d|3[01])\/\d{4}$/.test(raw)) {
-    return raw;
-  }
+// Birthday display is disabled for now because it is not part of the
+// current registration form. Keep this formatter here for when birthday
+// collection is reintroduced.
+// const toDisplayBirthday = (raw: string | undefined | null): string => {
+//   if (!raw) return "";
+//   if (/^(0[1-9]|1[0-2])\/(0[1-9]|[12]\d|3[01])\/\d{4}$/.test(raw)) {
+//     return raw;
+//   }
+//
+//   const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+//   if (iso) {
+//     const [, yyyy, mm, dd] = iso;
+//     return `${mm}/${dd}/${yyyy}`;
+//   }
+//
+//   const dashed = raw.match(/^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])-(\d{4})$/);
+//   if (dashed) {
+//     const [, mm, dd, yyyy] = dashed;
+//     return `${mm}/${dd}/${yyyy}`;
+//   }
+//
+//   return raw;
+// };
+//
+// const toStorageBirthday = (raw: string | undefined | null): string => {
+//   if (!raw) return "";
+//   if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+//     return raw;
+//   }
+//
+//   const display = toDisplayBirthday(raw);
+//   const m = display.match(/^(0[1-9]|1[0-2])\/(0[1-9]|[12]\d|3[01])\/(\d{4})$/);
+//   if (m) {
+//     const [, mm, dd, yyyy] = m;
+//     return `${yyyy}-${mm}-${dd}`;
+//   }
+//
+//   return raw;
+// };
 
-  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (iso) {
-    const [, yyyy, mm, dd] = iso;
-    return `${mm}/${dd}/${yyyy}`;
-  }
-
-  const dashed = raw.match(/^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])-(\d{4})$/);
-  if (dashed) {
-    const [, mm, dd, yyyy] = dashed;
-    return `${mm}/${dd}/${yyyy}`;
-  }
-
-  return raw;
+// Given the date string of the start time, formate the start date
+const formatProgramDate = (iso: string | null | undefined): string => {
+  if (!iso) {
+    return "—"
+  };
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) {
+    return "—"
+  };
+  return d.toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
 };
 
-const toStorageBirthday = (raw: string | undefined | null): string => {
-  if (!raw) return "";
-  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
-    return raw;
-  }
+// Given the date string of the start time, formate the end date using the numWeeks in Firestore
+const computeProgramEndDate = (
+  startIso: string | null | undefined,
+  numWeeks: number,
+): string => {
 
-  // normalize birthday to MM/DD/YYYY for profile display/edit
-  const display = toDisplayBirthday(raw);
-  const m = display.match(/^(0[1-9]|1[0-2])\/(0[1-9]|[12]\d|3[01])\/(\d{4})$/);
-  if (m) {
-    const [, mm, dd, yyyy] = m;
-    return `${yyyy}-${mm}-${dd}`;
-  }
+  if (!startIso) {
+    return "—";
+  };
+  const d = new Date(startIso);
 
-  return raw;
+  if (isNaN(d.getTime())) {
+    return "—"
+  };
+  d.setDate(d.getDate() + numWeeks * 7);
+  return d.toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
 };
 
 const getErrorMessage = (error: unknown, fallback: string): string => {
@@ -76,8 +127,95 @@ const getFirebaseErrorCode = (error: unknown): string | undefined => {
   return undefined;
 };
 
+const isPronounsQuestion = (question: Questions) =>
+  question.title.toLowerCase().includes("pronoun");
+
+const getPronounsFromFormResponse = (response: FormResponse | null): string => {
+  const pronounsQuestion = response?.questions.find(isPronounsQuestion);
+  const answer = pronounsQuestion?.answer;
+  return typeof answer === "string" ? answer : "";
+};
+
+type MatchableProfileResponse = {
+  title: string;
+  type: "text" | "slider";
+  answer: string | number;
+};
+
+export type MatchableProfileResponseForDisplay = MatchableProfileResponse;
+
+const getMatchableQuestions = (form: Form | null): Question[] => {
+  if (!form) return [];
+
+  return form.sections.flatMap((section) =>
+    section.questions.filter((question) => question.matchable),
+  );
+};
+
+const hasAnswer = (answer: string | number | undefined): answer is string | number => {
+  if (typeof answer === "number") return true;
+  return typeof answer === "string" && answer.trim().length > 0;
+};
+
+const buildMatchableProfileResponses = (
+  form: Form | null,
+  response: FormResponse | null,
+): MatchableProfileResponse[] => {
+  const answersByTitle = new Map<string, string | number>();
+  response?.questions.forEach((question) => {
+    answersByTitle.set(question.title, question.answer);
+  });
+
+  return getMatchableQuestions(form).flatMap((question) => {
+    const answer = answersByTitle.get(question.title);
+    if (!hasAnswer(answer)) return [];
+
+    return [
+      {
+        title: question.title,
+        type: question.type === "Slider" ? "slider" : "text",
+        answer,
+      },
+    ];
+  });
+};
+
+const updatePronounsFormResponse = async (
+  uid: string,
+  pronouns: string,
+): Promise<boolean> => {
+  const responseRef = doc(db, "FormResponse", uid);
+  const responseSnap = await getDoc(responseRef);
+
+  if (!responseSnap.exists()) {
+    return false;
+  }
+
+  const response = responseSnap.data() as FormResponse;
+  let updated = false;
+  const questions = response.questions.map((question) => {
+    if (!isPronounsQuestion(question)) {
+      return question;
+    }
+
+    updated = true;
+    return {
+      ...question,
+      answer: pronouns,
+    };
+  });
+
+  if (!updated) {
+    return false;
+  }
+
+  await updateDoc(responseRef, { questions });
+  return true;
+};
+
 const Profile = () => {
   const navigate = useNavigate();
+  const { programState } = useAuth();
 
   const [user, setUser] = useState<UserProfile | null>(null);
 
@@ -87,6 +225,12 @@ const Profile = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [matchableResponses, setMatchableResponses] = useState<
+    MatchableProfileResponse[]
+  >([]);
+  const [matchMatchableResponses, setMatchMatchableResponses] = useState<
+    MatchableProfileResponse[]
+  >([]);
 
   const [showInterestsModal, setShowInterestsModal] = useState(false);
 
@@ -106,6 +250,8 @@ const Profile = () => {
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       if (!fbUser) {
         setUser(null);
+        setMatchableResponses([]);
+        setMatchMatchableResponses([]);
         setLoading(false);
         return;
       }
@@ -136,6 +282,8 @@ const Profile = () => {
             matchInterests: "",
           };
           setUser(fallback);
+          setMatchableResponses([]);
+          setMatchMatchableResponses([]);
           setLoading(false);
           return;
         }
@@ -144,9 +292,33 @@ const Profile = () => {
         const addr = data.address ?? {};
         const status = data.type ?? "Participant";
         const isAdmin = String(status).toLowerCase() === "admin";
+        let pronouns = "";
+        let formResponse: FormResponse | null = null;
+        let registrationForm: Form | null = null;
+
+        if (!isAdmin) {
+          const formResponseRef = doc(db, "FormResponse", fbUser.uid);
+          const formResponseSnap = await getDoc(formResponseRef);
+          if (formResponseSnap.exists()) {
+            formResponse = formResponseSnap.data() as FormResponse;
+            pronouns = getPronounsFromFormResponse(formResponse);
+          }
+
+          const registrationFormRef = doc(db, "config", "registrationForm");
+          const registrationFormSnap = await getDoc(registrationFormRef);
+          registrationForm = registrationFormSnap.exists()
+            ? (registrationFormSnap.data() as Form)
+            : null;
+          setMatchableResponses(
+            buildMatchableProfileResponses(registrationForm, formResponse),
+          );
+        } else {
+          setMatchableResponses([]);
+          setMatchMatchableResponses([]);
+        }
 
         let matchName = "";
-        let matchInterests = "";
+        let matchId = "";
 
         if (!isAdmin) {
           try {
@@ -154,13 +326,18 @@ const Profile = () => {
             if (matches.length > 0) {
               const firstMatch = matches[0];
               const partnerId = getPartnerId(firstMatch, fbUser.uid);
+              matchId = partnerId;
 
               const partnerRef = doc(db, "participants", partnerId);
-              const partnerSnap = await getDoc(partnerRef);
+              const partnerFormResponseRef = doc(db, "FormResponse", partnerId);
+              const [partnerSnap, partnerFormResponseSnap] = await Promise.all([
+                getDoc(partnerRef),
+                getDoc(partnerFormResponseRef),
+              ]);
+
               if (partnerSnap.exists()) {
                 const partnerData = partnerSnap.data() as ParticipantDoc & {
                   name?: string | null;
-                  freeResponse?: string | null;
                 };
                 matchName =
                   partnerData.displayName ??
@@ -168,12 +345,23 @@ const Profile = () => {
                   [partnerData.firstName, partnerData.lastName]
                     .filter(Boolean)
                     .join(" ");
-                matchInterests =
-                  partnerData.interests ?? partnerData.freeResponse ?? "";
               }
+
+              const partnerFormResponse = partnerFormResponseSnap.exists()
+                ? (partnerFormResponseSnap.data() as FormResponse)
+                : null;
+              setMatchMatchableResponses(
+                buildMatchableProfileResponses(
+                  registrationForm,
+                  partnerFormResponse,
+                ),
+              );
+            } else {
+              setMatchMatchableResponses([]);
             }
           } catch (matchErr) {
             console.error("Error fetching match info:", matchErr);
+            setMatchMatchableResponses([]);
           }
         }
 
@@ -181,20 +369,22 @@ const Profile = () => {
           uid: fbUser.uid,
           name: data.displayName ?? fbUser.displayName ?? "",
           email: data.email ?? fbUser.email ?? "",
-          pronouns: data.pronouns ?? "",
-          phone: data.phoneNumber ?? "",
-          birthday: toDisplayBirthday(data.dateOfBirth),
+          pronouns,
+          phone: formatPhone(data.phoneNumber ?? ""),
+          // birthday: toDisplayBirthday(data.dateOfBirth),
+          birthday: "",
           addressLine1: addr.line1 ?? "",
           addressCity: addr.city ?? "",
           addressState: addr.state ?? "",
           addressPostalCode: addr.postalCode ?? "",
           addressCountry: addr.country ?? "",
-          interests: data.interests ?? "",
-          startDate:  "",
-          endDate: "",
+          interests: "",
+          startDate: data.startDate ?? "",
+          endDate: data.endDate ?? "",
           status,
           matchName,
-          matchInterests,
+          matchInterests: "",
+          matchId
         };
 
         setUser(profile);
@@ -220,6 +410,8 @@ const Profile = () => {
           matchInterests: "",
         };
         setUser(fallback);
+        setMatchableResponses([]);
+        setMatchMatchableResponses([]);
       } finally {
         setLoading(false);
       }
@@ -254,7 +446,7 @@ const Profile = () => {
     if (errors[name as keyof ErrorState]) {
       setErrors((prev) => ({ ...prev, [name]: undefined }));
     }
-    setUser({ ...user, [name]: value });
+    setUser({ ...user, [name]: name === "phone" ? formatPhone(value) : value });
   };
 
   const validateProfile = () => {
@@ -267,13 +459,13 @@ const Profile = () => {
     }
 
     if (!isAdmin) {
-      if (!phoneNumberRegex.test(user.phone)) {
-        newErrors.phone = "Invalid phone format";
+      if (user.phone && !isValidPhone(user.phone)) {
+        newErrors.phone = "Please enter a valid 10-digit phone number.";
       }
 
-      if (user.birthday && !dateRegex.test(user.birthday)) {
-        newErrors.birthday = "Invalid date format";
-      }
+      // if (user.birthday && !dateRegex.test(user.birthday)) {
+      //   newErrors.birthday = "Invalid date format";
+      // }
 
       if (!user.addressLine1.trim()) {
         newErrors.addressLine1 = "Street address cannot be empty";
@@ -305,14 +497,28 @@ const Profile = () => {
       return false;
     }
 
-    const displayBirthday = toDisplayBirthday(user.birthday);
-    const normalizedBirthday = toStorageBirthday(displayBirthday);
-
-    if (displayBirthday !== user.birthday) {
-      setUser({ ...user, birthday: displayBirthday });
-    }
+    // const displayBirthday = toDisplayBirthday(user.birthday);
+    // const normalizedBirthday = toStorageBirthday(displayBirthday);
+    //
+    // if (displayBirthday !== user.birthday) {
+    //   setUser({ ...user, birthday: displayBirthday });
+    // }
 
     try {
+      if (!isAdmin && editingField === "pronouns") {
+        const updatedPronouns = await updatePronounsFormResponse(
+          user.uid,
+          user.pronouns,
+        );
+
+        if (!updatedPronouns) {
+          setProfileSaveError(
+            "Could not find your pronouns response. Please contact an admin.",
+          );
+          return false;
+        }
+      }
+
       const userRef = doc(db, "participants", user.uid);
 
       const baseUpdate = {
@@ -322,10 +528,8 @@ const Profile = () => {
       const participantUpdate = isAdmin
         ? {}
         : {
-            pronouns: user.pronouns,
-            phoneNumber: user.phone,
-            dateOfBirth: normalizedBirthday,
-            interests: user.interests,
+            phoneNumber: stripPhone(user.phone),
+            // dateOfBirth: normalizedBirthday,
             address: {
               line1: user.addressLine1,
               city: user.addressCity,
@@ -494,7 +698,7 @@ const Profile = () => {
         { label: "E-mail", name: "email", value: user.email, editable: false },
         { label: "Pronouns", name: "pronouns", value: user.pronouns, editable: true },
         { label: "Phone Number", name: "phone", value: user.phone, editable: true },
-        { label: "Birthday", name: "birthday", value: user.birthday, editable: true },
+        // { label: "Birthday", name: "birthday", value: user.birthday, editable: true },
         {
           label: "Street Address",
           name: "addressLine1",
@@ -519,9 +723,11 @@ const Profile = () => {
 
   const isEditingPersonalField =
     isEditing && personalFields.some((f) => f.name === editingField && f.editable);
+  const shouldShowMatchCard = !isAdmin && programState?.matches_final;
 
   return (
     <div className={styles.page}>
+      <div className={styles.pageTitle}>Your Profile</div>
       <div className={styles.container}>
         <div className={styles.leftColumn}>
           <div className={styles.infoCard}>
@@ -530,10 +736,10 @@ const Profile = () => {
             <span className={styles.statusTag}>{user.status}</span>
           </div>
 
-          {!isAdmin && (
+          {shouldShowMatchCard && (
             <div className={styles.infoCard}>
               <h3>Your Match</h3>
-              <div className={styles.matchCircle}></div>
+              <ProfilePicture size={150} uid={user.matchId}></ProfilePicture>
               <p className={styles.matchText}>
                 {user.matchName && user.matchName.trim().length > 0
                   ? user.matchName
@@ -552,18 +758,26 @@ const Profile = () => {
             </div>
           )}
 
-          {!isAdmin && (
+          {/* If user is an admin or program has not started, hide the program info box */}
+          {!isAdmin && programState?.started && (
             <div className={styles.infoCard}>
               <h3>Program Info</h3>
               <p>
                 <strong>Start Date:</strong>
                 <br />
-                <span className={styles.date}>{user.startDate}</span>
+                <span className={styles.date}>
+                  {formatProgramDate(programState.startDate)}
+                </span>
               </p>
               <p>
                 <strong>End Date:</strong>
                 <br />
-                <span className={styles.date}>{user.endDate}</span>
+                <span className={styles.date}>
+                  {computeProgramEndDate(
+                    programState.startDate,
+                    programState.numWeeks ?? 20,
+                  )}
+                </span>
               </p>
             </div>
           )}
@@ -593,9 +807,9 @@ const Profile = () => {
                       name={field.name}
                       value={user[field.name as keyof UserProfile] as string}
                       onChange={handleChange}
-                      placeholder={
-                        field.name === "birthday" ? "MM/DD/YYYY" : undefined
-                      }
+                      // placeholder={
+                      //   field.name === "birthday" ? "MM/DD/YYYY" : undefined
+                      // }
                       autoFocus
                       className={styles.input}
                     />
@@ -642,14 +856,40 @@ const Profile = () => {
           {!isAdmin && (
             <div className={styles.infoSection}>
               <h3 className={styles.sectionTitle}>About Me</h3>
-              <div className={styles.fieldBox}>
-                <div className={styles.boxContent}>
-                  <div className={styles.boxHeader}>
-                    <span className={styles.boxLabel}>Interests</span>
-                  </div>
-                  <span className={styles.boxValue}>{user.interests}</span>
+              {matchableResponses.length > 0 ? (
+                <div className={styles.matchableResponses}>
+                  {matchableResponses.map((response) => (
+                    <article
+                      key={response.title}
+                      className={styles.matchableResponseCard}
+                    >
+                      <div className={styles.matchableResponseHeader}>
+                        <h4 className={styles.matchableQuestion}>
+                          {response.title}
+                        </h4>
+                      </div>
+
+                      {response.type === "slider" ? (
+                        <div className={styles.sliderResponse}>
+                          <span className={styles.sliderValue}>
+                            {response.answer}
+                          </span>
+                        </div>
+                      ) : (
+                        <textarea
+                          className={styles.matchableTextResponse}
+                          value={String(response.answer)}
+                          readOnly
+                        />
+                      )}
+                    </article>
+                  ))}
                 </div>
-              </div>
+              ) : (
+                <div className={styles.emptyMatchableResponses}>
+                  <span>No matchable responses available.</span>
+                </div>
+              )}
             </div>
           )}
 
@@ -769,7 +1009,7 @@ const Profile = () => {
         <MatchInterestsModal
           open={showInterestsModal}
           matchName={user.matchName}
-          matchInterests={user.matchInterests}
+          matchableResponses={matchMatchableResponses}
           onClose={() => setShowInterestsModal(false)}
         />
       )}

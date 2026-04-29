@@ -47,6 +47,53 @@
   justify-content: center;
 }
 
+.right {
+  position: absolute;
+  right: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 280px;
+}
+
+.adminStatusIndicator {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  color: #374151;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.adminStatusList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.adminStatusRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.adminStatusDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.statusPositive {
+  background-color: #2f855a;
+}
+
+.statusNegative {
+  background-color: #e35d5d;
+}
+
 .link {
   padding: 5px 16px;
   border-radius: 40px;

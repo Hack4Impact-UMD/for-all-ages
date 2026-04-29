@@ -3,11 +3,11 @@ import styles from "./PreProgram.module.css";
 import { useNavigate } from "react-router-dom";
 import SearchIcon from "@mui/icons-material/Search";
 import FilterListIcon from "@mui/icons-material/FilterList";
-import SettingsIcon from '@mui/icons-material/Settings';
+import SettingsIcon from "@mui/icons-material/Settings";
 import AutorenewIcon from "@mui/icons-material/Autorenew";
 import SendIcon from "@mui/icons-material/Send";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
-import { db, getUser, matchAll } from "../../firebase";
+import { auth, db, getUser, matchAll } from "../../firebase";
 import {
   collection,
   deleteDoc,
@@ -24,6 +24,7 @@ import {
   finalizeMatches,
   startProgram,
   subscribeToProgramState,
+  unfinalizeMatches,
   type ProgramState,
 } from "../../services/programState";
 import type {
@@ -35,7 +36,7 @@ import type {
 import SettingsPopup from "./SettingsPopup";
 import ParticipantInfoPopup from "../Dashboard/components/ParticipantInfoPopup/ParticipantInfoPopup";
 
-const APPROVAL_THRESHOLD = 0.8; // 80%
+const DEFAULT_APPROVAL_THRESHOLD = 0.8; // 80%
 const DEV_MODE = true; // ← flip to false before deploying to production
 
 // Collections to wipe on End Program
@@ -59,7 +60,7 @@ const PreProgram = () => {
   const [startingProgram, setStartingProgram] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
   const [confirmAction, setConfirmAction] = useState<
-    "start" | "finalize" | "endProgram" | null
+    "start" | "finalize" | "unfinalize" | "endProgram" | null
   >(null);
 
   // End Program state
@@ -158,8 +159,10 @@ const PreProgram = () => {
 
         const pct = Math.round(m.scores.finalScore * 100);
 
+        const approvalThreshold = (programState?.autoApprovalThreshold ?? DEFAULT_APPROVAL_THRESHOLD * 100) / 100;
+
         const status: MatchStatus =
-          m.scores.finalScore >= APPROVAL_THRESHOLD ? "Approved" : "Pending";
+          m.scores.finalScore >= approvalThreshold ? "Approved" : "Pending";
 
         return {
           name1: u1.displayName,
@@ -169,6 +172,7 @@ const PreProgram = () => {
           confidence: pct,
           status,
           score: m.scores.finalScore,
+          approvedBy: status === "Approved" ? "Auto-Approved" : "",
         };
       }),
     );
@@ -221,6 +225,7 @@ const PreProgram = () => {
             participant2_id?: string;
             similarity?: number;
             status?: string;
+            approvedBy?: string;
           };
           const p1 = data.participant1_id ?? "";
           const p2 = data.participant2_id ?? "";
@@ -233,6 +238,8 @@ const PreProgram = () => {
           const u2 = await getUser(p2);
 
           const rawStatus = (data.status as string | undefined) || "";
+          const approvalThreshold = programState?.autoApprovalThreshold ?? 80;
+
           let status: MatchStatus;
           if (rawStatus === "approved") {
             status = "Approved";
@@ -240,12 +247,14 @@ const PreProgram = () => {
             status = "Pending";
           } else {
             status =
-              similarity >= 80
+              similarity >= approvalThreshold
                 ? "Approved"
                 : similarity > 0
                   ? "Pending"
                   : "No Match";
           }
+
+          const approvedBy = (data.approvedBy as string | undefined) ?? "";
 
           return {
             name1: u1.displayName,
@@ -256,6 +265,7 @@ const PreProgram = () => {
             status,
             score: similarity / 100,
             matchId: d.id,
+            approvedBy,
           };
         }),
       );
@@ -365,6 +375,7 @@ const PreProgram = () => {
         participant2_id: m.participant2_id,
         similarity: m.confidence,
         status: m.status === "Approved" ? "approved" : "pending",
+        approvedBy: m.approvedBy ?? "",
       });
 
       withIds.push({ ...m, matchId: newDocRef.id });
@@ -373,6 +384,54 @@ const PreProgram = () => {
     await writeBatchRef.commit();
     console.log("Matches stored successfully.");
     return withIds;
+  };
+
+  const updateMatchStatuses = async (newThreshold: number) => {
+    try {
+      const matchesRef = collection(db, "matches");
+      const snap = await getDocs(matchesRef);
+
+      if (snap.empty) {
+        console.log("No matches to update");
+        return;
+      }
+
+      const batch = writeBatch(db);
+      let updateCount = 0;
+
+      snap.docs.forEach((matchDoc) => {
+        const data = matchDoc.data();
+        const similarity = data.similarity ?? 0;
+        const currentStatus = data.status;
+        const currentApprovedBy = data.approvedBy ?? "";
+
+        const newStatus = similarity >= newThreshold ? "approved" : "pending";
+        const shouldClearApprovedBy = newStatus !== "approved" && currentApprovedBy;
+
+        if (newStatus !== currentStatus || shouldClearApprovedBy) {
+          batch.update(matchDoc.ref, {
+            status: newStatus,
+            approvedBy:
+              newStatus === "approved"
+                ? currentApprovedBy || "Auto-Approved"
+                : "",
+          });
+          updateCount++;
+        }
+      });
+
+      if (updateCount > 0) {
+        await batch.commit();
+        console.log(`Updated status for ${updateCount} matches`);
+      } else {
+        console.log("No matches needed status updates");
+      }
+
+      // Reload matches to reflect changes in UI
+      await loadMatches();
+    } catch (error) {
+      console.error("Error updating match statuses:", error);
+    }
   };
 
   const handleMatch = async () => {
@@ -424,6 +483,20 @@ const PreProgram = () => {
     } catch (err) {
       console.error("Failed to finalize matches", err);
       setProgramStateError("Failed to finalize matches. Please try again.");
+    } finally {
+      setFinalizing(false);
+      setConfirmAction(null);
+    }
+  };
+
+  const handleUnfinalizeMatches = async () => {
+    try {
+      setProgramStateError(null);
+      setFinalizing(true);
+      await unfinalizeMatches();
+    } catch (err) {
+      console.error("Failed to unlock matches", err);
+      setProgramStateError("Failed to unlock matches. Please try again.");
     } finally {
       setFinalizing(false);
       setConfirmAction(null);
@@ -556,6 +629,16 @@ const PreProgram = () => {
     if (!match || match.status === "No Match") return;
 
     try {
+      let adminName = "Unknown Admin";
+
+      if (newStatus === "Approved") {
+        const currentUid = auth.currentUser?.uid;
+        if (currentUid) {
+          const adminUser = await getUser(currentUid);
+          adminName = adminUser.displayName ?? "Unknown Admin";
+        }
+      }
+
       if (newStatus === "Separate") {
         if (!match.matchId) return;
 
@@ -567,6 +650,7 @@ const PreProgram = () => {
           confidence: undefined,
           status: "No Match",
           score: 0,
+          approvedBy: "",
         };
 
         const newUnmatchedSenior: UI_Match = {
@@ -577,6 +661,7 @@ const PreProgram = () => {
           confidence: undefined,
           status: "No Match",
           score: 0,
+          approvedBy: "",
         };
 
         const newUpdated = updated.filter((m) => m.matchId !== match.matchId);
@@ -595,6 +680,8 @@ const PreProgram = () => {
       }
 
       match.status = newStatus;
+      match.approvedBy = newStatus === "Approved" ? adminName : "";
+
       setMatches(sortMatches(updated));
 
       if (!match.matchId) return;
@@ -602,7 +689,10 @@ const PreProgram = () => {
       const matchRef = doc(db, "matches", match.matchId);
       const firestoreStatus = newStatus === "Approved" ? "approved" : "pending";
 
-      await updateDoc(matchRef, { status: firestoreStatus });
+      await updateDoc(matchRef, {
+        status: firestoreStatus,
+        approvedBy: newStatus === "Approved" ? adminName : "",
+      });
 
       setBanner({
         message: `Match marked as ${newStatus} successfully.`,
@@ -611,7 +701,6 @@ const PreProgram = () => {
       setTimeout(() => setBanner(null), 3000);
     } catch (err) {
       console.error("Failed to update match status:", err);
-
       setBanner({
         message: "Failed to update match status.",
         type: "error",
@@ -683,13 +772,17 @@ const PreProgram = () => {
                 : "Start Program"}
           </button>
           <button
-            onClick={() => setConfirmAction("finalize")}
+            onClick={() =>
+              setConfirmAction(matchesFinalized ? "unfinalize" : "finalize")
+            }
             className={styles.adminBtn}
-            disabled={programStateLoading || finalizing || matchesFinalized}
+            disabled={programStateLoading || finalizing}
           >
             <LockOutlinedIcon className={styles.icon} />
             {matchesFinalized
-              ? "Matches Locked"
+              ? finalizing
+                ? "Unlocking..."
+                : "Matches Locked"
               : finalizing
                 ? "Locking..."
                 : "Lock In All Matches"}
@@ -705,15 +798,20 @@ const PreProgram = () => {
           <button
             onClick={handleMatch}
             className={styles.rematchBtn}
-            disabled={matching}
+            disabled={matching || matchesFinalized}
           >
             <AutorenewIcon className={styles.icon} />
-            {matching ? "Creating..." : "Create Matches"}
+            {matchesFinalized
+              ? "Matches Locked"
+              : matching
+                ? "Creating..."
+                : "Create Matches"}
           </button>
 
           <button
             className={styles.adminBtn}
             onClick={() => navigate("/admin/rematching")}
+            disabled={matchesFinalized}
           >
             Manual Rematch
           </button>
@@ -740,18 +838,24 @@ const PreProgram = () => {
       {confirmAction && (
         <div className={styles.confirmOverlay}>
           <div className={styles.confirmCard}>
-            {/* ── Start / Finalize dialogs (unchanged) ── */}
-            {(confirmAction === "start" || confirmAction === "finalize") && (
+            {/* ── Start / Finalize / Unlock dialogs ── */}
+            {(confirmAction === "start" ||
+              confirmAction === "finalize" ||
+              confirmAction === "unfinalize") && (
               <>
                 <h3 className={styles.confirmTitle}>
                   {confirmAction === "start"
                     ? "Starting the Program"
-                    : "Finalizing..."}
+                    : confirmAction === "finalize"
+                      ? "Finalizing..."
+                      : "Unlock Matches"}
                 </h3>
                 <p className={styles.confirmText}>
                   {confirmAction === "start"
                     ? "Are you sure you want to start the program?"
-                    : "Are you sure you want to lock all matches?"}
+                    : confirmAction === "finalize"
+                      ? "Are you sure you want to lock all matches?"
+                      : "Are you sure you want to unlock all matches? Participants will no longer be able to view finalized match details until matches are locked again."}
                 </p>
                 <div className={styles.confirmActions}>
                   <button
@@ -766,7 +870,9 @@ const PreProgram = () => {
                     onClick={
                       confirmAction === "start"
                         ? handleStartProgram
-                        : handleFinalizeMatches
+                        : confirmAction === "finalize"
+                          ? handleFinalizeMatches
+                          : handleUnfinalizeMatches
                     }
                     disabled={startingProgram || finalizing}
                   >
@@ -876,7 +982,7 @@ const PreProgram = () => {
                         setSelectedStatuses((prev) =>
                           prev.includes(status)
                             ? prev.filter((s) => s !== status)
-                            : [...prev, status]
+                            : [...prev, status],
                         )
                       }
                     />
@@ -895,7 +1001,6 @@ const PreProgram = () => {
           )}
         </div>
 
-        
         <table className={styles.table}>
           <thead>
             <tr>
@@ -903,12 +1008,13 @@ const PreProgram = () => {
               <th>Older Adult</th>
               <th>Final Score %</th>
               <th>Status</th>
+              <th>Approved By</th>
             </tr>
           </thead>
           <tbody>
             {filteredMatches.length === 0 ? (
               <tr>
-                <td colSpan={4} className={styles.empty}>
+                <td colSpan={5} className={styles.empty}>
                   No matches yet.
                 </td>
               </tr>
@@ -973,6 +1079,7 @@ const PreProgram = () => {
                     ) : (
                       <select
                         value={m.status}
+                        disabled={matchesFinalized}
                         onChange={(e) =>
                           handleStatusChange(
                             m.matchId,
@@ -991,13 +1098,14 @@ const PreProgram = () => {
                       </select>
                     )}
                   </td>
+                  <td>{m.approvedBy || "—"}</td>
                 </tr>
               ))
             )}
           </tbody>
         </table>
       </div>
-      <SettingsPopup isOpened={settingsPopup} close={()=>{setSettingsPopup(false)}} program={programState} setProgram = {setProgramState}></SettingsPopup>
+      <SettingsPopup isOpened={settingsPopup} close={()=>{setSettingsPopup(false)}} program={programState} setProgram = {setProgramState} onThresholdChange={updateMatchStatuses}></SettingsPopup>
 
       {selectedUser ? (
         <ParticipantInfoPopup

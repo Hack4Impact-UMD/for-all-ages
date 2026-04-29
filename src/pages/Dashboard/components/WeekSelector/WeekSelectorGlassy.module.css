@@ -64,10 +64,44 @@
     color: #1a3a5c;
 }
 
+.submitted,
+.completed {
+    background: #e6f7e3;
+    border-color: #8bcf83;
+    color: #247c2a;
+}
+
+.missing,
+.missed {
+    background: #fde9e7;
+    border-color: #e7a09b;
+    color: #a53a34;
+}
+
+.current {
+    background: #ffffff;
+    border-color: #0E6BAE;
+    color: #2B476C;
+}
+
+.weekButton:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    background: #f3f6fa;
+    border-color: #b8c6d8;
+    color: #7b8796;
+}
+
+.weekButton:disabled:hover {
+    background: #f3f6fa;
+    color: #7b8796;
+}
+
 .activeWeek {
     background: #0E4C82;
     color: #ffffff;
     border-color: #0E4C82;
+    box-shadow: 0 0 0 3px rgba(14, 76, 130, 0.22);
 }
 
 .activeWeek:hover {
@@ -75,7 +109,8 @@
     color: #ffffff;
 }
 
-.completed .checkmark {
+.completed .checkmark,
+.submitted .checkmark {
     color: #0E6BAE;
 }
 
@@ -91,6 +126,21 @@
     font-size: 0.8rem;
     font-weight: 700;
     line-height: 1;
+}
+
+.currentIndicator {
+    border-radius: 999px;
+    padding: 3px 7px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    line-height: 1;
+    background: rgba(14, 107, 174, 0.14);
+    color: #0E4C82;
+}
+
+.activeWeek .currentIndicator {
+    background: rgba(255, 255, 255, 0.22);
+    color: #ffffff;
 }
 
 .arrowButton {
@@ -121,35 +171,24 @@
     }
 
     .weekButton {
-        padding: 0.4rem 0.75rem;
+        padding: 1.5rem 0.75rem;
         font-size: 0.82rem;
     }
 }
 
 @media (max-width: 680px) {
-    .container {
-        flex-wrap: wrap;
-        justify-content: center;
-        row-gap: 0.75rem;
+    .weekList {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        justify-content: flex-start;
+        scrollbar-width: none;
     }
 
-    .weekList {
-        order: 3;
-        width: 100%;
-        flex: 1 1 100%;
-        justify-content: space-between;
-        flex-wrap: wrap;
-        row-gap: 0.5rem;
+    .weekList::-webkit-scrollbar {
+        display: none;
     }
 
     .weekButton {
-        flex: 1 1 calc(50% - 0.5rem);
-        min-width: 100px;
-        text-align: center;
-        justify-content: center;
-    }
-
-    .arrowButton {
         flex: 0 0 auto;
     }
 }
