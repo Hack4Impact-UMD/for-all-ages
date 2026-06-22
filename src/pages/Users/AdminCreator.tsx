@@ -13,6 +13,7 @@ import styles from "./AdminCreator.module.css";
 import { db, deleteUser } from "../../firebase";
 import {
   promoteParticipantToSubadmin,
+  demoteSubadminToParticipant,
 } from "../../services/adminAccounts";
 import type {
   Role,
@@ -25,9 +26,9 @@ import type {
 import ParticipantInfoPopup from "../Dashboard/components/ParticipantInfoPopup/ParticipantInfoPopup";
 import { formatPhone } from "../../utils/phone";
 import { useAuth } from "../../auth/AuthProvider";
-import DropdownInput from "../Registration/Question Types/DropdownInput";
 import AddUserModal from "./AddUserModal";
 import Button from "../../components/Button";
+import { getUniversityOptions } from "../Registration/helpers";
 
 type RoleFilter = "All" | Role | "Participant";
 type GroupFilter = "All" | "Student" | "Adult";
@@ -82,11 +83,19 @@ export default function AdminDashboard() {
   const [banner, setBanner] = useState<BannerState | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [promoteTarget, setPromoteTarget] = useState<AdminRecord | null>(null);
+  const [demoteTarget, setDemoteTarget] = useState<AdminRecord | null>(null);
   const [selectedUser, setSelectedUser] = useState<AdminRecord | null>(null);
   const [formResponses, setFormResponses] = useState<FormResponse | null>(null);
   const [formLoading, setFormLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [waitlistedIds, setWaitlistedIds] = useState<Set<string>>(new Set());
+  const [promoteState, setPromoteState] = useState<{
+    universities: string[];
+    adminForModal: AdminRecord | null;
+  }>({
+    universities: [],
+    adminForModal: null,
+  });
 
   const handleModalClose = useCallback(() => {
     setIsModalOpen(false);
@@ -100,6 +109,11 @@ export default function AdminDashboard() {
   const handlePromoteSuccess = useCallback((message: string) => {
     setBanner({ type: "success", message });
     setPromoteTarget(null);
+  }, []);
+
+  const handleDemoteSuccess = useCallback((message: string) => {
+    setBanner({ type: "success", message });
+    setDemoteTarget(null);
   }, []);
 
   const dismissBanner = useCallback(() => {
@@ -245,6 +259,18 @@ export default function AdminDashboard() {
       });
   }, [selectedUser]);
 
+  // useEffect to trigger the promote modal when the
+  // promoteState.adminForModal state var is not null
+  useEffect(() => {
+    if (promoteState.adminForModal) {
+      setPromoteTarget(promoteState.adminForModal);
+      setPromoteState((prevPromoteState) => ({
+        ...prevPromoteState,
+        adminForModal: null,
+      }));
+    }
+  }, [promoteState.adminForModal]);
+
   const handleContactAll = () => {
     if (typeof window === "undefined") return;
 
@@ -307,22 +333,21 @@ export default function AdminDashboard() {
             <div className={styles.actionGroup}>
               <Button
                 type="Primary"
-                onClick={handleContactAll} 
-                text={"Contact All"} 
-                height={40} 
-                width={150} 
-                fontSize={15}              >
-              </Button>
+                onClick={handleContactAll}
+                text={"Contact All"}
+                height={40}
+                width={150}
+                fontSize={15}
+              ></Button>
 
               <Button
                 type="Primary"
-                onClick={() => setIsModalOpen(true)} 
-                text={"Add New User"} 
-                height={40} 
-                width={150} 
-                fontSize={15}              
-              >
-              </Button>
+                onClick={() => setIsModalOpen(true)}
+                text={"Add New User"}
+                height={40}
+                width={150}
+                fontSize={15}
+              ></Button>
             </div>
           </div>
 
@@ -456,7 +481,13 @@ export default function AdminDashboard() {
                               {admin.name}
                             </button>
                             {waitlistedIds.has(admin.id) ? (
-                              <div style={{ fontSize: "0.75rem", color: "#d5b500", marginTop: "0.25rem" }}>
+                              <div
+                                style={{
+                                  fontSize: "0.75rem",
+                                  color: "#d5b500",
+                                  marginTop: "0.25rem",
+                                }}
+                              >
                                 Waitlisted
                               </div>
                             ) : null}
@@ -485,7 +516,9 @@ export default function AdminDashboard() {
                           data-label="Phone Number"
                           className={styles.colPhone}
                         >
-                          {admin.phoneNumber ? formatPhone(admin.phoneNumber) : "—"}
+                          {admin.phoneNumber
+                            ? formatPhone(admin.phoneNumber)
+                            : "—"}
                         </td>
                         <td data-label="Address" className={styles.colAddress}>
                           {admin.address || "—"}
@@ -501,17 +534,41 @@ export default function AdminDashboard() {
                           data-label="Promote"
                           className={`${styles.deleteCell} ${styles.colPromote}`}
                         >
-                          {admin.role === "Participant" && !waitlistedIds.has(admin.id) ? (
-                            <Button
-                              type="Outline"
-                              onClick={() => setPromoteTarget(admin)}
-                              aria-label={`Promote ${admin.name} to Sub-admin`} 
-                              text={"Promote"} 
-                              height={30} 
-                              width={80} 
-                              fontSize={12}
-                            >
-                            </Button>
+                          {/* Conditionally render the promote or demote
+                          button based on the role of the user */}
+                          {(admin.role === "Participant" ||
+                            admin.role === "Subadmin") &&
+                          !waitlistedIds.has(admin.id) ? (
+                            admin.role === "Participant" ? (
+                              <Button
+                                type="Outline"
+                                // when clicked, this button will fetch the list of
+                                // university options from firestore and forward it as a prop to the promote modal
+                                onClick={async () => {
+                                  const universityOptions =
+                                    await getUniversityOptions();
+                                  setPromoteState({
+                                    universities: universityOptions,
+                                    adminForModal: admin,
+                                  });
+                                }}
+                                aria-label={`Promote ${admin.name} to Sub-admin`}
+                                text={"Promote"}
+                                height={30}
+                                width={80}
+                                fontSize={12}
+                              ></Button>
+                            ) : (
+                              <Button
+                                type="Outline"
+                                onClick={() => setDemoteTarget(admin)}
+                                aria-label={`Demote ${admin.name} to Participant`}
+                                text={"Demote"}
+                                height={30}
+                                width={80}
+                                fontSize={12}
+                              ></Button>
+                            )
                           ) : (
                             <span>—</span>
                           )}
@@ -550,8 +607,17 @@ export default function AdminDashboard() {
         {promoteTarget ? (
           <PromoteModal
             participant={promoteTarget}
+            universities={promoteState.universities}
             onClose={() => setPromoteTarget(null)}
             onSuccess={handlePromoteSuccess}
+          />
+        ) : null}
+
+        {demoteTarget ? (
+          <DemoteModal
+            participant={demoteTarget}
+            onClose={() => setDemoteTarget(null)}
+            onSuccess={handleDemoteSuccess}
           />
         ) : null}
 
@@ -571,11 +637,18 @@ export default function AdminDashboard() {
 
 type PromoteModalProps = {
   participant: AdminRecord;
+  universities: string[];
   onClose: () => void;
   onSuccess: (message: string) => void;
 };
 
-function PromoteModal({ participant, onClose, onSuccess }: PromoteModalProps) {
+function PromoteModal({
+  participant,
+  universities,
+  onClose,
+  onSuccess,
+}: PromoteModalProps) {
+  const [universityOptions, setUniversityOptions] = useState(universities);
   const [university, setUniversity] = useState(participant.university ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -591,12 +664,42 @@ function PromoteModal({ participant, onClose, onSuccess }: PromoteModalProps) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
+  useEffect(() => {
+    if (universityOptions.length === 0) {
+      setError(
+        "Must have at least one college option before adding a Sub-admin.",
+      );
+    }
+  }, [universityOptions]);
+
+  useEffect(() => {
+    if (university && university != "") {
+      setError(null);
+    }
+  }, [university]);
+
   const handleConfirm = async () => {
     if (!university.trim()) {
       setError("Please enter a university name.");
       return;
     }
     setSubmitting(true);
+    // edge case handling - after submitting request to promote or demote, get the
+    // live list of universities from firestore to check that the selected one is still on the list
+    const liveUniversityOptions = await getUniversityOptions();
+    if (!liveUniversityOptions.includes(university)) {
+      if (liveUniversityOptions.length > 0) {
+        setError(
+          "The college you selected is no longer supported. Please select a new option.",
+        );
+      } else {
+        alert("The college you selected is no longer supported.");
+      }
+      setUniversity("");
+      setUniversityOptions(liveUniversityOptions);
+      setSubmitting(false);
+      return;
+    }
     setError(null);
     try {
       await promoteParticipantToSubadmin({
@@ -655,8 +758,23 @@ function PromoteModal({ participant, onClose, onSuccess }: PromoteModalProps) {
               autoFocus
             />
           </div> */}
-          <DropdownInput name={"Uni"} options={[]} required={false}>
-          </DropdownInput>
+          {/* <DropdownInput
+            name={"Uni"}
+            options={universities}
+            required={true}
+          ></DropdownInput> */}
+          <select
+            name="Uni"
+            value={university}
+            onChange={(event) => setUniversity(event.target.value)}
+          >
+            <option value="">Select an option</option>
+            {universityOptions.map((uni) => (
+              <option key={uni} value={uni}>
+                {uni}
+              </option>
+            ))}
+          </select>
 
           {error ? <div className={styles.errorMessage}>{error}</div> : null}
 
@@ -676,6 +794,94 @@ function PromoteModal({ participant, onClose, onSuccess }: PromoteModalProps) {
               disabled={submitting || !university.trim()}
             >
               {submitting ? "Promoting…" : "Confirm"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+type DemoteModalProps = {
+  participant: AdminRecord;
+  onClose: () => void;
+  onSuccess: (message: string) => void;
+};
+
+function DemoteModal({ participant, onClose, onSuccess }: DemoteModalProps) {
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  const handleConfirm = async () => {
+    setSubmitting(true);
+    setError(null);
+    try {
+      await demoteSubadminToParticipant(participant.id);
+      onSuccess(`${participant.name} has been demoted to Participant.`);
+    } catch (err) {
+      console.error("Failed to demote Sub-admin", err);
+      setError("Could not demote this Sub-admin. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div
+      className={styles.modalBackdrop}
+      role="presentation"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        className={styles.modalCard}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="demote-modal-title"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <header className={styles.modalHeader}>
+          <h2 id="demote-modal-title" className={styles.modalTitle}>
+            Demote to Participant
+          </h2>
+        </header>
+
+        <div className={styles.modalForm}>
+          <p style={{ marginBottom: "1rem" }}>
+            <strong>{participant.name}</strong> will be demoted to Participant.
+            They will remain in the matching process.
+          </p>
+
+          {error ? <div className={styles.errorMessage}>{error}</div> : null}
+
+          <div className={styles.modalActions}>
+            <button
+              type="button"
+              className={styles.cancelButton}
+              onClick={onClose}
+              disabled={submitting}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className={styles.submitButton}
+              onClick={handleConfirm}
+              disabled={submitting}
+            >
+              {submitting ? "Demoting…" : "Confirm"}
             </button>
           </div>
         </div>
