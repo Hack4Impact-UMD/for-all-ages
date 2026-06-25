@@ -307,6 +307,7 @@ export interface Question {
   required: boolean;
   matchable: boolean;
   locked?: boolean;
+  optionsLocked?: boolean;
   lockedKey?:
     | "pronouns"
     | "school"
