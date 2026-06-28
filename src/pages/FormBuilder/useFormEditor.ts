@@ -31,13 +31,12 @@ export const LOCKED_QUESTIONS : Question[] = [
     lockedKey: "pronouns",
   },
   {
-    type: "Radio",
-    title: "Are you registering as a student or older adult?",
-    options: ["Student", "Adult"],
+    type: "Date",
+    title: "What is your date of birth?",
     required: true,
     matchable: false,
     locked: true,
-    lockedKey: "user type",
+    lockedKey: "date of birth",
   },
   {
     type: "Dropdown",
@@ -68,6 +67,7 @@ const createId = (prefix: string) => {
 };
 
 const LOCKED_QUESTION_ORDER = LOCKED_QUESTIONS.map((question) => question.lockedKey);
+const LOCKED_QUESTION_KEYS = new Set(LOCKED_QUESTIONS.map((q) => q.lockedKey));
 
 const NUMERIC_KEY_PATTERN = /^numeric(\d+)$/;
 
@@ -135,6 +135,9 @@ const formToState = (form?: Form | null): FormEditorState => {
         locked: section.locked,
         questions: (section.questions ?? []).map((q) => ({
           ...q,
+          // If a question's lockedKey is removed from LOCKED_QUESTIONS, 
+          // treat it as unlocked so admins can delete it from the FormBuilder.
+          locked: q.locked && q.lockedKey ? LOCKED_QUESTION_KEYS.has(q.lockedKey) : q.locked,
           id: createId("question"),
         })),
       })),
