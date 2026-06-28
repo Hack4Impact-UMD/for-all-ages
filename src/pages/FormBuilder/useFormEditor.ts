@@ -67,6 +67,7 @@ const createId = (prefix: string) => {
 };
 
 const LOCKED_QUESTION_ORDER = LOCKED_QUESTIONS.map((question) => question.lockedKey);
+// Used to track questions that were once locked but then removed from LOCKED_QUESTIONS
 const LOCKED_QUESTION_KEYS = new Set(LOCKED_QUESTIONS.map((q) => q.lockedKey));
 
 const NUMERIC_KEY_PATTERN = /^numeric(\d+)$/;
