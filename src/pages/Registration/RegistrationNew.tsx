@@ -675,7 +675,7 @@ const RegistrationNew = ({
       const dob = getDateOfBirth(formData, form);
       const age = dob ? computeAge(dob) : null;
       const computedUserType: "student" | "adult" | null =
-        age === null ? "student" :
+        age === null || age < 0 ? null :
         age >= 55 ? "adult" :
         age >= 36 ? null :
         "student";
