@@ -514,33 +514,57 @@ const PreProgram = () => {
     try {
       const exportCollections = ["participants", "matches", "logs", "weeks"];
 
+      const escapeCell = (val: unknown): string => {
+        if (val === null || val === undefined) return "";
+        const str = typeof val === "object" ? JSON.stringify(val) : String(val);
+        if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+          return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+      };
+
+      const flattenParticipant = (row: Record<string, unknown>): Record<string, unknown> => {
+        const flat: Record<string, unknown> = {};
+        for (const [key, val] of Object.entries(row)) {
+          if (key === "address" && val && typeof val === "object" && !Array.isArray(val)) {
+            const addr = val as Record<string, unknown>;
+            flat["address_line1"] = addr.line1 ?? "";
+            flat["address_line2"] = addr.line2 ?? "";
+            flat["address_city"] = addr.city ?? "";
+            flat["address_state"] = addr.state ?? "";
+            flat["address_postalCode"] = addr.postalCode ?? "";
+            flat["address_country"] = addr.country ?? "";
+          } else if (key === "preferenceScores" && val && typeof val === "object" && !Array.isArray(val)) {
+            const scores = val as Record<string, unknown>;
+            flat["preferenceScore_q1"] = scores.q1 ?? "";
+            flat["preferenceScore_q2"] = scores.q2 ?? "";
+            flat["preferenceScore_q3"] = scores.q3 ?? "";
+          } else if (Array.isArray(val)) {
+            flat[key] = val.join("; ");
+          } else if (val && typeof val === "object" && "toDate" in val) {
+            flat[key] = (val as { toDate: () => Date }).toDate().toISOString();
+          } else {
+            flat[key] = val;
+          }
+        }
+        return flat;
+      };
+
       for (const colName of exportCollections) {
         const snap = await getDocs(collection(db, colName));
         if (snap.empty) continue;
 
-        const rows: Array<Record<string, unknown>> = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        let rows: Array<Record<string, unknown>> = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-        // Collect all keys
-        const allKeys = Array.from(
-          new Set(rows.flatMap((r) => Object.keys(r))),
-        );
+        if (colName === "participants") {
+          rows = rows.map(flattenParticipant);
+        }
 
-        const escapeCell = (val: unknown): string => {
-          if (val === null || val === undefined) return "";
-          const str =
-            typeof val === "object" ? JSON.stringify(val) : String(val);
-          // Wrap in quotes if contains comma, quote, or newline
-          if (str.includes(",") || str.includes('"') || str.includes("\n")) {
-            return `"${str.replace(/"/g, '""')}"`;
-          }
-          return str;
-        };
+        const allKeys = Array.from(new Set(rows.flatMap((r) => Object.keys(r))));
 
         const csvLines = [
           allKeys.join(","),
-          ...rows.map((r) =>
-            allKeys.map((k) => escapeCell(r[k])).join(",")
-          ),
+          ...rows.map((r) => allKeys.map((k) => escapeCell(r[k])).join(",")),
         ];
 
         const blob = new Blob([csvLines.join("\n")], {
