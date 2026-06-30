@@ -683,7 +683,6 @@ const RegistrationNew = ({
       const performRegistration = async () => {
         // Extract basic info for Participant
         const basicInfo = extractBasicInfo(formData, form, participantId);
-        basicInfo.user_type = computedUserType ?? undefined;
 
         // Extract form responses for FormResponse collection
         const formResponses = extractFormResponses(formData, form, participantId);
@@ -703,6 +702,8 @@ const RegistrationNew = ({
         // Create Participant document
         const participantData = {
           ...(omitUndefined({ type: "Participant", ...basicInfo }) as Participant),
+          user_type: computedUserType,
+          ...(dob && { dateOfBirth: dob }),
           updatedAt: serverTimestamp(),
           ...(!participantSnap.exists() && { createdAt: serverTimestamp() }),
         };
