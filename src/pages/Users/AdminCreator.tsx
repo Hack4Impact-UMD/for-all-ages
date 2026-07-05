@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   collection,
   getDocs,
@@ -652,6 +652,7 @@ function PromoteModal({
   const [university, setUniversity] = useState(participant.university ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const skipErrorSetOnNoSchoolsRef = useRef(false);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -665,6 +666,10 @@ function PromoteModal({
   }, [onClose]);
 
   useEffect(() => {
+    if(skipErrorSetOnNoSchoolsRef.current) { 
+      skipErrorSetOnNoSchoolsRef.current = false;
+      return;
+    }
     if (universityOptions.length === 0) {
       setError(
         "Must have at least one college option before adding a Sub-admin.",
@@ -693,7 +698,8 @@ function PromoteModal({
           "The college you selected is no longer supported. Please select a new option.",
         );
       } else {
-        alert("The college you selected is no longer supported.");
+        skipErrorSetOnNoSchoolsRef.current = true;
+        setError("The college you selected is no longer supported.\nMust have at least one college option before adding a Sub-admin.");
       }
       setUniversity("");
       setUniversityOptions(liveUniversityOptions);
