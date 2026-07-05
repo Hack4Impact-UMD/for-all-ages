@@ -89,13 +89,7 @@ export default function AdminDashboard() {
   const [formLoading, setFormLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [waitlistedIds, setWaitlistedIds] = useState<Set<string>>(new Set());
-  const [promoteState, setPromoteState] = useState<{
-    universities: string[];
-    adminForModal: AdminRecord | null;
-  }>({
-    universities: [],
-    adminForModal: null,
-  });
+  const [universityList, setUniversityList] = useState<string[]>([]);
 
   const handleModalClose = useCallback(() => {
     setIsModalOpen(false);
@@ -258,18 +252,6 @@ export default function AdminDashboard() {
         setFormLoading(false);
       });
   }, [selectedUser]);
-
-  // useEffect to trigger the promote modal when the
-  // promoteState.adminForModal state var is not null
-  useEffect(() => {
-    if (promoteState.adminForModal) {
-      setPromoteTarget(promoteState.adminForModal);
-      setPromoteState((prevPromoteState) => ({
-        ...prevPromoteState,
-        adminForModal: null,
-      }));
-    }
-  }, [promoteState.adminForModal]);
 
   const handleContactAll = () => {
     if (typeof window === "undefined") return;
@@ -547,10 +529,8 @@ export default function AdminDashboard() {
                                 onClick={async () => {
                                   const universityOptions =
                                     await getUniversityOptions();
-                                  setPromoteState({
-                                    universities: universityOptions,
-                                    adminForModal: admin,
-                                  });
+                                  setUniversityList(universityOptions);
+                                  setPromoteTarget(admin);
                                 }}
                                 aria-label={`Promote ${admin.name} to Sub-admin`}
                                 text={"Promote"}
@@ -607,7 +587,7 @@ export default function AdminDashboard() {
         {promoteTarget ? (
           <PromoteModal
             participant={promoteTarget}
-            universities={promoteState.universities}
+            universities={universityList}
             onClose={() => setPromoteTarget(null)}
             onSuccess={handlePromoteSuccess}
           />
