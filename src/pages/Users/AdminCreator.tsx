@@ -764,11 +764,6 @@ function PromoteModal({
               autoFocus
             />
           </div> */}
-          {/* <DropdownInput
-            name={"Uni"}
-            options={universities}
-            required={true}
-          ></DropdownInput> */}
           <select
             name="Uni"
             value={university}
