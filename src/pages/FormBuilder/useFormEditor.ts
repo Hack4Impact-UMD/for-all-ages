@@ -67,8 +67,6 @@ const createId = (prefix: string) => {
 };
 
 const LOCKED_QUESTION_ORDER = LOCKED_QUESTIONS.map((question) => question.lockedKey);
-// Used to track questions that were once locked but then removed from LOCKED_QUESTIONS
-const LOCKED_QUESTION_KEYS = new Set(LOCKED_QUESTIONS.map((q) => q.lockedKey));
 
 const NUMERIC_KEY_PATTERN = /^numeric(\d+)$/;
 
@@ -136,9 +134,7 @@ const formToState = (form?: Form | null): FormEditorState => {
         locked: section.locked,
         questions: (section.questions ?? []).map((q) => ({
           ...q,
-          // If a question's lockedKey is removed from LOCKED_QUESTIONS, 
-          // treat it as unlocked so admins can delete it from the FormBuilder.
-          locked: q.locked && q.lockedKey ? LOCKED_QUESTION_KEYS.has(q.lockedKey) : q.locked,
+          locked: q.locked && q.lockedKey ? LOCKED_QUESTION_ORDER.includes(q.lockedKey) : q.locked,
           id: createId("question"),
         })),
       })),
