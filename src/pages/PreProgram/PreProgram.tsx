@@ -33,6 +33,7 @@ import type {
   MatchStatus,
   FormResponse,
   Participant,
+  Questions,
 } from "../../types";
 import SettingsPopup from "./SettingsPopup";
 import ParticipantInfoPopup from "../Dashboard/components/ParticipantInfoPopup/ParticipantInfoPopup";
@@ -67,10 +68,7 @@ const PARTICIPANT_EXPORT_FIELDS = [
   "dateOfBirth",
   "pronouns",
   "heardAbout",
-  "university",
-  "interests",
-  "teaPreference",
-  "preferredContactMethods",
+  "university", // only set for Subadmin accounts; participants' school comes from FormResponse (see form_* columns)
   "preferenceScores",
   "status",
   "role",
@@ -573,9 +571,34 @@ const PreProgram = () => {
         return val;
       };
 
+      // Dynamic per-program questions (e.g. "what school do you attend") are
+      // answered during registration but stored in a sibling FormResponse doc
+      // (id === participant id), not on the Participant doc itself. Without
+      // this join those answers - including the participant's actual school -
+      // are silently absent from the export.
+      const formResponseSnap = await getDocs(collection(db, "FormResponse"));
+      const formAnswersById = new Map<string, Map<string, unknown>>();
+      const formQuestionTitles: string[] = [];
+      const seenTitles = new Set<string>();
+      formResponseSnap.docs.forEach((d) => {
+        const { questions = [] } = d.data() as FormResponse;
+        formAnswersById.set(
+          d.id,
+          new Map(questions.map((q: Questions) => [q.title, q.answer])),
+        );
+        for (const q of questions) {
+          if (!seenTitles.has(q.title)) {
+            seenTitles.add(q.title);
+            formQuestionTitles.push(q.title);
+          }
+        }
+      });
+
       // Flattens a participant doc into exactly the columns in
       // PARTICIPANT_EXPORT_FIELDS, so every Participant field always appears
-      // regardless of which fields happen to be set on a given document.
+      // regardless of which fields happen to be set on a given document, plus
+      // one form_<title> column per distinct dynamic form question answered
+      // by any participant.
       const flattenParticipant = (
         row: Record<string, unknown>,
       ): Record<string, unknown> => {
@@ -605,6 +628,12 @@ const PreProgram = () => {
             flat[key] = formatCell(val);
           }
         }
+
+        const answers = formAnswersById.get(row.id as string);
+        for (const title of formQuestionTitles) {
+          flat[`form_${title}`] = formatCell(answers?.get(title) ?? "");
+        }
+
         return flat;
       };
 
@@ -621,7 +650,7 @@ const PreProgram = () => {
         const allKeys = Array.from(new Set(rows.flatMap((r) => Object.keys(r))));
 
         const csvLines = [
-          allKeys.join(","),
+          allKeys.map(escapeCell).join(","),
           ...rows.map((r) => allKeys.map((k) => escapeCell(r[k])).join(",")),
         ];
 
