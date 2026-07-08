@@ -32,6 +32,7 @@ import type {
   UI_Match,
   MatchStatus,
   FormResponse,
+  Participant,
 } from "../../types";
 import SettingsPopup from "./SettingsPopup";
 import ParticipantInfoPopup from "../Dashboard/components/ParticipantInfoPopup/ParticipantInfoPopup";
@@ -47,6 +48,47 @@ const COLLECTIONS_TO_CLEAR = [
   "weeks",
   "waitlist",
 ];
+
+// Every field of the Participant type, in CSV column order. This drives the
+// "Users" export so a column always appears even when every document happens
+// to omit that field. The type check below fails to compile if a field is
+// added to/removed from Participant in types.ts without updating this list.
+const PARTICIPANT_EXPORT_FIELDS = [
+  "id",
+  "type",
+  "userUid",
+  "displayName",
+  "firstName",
+  "lastName",
+  "email",
+  "phoneNumber",
+  "address",
+  "user_type",
+  "dateOfBirth",
+  "pronouns",
+  "heardAbout",
+  "university",
+  "interests",
+  "teaPreference",
+  "preferredContactMethods",
+  "preferenceScores",
+  "status",
+  "role",
+  "hasAuthAccount",
+  "isManualEntry",
+  "createdAt",
+  "updatedAt",
+] as const satisfies readonly (keyof Participant)[];
+
+type _MissingParticipantExportFields = Exclude<
+  keyof Participant,
+  (typeof PARTICIPANT_EXPORT_FIELDS)[number]
+> extends never
+  ? true
+  : never;
+const _assertAllParticipantFieldsExported: _MissingParticipantExportFields =
+  true;
+void _assertAllParticipantFieldsExported;
 
 const PreProgram = () => {
   const [matches, setMatches] = useState<UI_Match[]>([]);
@@ -523,28 +565,44 @@ const PreProgram = () => {
         return str;
       };
 
-      const flattenParticipant = (row: Record<string, unknown>): Record<string, unknown> => {
+      const formatCell = (val: unknown): unknown => {
+        if (Array.isArray(val)) return val.join("; ");
+        if (val && typeof val === "object" && "toDate" in val) {
+          return (val as { toDate: () => Date }).toDate().toISOString();
+        }
+        return val;
+      };
+
+      // Flattens a participant doc into exactly the columns in
+      // PARTICIPANT_EXPORT_FIELDS, so every Participant field always appears
+      // regardless of which fields happen to be set on a given document.
+      const flattenParticipant = (
+        row: Record<string, unknown>,
+      ): Record<string, unknown> => {
         const flat: Record<string, unknown> = {};
-        for (const [key, val] of Object.entries(row)) {
-          if (key === "address" && val && typeof val === "object" && !Array.isArray(val)) {
-            const addr = val as Record<string, unknown>;
+        for (const key of PARTICIPANT_EXPORT_FIELDS) {
+          const val = row[key];
+          if (key === "address") {
+            const addr = (val && typeof val === "object" ? val : {}) as Record<
+              string,
+              unknown
+            >;
             flat["address_line1"] = addr.line1 ?? "";
             flat["address_line2"] = addr.line2 ?? "";
             flat["address_city"] = addr.city ?? "";
             flat["address_state"] = addr.state ?? "";
             flat["address_postalCode"] = addr.postalCode ?? "";
             flat["address_country"] = addr.country ?? "";
-          } else if (key === "preferenceScores" && val && typeof val === "object" && !Array.isArray(val)) {
-            const scores = val as Record<string, unknown>;
+          } else if (key === "preferenceScores") {
+            const scores = (val && typeof val === "object" ? val : {}) as Record<
+              string,
+              unknown
+            >;
             flat["preferenceScore_q1"] = scores.q1 ?? "";
             flat["preferenceScore_q2"] = scores.q2 ?? "";
             flat["preferenceScore_q3"] = scores.q3 ?? "";
-          } else if (Array.isArray(val)) {
-            flat[key] = val.join("; ");
-          } else if (val && typeof val === "object" && "toDate" in val) {
-            flat[key] = (val as { toDate: () => Date }).toDate().toISOString();
           } else {
-            flat[key] = val;
+            flat[key] = formatCell(val);
           }
         }
         return flat;
