@@ -401,7 +401,13 @@ const RegistrationNew = ({
 
   const normalizeUserType = (value?: string): "student" | "adult" => {
     const normalized = value?.trim().toLowerCase() ?? "";
-    return normalized === "adult" ? "adult" : "student";
+    if (normalized === "adult") {
+      return "adult";
+    } else if (normalized === "student") {
+      return "student";
+    } else {
+      throw new Error('Invalid user_type: must be \'student\' or \'adult\'');
+    }
   };
 
   const getNumericQuestionKeys = (formConfig: Form): Map<string, string> => {
