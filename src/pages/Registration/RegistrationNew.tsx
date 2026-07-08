@@ -747,8 +747,8 @@ const RegistrationNew = ({
 
 
         if (shouldWaitlist) {
-          const waitlistRef = doc(db, "waitlist", user.uid);
-          await setDoc(waitlistRef, { uid: user.uid, createdAt: serverTimestamp() });
+          const waitlistRef = doc(db, "waitlist", participantId);
+          await setDoc(waitlistRef, { uid: participantId, createdAt: serverTimestamp() });
           navigate("/waiting", { replace: true });
         } else {
           // Upsert Pinecone for both self-serve and manual registrations using
