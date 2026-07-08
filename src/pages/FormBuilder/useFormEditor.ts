@@ -37,6 +37,7 @@ export const LOCKED_QUESTIONS : Question[] = [
     required: true,
     matchable: false,
     locked: true,
+    optionsLocked: true,
     lockedKey: "user type",
   },
   {
@@ -209,10 +210,13 @@ const cleanQuestion = (q: EditorQuestion): Question => {
     cleaned.numericKey = rest.numericKey;
   }
 
-  if (rest.locked) {                                                                                                                                      
+  if (rest.locked) {
     cleaned.locked = rest.locked;
-  }                                                                                                                                                       
-  if (rest.lockedKey) {                                                                                                                                 
+  }
+  if (rest.optionsLocked) {
+    cleaned.optionsLocked = rest.optionsLocked;
+  }
+  if (rest.lockedKey) {
     cleaned.lockedKey = rest.lockedKey;
   }
   return cleaned;
