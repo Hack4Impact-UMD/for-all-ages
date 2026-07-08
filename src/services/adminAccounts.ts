@@ -1,7 +1,7 @@
 import { initializeApp, deleteApp } from "firebase/app";
 import type { FirebaseApp } from "firebase/app";
 import { createUserWithEmailAndPassword, getAuth, sendPasswordResetEmail, signOut } from "firebase/auth";
-import { doc, serverTimestamp, setDoc } from "firebase/firestore";
+import { doc, serverTimestamp, setDoc, deleteField } from "firebase/firestore";
 import { auth, db } from "../firebase";
 import type { Role, InviteAdminParams } from "../types";
 
@@ -97,6 +97,24 @@ export async function promoteParticipantToSubadmin(params: {
     {
       role: "Subadmin" as Role,
       university: params.university?.trim() || null,
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true } // merge: true ensures all existing participant fields are kept
+  );
+}
+
+/**
+ * Demotes an existing sub-admin to participant while preserving all
+ * of their data (user_type, matches, etc) so they keep participating normally.
+ * Only the role field is changed - nothing else is touched.
+ *  */ 
+export async function demoteSubadminToParticipant(subadminId: string): Promise<void>{
+  const docRef = doc(db, "participants", subadminId);
+  await setDoc(
+    docRef,
+    {
+      role: "Participant" as Role,
+      university: deleteField(),
       updatedAt: serverTimestamp(),
     },
     { merge: true } // merge: true ensures all existing participant fields are kept

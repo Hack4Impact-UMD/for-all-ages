@@ -31,14 +31,13 @@ export const LOCKED_QUESTIONS : Question[] = [
     lockedKey: "pronouns",
   },
   {
-    type: "Radio",
-    title: "Are you registering as a student or older adult?",
-    options: ["Student", "Adult"],
+    type: "Date",
+    title: "What is your date of birth?",
     required: true,
     matchable: false,
     locked: true,
     optionsLocked: true,
-    lockedKey: "user type",
+    lockedKey: "date of birth",
   },
   {
     type: "Dropdown",
@@ -136,6 +135,7 @@ const formToState = (form?: Form | null): FormEditorState => {
         locked: section.locked,
         questions: (section.questions ?? []).map((q) => ({
           ...q,
+          locked: q.locked && q.lockedKey ? LOCKED_QUESTION_ORDER.includes(q.lockedKey) : q.locked,
           id: createId("question"),
         })),
       })),
