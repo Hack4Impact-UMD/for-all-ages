@@ -309,7 +309,8 @@ export interface Question {
     | "school"
     | "phone number"
     | "current address"
-    | "user type";
+    | "user type"
+    | "date of birth";
 }
 
 /** Section containing questions in a dynamic form */
