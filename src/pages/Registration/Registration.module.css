@@ -608,3 +608,49 @@
 .suggestionItemHighlighted {
   background: #f0f7ff;
 }
+
+.ageModalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+
+.ageModalCard {
+  background: white;
+  border-radius: 16px;
+  padding: 2rem 2.5rem;
+  width: min(520px, 100%);
+  text-align: center;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.25);
+}
+
+.ageModalTitle {
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin: 0 0 1rem;
+  color: #111;
+}
+
+.ageModalText {
+  font-size: 0.92rem;
+  color: #444;
+  line-height: 1.65;
+  margin: 0 0 0.75rem;
+}
+
+.ageModalLink {
+  color: #0e6bae;
+  font-weight: 600;
+}
+
+.ageModalActions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 1.5rem;
+}
