@@ -239,7 +239,7 @@ function InlineEditor({
 
           <select
             className={styles.questionSelect}
-            disabled={question.locked}
+            disabled={question.locked || question.optionsLocked}
             value={question.type}
             onChange={(e) => {
               onUpdate({ type: e.target.value as QuestionType });
