@@ -47,6 +47,16 @@ export const LOCKED_QUESTIONS : Question[] = [
     matchable: false,
     locked: true,
     lockedKey: "school",
+  },
+  {
+    type: "Radio",
+    title: "Are you registering as a student or older adult?",
+    options: ["Student", "Adult"],
+    required: true,
+    matchable: false,
+    locked: true,
+    optionsLocked: true,
+    lockedKey: "user type"
   }
 ]
 
