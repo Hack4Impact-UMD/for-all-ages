@@ -32,6 +32,8 @@ import type {
   UI_Match,
   MatchStatus,
   FormResponse,
+  Participant,
+  Questions,
 } from "../../types";
 import SettingsPopup from "./SettingsPopup";
 import ParticipantInfoPopup from "../Dashboard/components/ParticipantInfoPopup/ParticipantInfoPopup";
@@ -47,6 +49,44 @@ const COLLECTIONS_TO_CLEAR = [
   "weeks",
   "waitlist",
 ];
+
+// Every field of the Participant type, in CSV column order. This drives the
+// "Users" export so a column always appears even when every document happens
+// to omit that field. The type check below fails to compile if a field is
+// added to/removed from Participant in types.ts without updating this list.
+const PARTICIPANT_EXPORT_FIELDS = [
+  "id",
+  "type",
+  "userUid",
+  "displayName",
+  "firstName",
+  "lastName",
+  "email",
+  "phoneNumber",
+  "address",
+  "user_type",
+  "dateOfBirth",
+  "pronouns",
+  "heardAbout",
+  "university", // only set for Subadmin accounts; participants' school comes from FormResponse (see form_* columns)
+  "preferenceScores",
+  "status",
+  "role",
+  "hasAuthAccount",
+  "isManualEntry",
+  "createdAt",
+  "updatedAt",
+] as const satisfies readonly (keyof Participant)[];
+
+type _MissingParticipantExportFields = Exclude<
+  keyof Participant,
+  (typeof PARTICIPANT_EXPORT_FIELDS)[number]
+> extends never
+  ? true
+  : never;
+const _assertAllParticipantFieldsExported: _MissingParticipantExportFields =
+  true;
+void _assertAllParticipantFieldsExported;
 
 const PreProgram = () => {
   const [matches, setMatches] = useState<UI_Match[]>([]);
@@ -514,33 +554,104 @@ const PreProgram = () => {
     try {
       const exportCollections = ["participants", "matches", "logs", "weeks"];
 
+      const escapeCell = (val: unknown): string => {
+        if (val === null || val === undefined) return "";
+        const str = typeof val === "object" ? JSON.stringify(val) : String(val);
+        if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+          return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+      };
+
+      const formatCell = (val: unknown): unknown => {
+        if (Array.isArray(val)) return val.join("; ");
+        if (val && typeof val === "object" && "toDate" in val) {
+          return (val as { toDate: () => Date }).toDate().toISOString();
+        }
+        return val;
+      };
+
+      // Dynamic per-program questions (e.g. "what school do you attend") are
+      // answered during registration but stored in a sibling FormResponse doc
+      // (id === participant id), not on the Participant doc itself. Without
+      // this join those answers - including the participant's actual school -
+      // are silently absent from the export.
+      const formResponseSnap = await getDocs(collection(db, "FormResponse"));
+      const formAnswersById = new Map<string, Map<string, unknown>>();
+      const formQuestionTitles: string[] = [];
+      const seenTitles = new Set<string>();
+      formResponseSnap.docs.forEach((d) => {
+        const { questions = [] } = d.data() as FormResponse;
+        formAnswersById.set(
+          d.id,
+          new Map(questions.map((q: Questions) => [q.title, q.answer])),
+        );
+        for (const q of questions) {
+          if (!seenTitles.has(q.title)) {
+            seenTitles.add(q.title);
+            formQuestionTitles.push(q.title);
+          }
+        }
+      });
+
+      // Flattens a participant doc into exactly the columns in
+      // PARTICIPANT_EXPORT_FIELDS, so every Participant field always appears
+      // regardless of which fields happen to be set on a given document, plus
+      // one form_<title> column per distinct dynamic form question answered
+      // by any participant.
+      const flattenParticipant = (
+        row: Record<string, unknown>,
+      ): Record<string, unknown> => {
+        const flat: Record<string, unknown> = {};
+        for (const key of PARTICIPANT_EXPORT_FIELDS) {
+          const val = row[key];
+          if (key === "address") {
+            const addr = (val && typeof val === "object" ? val : {}) as Record<
+              string,
+              unknown
+            >;
+            flat["address_line1"] = addr.line1 ?? "";
+            flat["address_line2"] = addr.line2 ?? "";
+            flat["address_city"] = addr.city ?? "";
+            flat["address_state"] = addr.state ?? "";
+            flat["address_postalCode"] = addr.postalCode ?? "";
+            flat["address_country"] = addr.country ?? "";
+          } else if (key === "preferenceScores") {
+            const scores = (val && typeof val === "object" ? val : {}) as Record<
+              string,
+              unknown
+            >;
+            flat["preferenceScore_q1"] = scores.q1 ?? "";
+            flat["preferenceScore_q2"] = scores.q2 ?? "";
+            flat["preferenceScore_q3"] = scores.q3 ?? "";
+          } else {
+            flat[key] = formatCell(val);
+          }
+        }
+
+        const answers = formAnswersById.get(row.id as string);
+        for (const title of formQuestionTitles) {
+          flat[`form_${title}`] = formatCell(answers?.get(title) ?? "");
+        }
+
+        return flat;
+      };
+
       for (const colName of exportCollections) {
         const snap = await getDocs(collection(db, colName));
         if (snap.empty) continue;
 
-        const rows: Array<Record<string, unknown>> = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        let rows: Array<Record<string, unknown>> = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-        // Collect all keys
-        const allKeys = Array.from(
-          new Set(rows.flatMap((r) => Object.keys(r))),
-        );
+        if (colName === "participants") {
+          rows = rows.map(flattenParticipant);
+        }
 
-        const escapeCell = (val: unknown): string => {
-          if (val === null || val === undefined) return "";
-          const str =
-            typeof val === "object" ? JSON.stringify(val) : String(val);
-          // Wrap in quotes if contains comma, quote, or newline
-          if (str.includes(",") || str.includes('"') || str.includes("\n")) {
-            return `"${str.replace(/"/g, '""')}"`;
-          }
-          return str;
-        };
+        const allKeys = Array.from(new Set(rows.flatMap((r) => Object.keys(r))));
 
         const csvLines = [
-          allKeys.join(","),
-          ...rows.map((r) =>
-            allKeys.map((k) => escapeCell(r[k])).join(",")
-          ),
+          allKeys.map(escapeCell).join(","),
+          ...rows.map((r) => allKeys.map((k) => escapeCell(r[k])).join(",")),
         ];
 
         const blob = new Blob([csvLines.join("\n")], {

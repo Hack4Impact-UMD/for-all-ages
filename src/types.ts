@@ -43,9 +43,6 @@ export interface Participant {
     pronouns?: string | null
     heardAbout?: string | null
     university?: string | null
-    interests?: string | null
-    teaPreference?: string | null
-    preferredContactMethods?: string[] | null
     preferenceScores?: PreferenceScores | null
     status?: string | null
     role?: Role | "Participant" | null
