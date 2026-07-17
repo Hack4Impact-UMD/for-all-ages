@@ -43,9 +43,6 @@ export interface Participant {
     pronouns?: string | null
     heardAbout?: string | null
     university?: string | null
-    interests?: string | null
-    teaPreference?: string | null
-    preferredContactMethods?: string[] | null
     preferenceScores?: PreferenceScores | null
     status?: string | null
     role?: Role | "Participant" | null
@@ -311,12 +308,14 @@ export interface Question {
   required: boolean;
   matchable: boolean;
   locked?: boolean;
+  optionsLocked?: boolean;
   lockedKey?:
     | "pronouns"
     | "school"
     | "phone number"
     | "current address"
-    | "user type";
+    | "user type"
+    | "date of birth";
 }
 
 /** Section containing questions in a dynamic form */

@@ -284,6 +284,8 @@ const RegistrationNew = ({
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(previewInitialStep ?? 0);
+  const [showAgeWarningModal, setShowAgeWarningModal] = useState(false);
+  const pendingContinue = useRef<(() => Promise<void>) | null>(null);
 
   useEffect(() => {
     if (previewMode) {
@@ -373,9 +375,39 @@ const RegistrationNew = ({
     return false;
   };
 
+  const isDateOfBirthQuestion = (question: Question): boolean => {
+    if (question.lockedKey === "date of birth") return true;
+    const title = question.title.toLowerCase();
+    return title.includes("date of birth") || title.includes("birthday") || title === "dob";
+  };
+
+  const getDateOfBirth = (formData: FormData, formConfig: Form): string | null => {
+    const entry = getQuestionEntries(formConfig).find(({ question }) =>
+      isDateOfBirthQuestion(question)
+    );
+    if (!entry) return null;
+    return (formData.get(entry.fieldName) as string) || null;
+  };
+
+  const computeAge = (dob: string): number | null => {
+    const birth = new Date(`${dob}T00:00:00`);
+    if (isNaN(birth.getTime())) return null;
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+    return age;
+  };
+
   const normalizeUserType = (value?: string): "student" | "adult" => {
     const normalized = value?.trim().toLowerCase() ?? "";
-    return normalized === "adult" ? "adult" : "student";
+    if (normalized === "adult") {
+      return "adult";
+    } else if (normalized === "student") {
+      return "student";
+    } else {
+      throw new Error('Invalid user_type: must be \'student\' or \'adult\'');
+    }
   };
 
   const getNumericQuestionKeys = (formConfig: Form): Map<string, string> => {
@@ -646,88 +678,111 @@ const RegistrationNew = ({
         }
       }
 
-      // Extract basic info for Participant
-      const basicInfo = extractBasicInfo(formData, form, participantId);
-      const basicByKey = getBasicInfoByKey(formData, form);
+      const dob = getDateOfBirth(formData, form);
+      const age = dob ? computeAge(dob) : null;
+      const computedUserType: "student" | "adult" | null =
+        age === null || age < 0 ? null :
+        age >= 55 ? "adult" :
+        age >= 36 ? null :
+        "student";
 
-      // Extract form responses for FormResponse collection
-      const formResponses = extractFormResponses(formData, form, participantId);
+      const performRegistration = async () => {
+        // Extract basic info for Participant
+        const basicInfo = extractBasicInfo(formData, form, participantId);
 
-      // Extract matchable responses for Pinecone
-      const { textResponses, numericResponses } = extractMatchableResponses(formData, form);
+        // Extract form responses for FormResponse collection
+        const formResponses = extractFormResponses(formData, form, participantId);
 
-      // Check if documents exist to determine if we need to set createdAt
-      const participantDocRef = doc(db, "participants", participantId);
-      const formResponseDocRef = doc(db, "FormResponse", participantId);
-      
-      const [participantSnap, formResponseSnap] = await Promise.all([
-        getDoc(participantDocRef),
-        getDoc(formResponseDocRef)
-      ]);
+        // Extract matchable responses for Pinecone
+        const { textResponses, numericResponses } = extractMatchableResponses(formData, form);
 
-      // Create Participant document
-      const participantData = omitUndefined({
-        type: "Participant",
-        ...basicInfo,
-        updatedAt: serverTimestamp() as any,
-        ...(!participantSnap.exists() && { createdAt: serverTimestamp() as any })
-      }) as Participant;
+        // Check if documents exist to determine if we need to set createdAt
+        const participantDocRef = doc(db, "participants", participantId);
+        const formResponseDocRef = doc(db, "FormResponse", participantId);
 
-      await setDoc(participantDocRef, participantData, { merge: true });
+        const [participantSnap, formResponseSnap] = await Promise.all([
+          getDoc(participantDocRef),
+          getDoc(formResponseDocRef)
+        ]);
 
-      const formResponseData = {
-        ...formResponses,
-        updatedAt: serverTimestamp(),
-        ...(!formResponseSnap.exists() && { createdAt: serverTimestamp() })
+        // Create Participant document
+        const participantData = {
+          ...(omitUndefined({ type: "Participant", ...basicInfo }) as Participant),
+          user_type: computedUserType,
+          ...(dob && { dateOfBirth: dob }),
+          updatedAt: serverTimestamp(),
+          ...(!participantSnap.exists() && { createdAt: serverTimestamp() }),
+        };
+
+        await setDoc(participantDocRef, participantData, { merge: true });
+
+        const formResponseData = {
+          ...formResponses,
+          updatedAt: serverTimestamp(),
+          ...(!formResponseSnap.exists() && { createdAt: serverTimestamp() })
+        };
+        await setDoc(formResponseDocRef, formResponseData, { merge: true });
+
+        // Check waitlist: atomically read currentParticipants and decide.
+        // Skip the capacity check if the participant already existed (re-submission / profile update).
+        const programStateRef = doc(db, "config", "programState");
+        let shouldWaitlist = false;
+
+        if (!participantSnap.exists()) {
+          shouldWaitlist = await runTransaction(db, async (transaction) => {
+            const programSnap = await transaction.get(programStateRef);
+            const programData = programSnap.data();
+            const matchesFinal = programData?.matches_final === true;
+            const programStarted = programData?.started === true;
+            const current = programData?.currentParticipants ?? 0;
+            const max = programData?.maxParticipants ?? Infinity;
+
+            // Once matches are finalized, keep all new registrations on waitlist
+            // until the program has started, regardless of participant capacity.
+            if (matchesFinal && !programStarted) {
+              return true;
+            }
+
+            if (current >= max) {
+              return true;
+            }
+            transaction.set(programStateRef, { currentParticipants: increment(1) }, { merge: true });
+            return false;
+          });
+        }
+
+
+        if (shouldWaitlist) {
+          const waitlistRef = doc(db, "waitlist", participantId);
+          await setDoc(waitlistRef, { uid: participantId, createdAt: serverTimestamp() });
+          navigate("/waiting", { replace: true });
+        } else {
+          // Upsert Pinecone for both self-serve and manual registrations using
+          // the same payload shape the matching pipeline already expects.
+          // Skip for ages 36-54, wait for admin to enter matching
+          if (computedUserType !== null) {
+            await upsertUser({
+              uid: participantId,
+              textResponses,
+              numericResponses,
+              user_type: computedUserType,
+              pronouns: getPronouns(formData, form)
+            });
+          }
+          // Navigate to dashboard
+          navigate(isManualEntry ? "/admin/creator" : "/user/dashboard", { replace: true });
+        }
       };
-      await setDoc(formResponseDocRef, formResponseData, { merge: true });
 
-      // Check waitlist: atomically read currentParticipants and decide.
-      // Skip the capacity check if the participant already existed (re-submission / profile update).
-      const programStateRef = doc(db, "config", "programState");
-      let shouldWaitlist = false;
-
-      if (!participantSnap.exists()) {
-        shouldWaitlist = await runTransaction(db, async (transaction) => {
-          const programSnap = await transaction.get(programStateRef);
-          const programData = programSnap.data();
-          const matchesFinal = programData?.matches_final === true;
-          const programStarted = programData?.started === true;
-          const current = programData?.currentParticipants ?? 0;
-          const max = programData?.maxParticipants ?? Infinity;
-
-          // Once matches are finalized, keep all new registrations on waitlist
-          // until the program has started, regardless of participant capacity.
-          if (matchesFinal && !programStarted) {
-            return true;
-          }
-
-          if (current >= max) {
-            return true;
-          }
-          transaction.set(programStateRef, { currentParticipants: increment(1) }, { merge: true });
-          return false;
-        });
+      // Show 36-54 age warming
+      if (!isManualEntry && age !== null && age >= 36 && age <= 54) {
+        pendingContinue.current = performRegistration;
+        setShowAgeWarningModal(true);
+        setSubmitting(false);
+        return;
       }
 
-      
-      if (shouldWaitlist && user) {
-        const waitlistRef = doc(db, "waitlist", user.uid);
-        await setDoc(waitlistRef, { uid: user.uid, createdAt: serverTimestamp() });
-        navigate("/waiting", { replace: true });
-      } else {
-        // Upsert Pinecone for both self-serve and manual registrations using
-        // the same payload shape the matching pipeline already expects.
-        await upsertUser({
-          uid: participantId,
-          textResponses,
-          numericResponses,
-          user_type: normalizeUserType(basicByKey[BASIC_FIELD_KEYS.userType]),
-          pronouns: getPronouns(formData, form)
-        });
-        // Navigate to dashboard
-        navigate(isManualEntry ? "/admin/creator" : "/user/dashboard", { replace: true });
-      }
+      await performRegistration();
     } catch (err) {
       console.error("Form submission error:", err);
       setSubmitError("Something went wrong. Please try again.");
@@ -875,6 +930,58 @@ const RegistrationNew = ({
           </>
         }
       />
+
+      {showAgeWarningModal && (
+        <div className={styles.ageModalOverlay}>
+          <div className={styles.ageModalCard}>
+            <h3 className={styles.ageModalTitle}>Outside Typical Age Range</h3>
+            <p className={styles.ageModalText}>
+              Your age is in the range 36-54, which falls outside the typical age ranges for Tea @ 3
+              participants — younger adults are under 36, and older adults are 55
+              and up.
+            </p>
+            <p className={styles.ageModalText}>
+              You are still welcome to sign up! To ensure accurate matching,
+              please reach out to our admin team at{" "}
+              <a href="mailto:info@forallages.org" className={styles.ageModalLink}>
+                info@forallages.org
+              </a>{" "}
+              after registering so they can place you appropriately.
+            </p>
+            <div className={styles.ageModalActions}>
+              <button
+                type="button"
+                className={styles.btnBack}
+                onClick={() => {
+                  setShowAgeWarningModal(false);
+                  pendingContinue.current = null;
+                }}
+              >
+                Go Back
+              </button>
+              <button
+                type="button"
+                className={styles.btnContinue}
+                disabled={submitting}
+                onClick={async () => {
+                  setShowAgeWarningModal(false);
+                  setSubmitting(true);
+                  try {
+                    await pendingContinue.current?.();
+                  } catch {
+                    setSubmitError("Something went wrong. Please try again.");
+                  } finally {
+                    setSubmitting(false);
+                    pendingContinue.current = null;
+                  }
+                }}
+              >
+                {submitting ? "Submitting…" : "Continue Signing Up"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </form>
   );
 };

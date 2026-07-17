@@ -2,7 +2,14 @@ import { getPineconeClient, getIndexName } from "../config/pinecone.config.js";
 import { logger } from "../utils/logger.js";
 
 function normalizeUserTypeForPinecone(userType: string): "Student" | "Adult" {
-  return userType.trim().toLowerCase() === "adult" ? "Adult" : "Student";
+  const formattedUserType = userType.trim().toLowerCase();
+  if (formattedUserType === "adult") {
+    return "Adult";
+  } else if (formattedUserType === "student") {
+    return "Student";
+  } else {
+    throw new Error('Invalid user_type: must be \'student\' or \'adult\'');
+  }
 }
 
 export async function upsertFreeResponse(

@@ -242,7 +242,7 @@ export default function AdminDashboard() {
                 className={adminStyles.searchInput}
               />
             </div>
-            <h2 className={adminStyles.pageTitle}>Dashboard</h2>
+            <h2 className={adminStyles.pageTitle}>Roadmap</h2>
             <div />
           </div>
         <section className={layoutStyles.selectorSection}>

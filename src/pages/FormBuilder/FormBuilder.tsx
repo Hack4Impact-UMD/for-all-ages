@@ -267,6 +267,7 @@ function InlineEditor({
                 <input
                   className={styles.inlineOptionInput}
                   value={opt}
+                  disabled={question.optionsLocked}
                   placeholder={`Option ${i + 1}`}
                   onChange={(e) => {
                     const next = [...(question.options ?? [])];
@@ -277,6 +278,7 @@ function InlineEditor({
                 <button
                   type="button"
                   className={styles.inlineOptionRemove}
+                  disabled={question.optionsLocked}
                   onClick={() => {
                     const next = (question.options ?? []).filter(
                       (_, j) => j !== i,
@@ -291,6 +293,7 @@ function InlineEditor({
             <button
               type="button"
               className={styles.inlineAddOption}
+              disabled={question.optionsLocked}
               onClick={() =>
                 onUpdate({ options: [...(question.options ?? []), ""] })
               }
@@ -329,6 +332,7 @@ function InlineEditor({
           <label className={styles.inlineToggle}>
             <input
               type="checkbox"
+              disabled={question.locked}
               checked={question.required}
               onChange={(e) => onUpdate({ required: e.target.checked })}
             />
@@ -352,6 +356,11 @@ function InlineEditor({
         <p className={styles.lockedWarning}>
           {question.locked
             ? "This question is required for the program and cannot be removed."
+            : ""}
+        </p>
+        <p className={styles.lockedWarning}>
+          {question.optionsLocked
+            ? "Specific options for this multiple-choice question are required for the program and cannot be edited."
             : ""}
         </p>
       </div>
