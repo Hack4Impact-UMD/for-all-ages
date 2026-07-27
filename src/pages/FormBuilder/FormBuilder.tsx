@@ -443,6 +443,7 @@ const FormBuilder: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [banner, setBanner] = useState<BannerState | null>(null);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [registrationStatus, setRegistrationStatus] = useState<boolean | undefined>(undefined);
 
   // Which question id is currently being edited inline (null = none)
   const [editingQuestionId, setEditingQuestionId] = useState<string | null>(
@@ -459,6 +460,27 @@ const FormBuilder: React.FC = () => {
       setActiveSectionIndex(sections.length - 1);
     }
   }, [sections.length, activeSectionIndex]);
+
+  // Check registration status on mount
+  useEffect(() => {
+    const fetchRegistrationStatus = async () => {
+      let regStat;
+      try {
+        regStat = await getRegistrationStatus();
+      } catch (err) {
+        console.error("Failed to fetch registration status: " + err);
+        regStat = true;
+      } finally {
+        if(regStat !== undefined){
+          setRegistrationStatus(regStat);
+          if(regStat){
+            setIsPreviewMode(true);
+          }
+        }
+      }
+    };
+    fetchRegistrationStatus();
+  }, [])
 
   // Load form from Firestore on mount
   useEffect(() => {
@@ -526,6 +548,7 @@ const FormBuilder: React.FC = () => {
       const programStatus = await getRegistrationStatus();
       // If the program is currently accepting registrations, block edits to the form
       if(programStatus){
+        setRegistrationStatus(true);
         setBanner({
           type: "error",
           message:
@@ -684,6 +707,7 @@ const FormBuilder: React.FC = () => {
                   <button
                     type="button"
                     className={styles.tabCircleAdd}
+                    disabled={registrationStatus}
                     onClick={() => {
                       addSection();
                       setActiveSectionIndex(sections.length);
@@ -713,6 +737,7 @@ const FormBuilder: React.FC = () => {
                   type="button"
                   className={`${styles.previewModeBtn} ${styles.titleRowBtn}`}
                   onClick={() => setIsPreviewMode(false)}
+                  disabled={registrationStatus}
                 >
                   <span
                     className={styles.previewModeBtnIcon}
