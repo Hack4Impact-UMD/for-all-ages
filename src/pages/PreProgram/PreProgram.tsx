@@ -78,14 +78,14 @@ const PARTICIPANT_EXPORT_FIELDS = [
   "updatedAt",
 ] as const satisfies readonly (keyof Participant)[];
 
-type _MissingParticipantExportFields = Exclude<
-  keyof Participant,
-  (typeof PARTICIPANT_EXPORT_FIELDS)[number]
-> extends never
-  ? true
-  : never;
-const _assertAllParticipantFieldsExported: _MissingParticipantExportFields =
-  true;
+type _MissingParticipantExportFields =
+  Exclude<
+    keyof Participant,
+    (typeof PARTICIPANT_EXPORT_FIELDS)[number]
+  > extends never
+    ? true
+    : never;
+const _assertAllParticipantFieldsExported: _MissingParticipantExportFields = true;
 void _assertAllParticipantFieldsExported;
 
 const PreProgram = () => {
@@ -199,7 +199,9 @@ const PreProgram = () => {
 
         const pct = Math.round(m.scores.finalScore * 100);
 
-        const approvalThreshold = (programState?.autoApprovalThreshold ?? DEFAULT_APPROVAL_THRESHOLD * 100) / 100;
+        const approvalThreshold =
+          (programState?.autoApprovalThreshold ??
+            DEFAULT_APPROVAL_THRESHOLD * 100) / 100;
 
         const status: MatchStatus =
           m.scores.finalScore >= approvalThreshold ? "Approved" : "Pending";
@@ -446,7 +448,8 @@ const PreProgram = () => {
         const currentApprovedBy = data.approvedBy ?? "";
 
         const newStatus = similarity >= newThreshold ? "approved" : "pending";
-        const shouldClearApprovedBy = newStatus !== "approved" && currentApprovedBy;
+        const shouldClearApprovedBy =
+          newStatus !== "approved" && currentApprovedBy;
 
         if (newStatus !== currentStatus || shouldClearApprovedBy) {
           batch.update(matchDoc.ref, {
@@ -617,10 +620,9 @@ const PreProgram = () => {
             flat["address_postalCode"] = addr.postalCode ?? "";
             flat["address_country"] = addr.country ?? "";
           } else if (key === "preferenceScores") {
-            const scores = (val && typeof val === "object" ? val : {}) as Record<
-              string,
-              unknown
-            >;
+            const scores = (
+              val && typeof val === "object" ? val : {}
+            ) as Record<string, unknown>;
             flat["preferenceScore_q1"] = scores.q1 ?? "";
             flat["preferenceScore_q2"] = scores.q2 ?? "";
             flat["preferenceScore_q3"] = scores.q3 ?? "";
@@ -641,13 +643,18 @@ const PreProgram = () => {
         const snap = await getDocs(collection(db, colName));
         if (snap.empty) continue;
 
-        let rows: Array<Record<string, unknown>> = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        let rows: Array<Record<string, unknown>> = snap.docs.map((d) => ({
+          id: d.id,
+          ...d.data(),
+        }));
 
         if (colName === "participants") {
           rows = rows.map(flattenParticipant);
         }
 
-        const allKeys = Array.from(new Set(rows.flatMap((r) => Object.keys(r))));
+        const allKeys = Array.from(
+          new Set(rows.flatMap((r) => Object.keys(r))),
+        );
 
         const csvLines = [
           allKeys.map(escapeCell).join(","),
@@ -694,6 +701,12 @@ const PreProgram = () => {
         setMatches([]);
         setConfirmAction(null);
         setEndConfirmText("");
+        if (programState?.accepting_registrations !== undefined) {
+          const configRef = doc(db, "config", "programState");
+          await updateDoc(configRef, {
+            accepting_registrations: !programState.accepting_registrations,
+          });
+        }
         return;
       }
 
@@ -707,13 +720,17 @@ const PreProgram = () => {
 
       // Reset config doc
       const configRef = doc(db, "config", "programState");
-      await setDoc(configRef, {
-        matches_final: false,
-        started: false,
-        updatedAt: serverTimestamp(),
-        week: 0,
-        currentParticipants: 0,
-      }, { merge: true });
+      await setDoc(
+        configRef,
+        {
+          matches_final: false,
+          started: false,
+          updatedAt: serverTimestamp(),
+          week: 0,
+          currentParticipants: 0,
+        },
+        { merge: true },
+      );
 
       // Clear local state
       setMatches([]);
@@ -1137,7 +1154,10 @@ const PreProgram = () => {
                       <button
                         type="button"
                         onClick={() =>
-                          setSelectedUser({ id: m.participant1_id!, name: m.name1 })
+                          setSelectedUser({
+                            id: m.participant1_id!,
+                            name: m.name1,
+                          })
                         }
                         className={styles.nameButton}
                       >
@@ -1152,7 +1172,10 @@ const PreProgram = () => {
                       <button
                         type="button"
                         onClick={() =>
-                          setSelectedUser({ id: m.participant2_id!, name: m.name2 })
+                          setSelectedUser({
+                            id: m.participant2_id!,
+                            name: m.name2,
+                          })
                         }
                         className={styles.nameButton}
                       >
@@ -1194,7 +1217,7 @@ const PreProgram = () => {
                         onChange={(e) =>
                           handleStatusChange(
                             m.matchId,
-                            e.target.value as MatchStatus | "Separate"
+                            e.target.value as MatchStatus | "Separate",
                           )
                         }
                         className={`${styles.status} ${
@@ -1216,7 +1239,15 @@ const PreProgram = () => {
           </tbody>
         </table>
       </div>
-      <SettingsPopup isOpened={settingsPopup} close={()=>{setSettingsPopup(false)}} program={programState} setProgram = {setProgramState} onThresholdChange={updateMatchStatuses}></SettingsPopup>
+      <SettingsPopup
+        isOpened={settingsPopup}
+        close={() => {
+          setSettingsPopup(false);
+        }}
+        program={programState}
+        setProgram={setProgramState}
+        onThresholdChange={updateMatchStatuses}
+      ></SettingsPopup>
 
       {selectedUser ? (
         <ParticipantInfoPopup

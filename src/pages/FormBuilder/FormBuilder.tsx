@@ -548,6 +548,7 @@ const FormBuilder: React.FC = () => {
       const programStatus = await getRegistrationStatus();
       // If the program is currently accepting registrations, block edits to the form
       if(programStatus){
+        setIsPreviewMode(true);
         setRegistrationStatus(true);
         setBanner({
           type: "error",
