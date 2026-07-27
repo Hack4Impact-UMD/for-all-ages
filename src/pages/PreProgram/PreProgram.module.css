@@ -589,6 +589,26 @@
   padding: 0;
 }
 
+.registrationRowYes {
+  background-color: green;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 8px;
+  cursor: default;
+  margin: 10px;
+}
+
+.registrationRowNo {
+  background-color: red;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 8px;
+  cursor: default;
+  margin: 10px;
+}
+
 .table th,
 .table td {
   vertical-align: middle;
