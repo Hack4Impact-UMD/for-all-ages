@@ -26,6 +26,7 @@ import type { EditorQuestion, EditorSection } from "./useFormEditor";
 import { useFormEditor } from "./useFormEditor";
 import styles from "./FormBuilder.module.css";
 import RegistrationNew from "../Registration/RegistrationNew";
+import { getRegistrationStatus } from "../../services/programState";
 
 // labels for the selection
 
@@ -521,6 +522,17 @@ const FormBuilder: React.FC = () => {
       setSaving(true);
       setBanner(null);
       const formToSave = getForm();
+
+      const programStatus = await getRegistrationStatus();
+      // If the program is currently accepting registrations, block edits to the form
+      if(programStatus){
+        setBanner({
+          type: "error",
+          message:
+            "You may not edit the registration form whenever registration is active."
+        })
+        return;
+      }
 
       if (!validateForm(formToSave)) {
         setBanner({

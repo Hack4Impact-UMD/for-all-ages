@@ -56,15 +56,20 @@ export async function unfinalizeMatches() {
   });
 }
 
-export async function getProgramStatus() {
+export async function getRegistrationStatus() {
   const programState = await getDoc(programStateRef);
   const programStateData = programState.data();
   if(!programStateData) {
     throw new Error("Program state data not found.");
   }
+  if(programStateData.accepting_registrations === undefined){
+    throw new Error("accepting_registrations is not set in Firestore.")
+  }
   if(!programStateData.accepting_registrations){
+    console.log("false");
     return false;
   } else {
+    console.log("true");
     return true;
   }
 }
