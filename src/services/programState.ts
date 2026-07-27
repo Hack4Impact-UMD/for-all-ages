@@ -3,6 +3,7 @@ import {
   onSnapshot,
   updateDoc,
   serverTimestamp,
+  getDoc,
 } from "firebase/firestore";
 import { db } from "../firebase";
 import type { ProgramState } from "../types";
@@ -53,4 +54,17 @@ export async function unfinalizeMatches() {
     matches_final: false,
     updatedAt: serverTimestamp(),
   });
+}
+
+export async function getProgramStatus() {
+  const programState = await getDoc(programStateRef);
+  const programStateData = programState.data();
+  if(!programStateData) {
+    throw new Error("Program state data not found.");
+  }
+  if(!programStateData.accepting_registrations){
+    return false;
+  } else {
+    return true;
+  }
 }
