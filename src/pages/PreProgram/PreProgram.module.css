@@ -19,9 +19,9 @@
 
 .searchContainer {
   position: relative;
-  flex: 0 0 260px;
-  min-width: 240px;
-  max-width: 260px;
+  flex: 0 0 380px;
+  min-width: 280px;
+  max-width: 380px;
 }
 
 .searchIcon {
@@ -45,6 +45,10 @@
   color: #1d4e89;
   background: #ffffff;
   box-sizing: border-box;
+  /* Without this, browsers that auto-dark-theme form controls (e.g. Chrome/Safari
+     with OS dark mode) can render the native input background as black despite
+     the background color set above. */
+  color-scheme: light;
 }
 
 .buttonGroup {
@@ -104,6 +108,15 @@
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
+}
+
+.programToggleBtnActive {
+  background-color: #e35d5d;
+  color: #ffffff;
+}
+
+.programToggleBtnActive:hover:not(:disabled) {
+  background-color: #c94848;
 }
 
 .endProgramConfirmBtn {

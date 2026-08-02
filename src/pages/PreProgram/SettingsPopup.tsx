@@ -5,12 +5,36 @@ import React, { useEffect, useState } from "react";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../../firebase";
 import { endRegistration } from "../../services/programState";
+import SendIcon from "@mui/icons-material/Send";
+import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
+
+type ConfirmAction = "start" | "finalize" | "unfinalize" | "endProgram" | null;
+
 interface SettingsPopupProps {
   isOpened: boolean;
   close: () => void;
   program: ProgramState | null;
   setProgram: React.Dispatch<React.SetStateAction<ProgramState | null>>;
   onThresholdChange?: (newThreshold: number) => Promise<void>;
+
+  // Program lifecycle controls (Start/End Program, Lock Matches), moved in
+  // from the Matching page's main panel. The underlying state/handlers still
+  // live in PreProgram.tsx since they touch match data owned by that page.
+  programStateLoading: boolean;
+  startingProgram: boolean;
+  finalizing: boolean;
+  endingProgram: boolean;
+  confirmAction: ConfirmAction;
+  setConfirmAction: React.Dispatch<React.SetStateAction<ConfirmAction>>;
+  endConfirmText: string;
+  setEndConfirmText: React.Dispatch<React.SetStateAction<string>>;
+  endProgramError: string | null;
+  setEndProgramError: React.Dispatch<React.SetStateAction<string | null>>;
+  onStartProgram: () => Promise<void>;
+  onFinalizeMatches: () => Promise<void>;
+  onUnfinalizeMatches: () => Promise<void>;
+  onEndProgram: () => Promise<void>;
+  onExportData: () => Promise<void>;
 }
 
 export default function SettingsPopup({
@@ -19,6 +43,21 @@ export default function SettingsPopup({
   program,
   setProgram,
   onThresholdChange,
+  programStateLoading,
+  startingProgram,
+  finalizing,
+  endingProgram,
+  confirmAction,
+  setConfirmAction,
+  endConfirmText,
+  setEndConfirmText,
+  endProgramError,
+  setEndProgramError,
+  onStartProgram,
+  onFinalizeMatches,
+  onUnfinalizeMatches,
+  onEndProgram,
+  onExportData,
 }: SettingsPopupProps) {
   const [numWeeks, setNumWeeks] = useState(program?.numWeeks ?? 1);
   const [maxParticipants, setMaxParticipants] = useState(
@@ -67,6 +106,23 @@ export default function SettingsPopup({
   // Editable only during the registration "edit period": program not
   // running, and registration not yet reopened to the public.
   const inEditPeriod = !program?.started && !program?.accepting_registrations;
+
+  const programStarted = Boolean(program?.started);
+  const matchesFinalized = Boolean(program?.matches_final);
+
+  const handleProgramToggleClick = () => {
+    if (programStarted) {
+      setEndConfirmText("");
+      setEndProgramError(null);
+      setConfirmAction("endProgram");
+    } else {
+      setConfirmAction("start");
+    }
+  };
+
+  const handleLockMatchesClick = () => {
+    setConfirmAction(matchesFinalized ? "unfinalize" : "finalize");
+  };
 
   const handleEndRegistration = async () => {
     if (!program || !inEditPeriod) return;
@@ -134,6 +190,37 @@ export default function SettingsPopup({
     >
       <div className={styles.settingsContainer}>
         <h3>Program Settings</h3>
+
+        <div className={styles.settingsRow}>
+          <button
+            onClick={handleProgramToggleClick}
+            className={`${styles.adminBtn} ${programStarted ? styles.programToggleBtnActive : ""}`}
+            disabled={programStateLoading || startingProgram || endingProgram}
+          >
+            <SendIcon className={styles.icon} />
+            {programStarted
+              ? endingProgram
+                ? "Ending..."
+                : "End Program"
+              : startingProgram
+                ? "Starting..."
+                : "Start Program"}
+          </button>
+          <button
+            onClick={handleLockMatchesClick}
+            className={styles.adminBtn}
+            disabled={programStateLoading || finalizing}
+          >
+            <LockOutlinedIcon className={styles.icon} />
+            {matchesFinalized
+              ? finalizing
+                ? "Unlocking..."
+                : "Matches Locked"
+              : finalizing
+                ? "Locking..."
+                : "Lock In All Matches"}
+          </button>
+        </div>
 
         <div className={styles.settingsRow}>
           <p>Number of weeks: </p>
@@ -263,6 +350,122 @@ export default function SettingsPopup({
       <button onClick={close} className={styles.close}>
         Close
       </button>
+
+      {/* ── Confirm overlay (start / finalize / unfinalize / endProgram) — stacks on top of this dialog ── */}
+      {confirmAction && (
+        <div className={styles.confirmOverlay}>
+          <div className={styles.confirmCard}>
+            {(confirmAction === "start" ||
+              confirmAction === "finalize" ||
+              confirmAction === "unfinalize") && (
+              <>
+                <h3 className={styles.confirmTitle}>
+                  {confirmAction === "start"
+                    ? "Starting the Program"
+                    : confirmAction === "finalize"
+                      ? "Finalizing..."
+                      : "Unlock Matches"}
+                </h3>
+                <p className={styles.confirmText}>
+                  {confirmAction === "start"
+                    ? "Are you sure you want to start the program?"
+                    : confirmAction === "finalize"
+                      ? "Are you sure you want to lock all matches?"
+                      : "Are you sure you want to unlock all matches? Participants will no longer be able to view finalized match details until matches are locked again."}
+                </p>
+                <div className={styles.confirmActions}>
+                  <button
+                    className={styles.cancelButton}
+                    onClick={() => setConfirmAction(null)}
+                    disabled={startingProgram || finalizing}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className={styles.confirmButton}
+                    onClick={
+                      confirmAction === "start"
+                        ? onStartProgram
+                        : confirmAction === "finalize"
+                          ? onFinalizeMatches
+                          : onUnfinalizeMatches
+                    }
+                    disabled={startingProgram || finalizing}
+                  >
+                    Yes, I'm sure
+                  </button>
+                </div>
+              </>
+            )}
+
+            {confirmAction === "endProgram" && (
+              <>
+                <h3 className={styles.confirmTitle}>End Program</h3>
+                <p className={styles.confirmText}>
+                  This will permanently delete all participants, logs, weeks,
+                  and matches, and reset the program config. This cannot be
+                  undone.
+                </p>
+                <p className={styles.confirmText}>
+                  We recommend exporting your data first.
+                </p>
+                <div
+                  className={styles.confirmActions}
+                  style={{ marginBottom: 14 }}
+                >
+                  <button
+                    className={styles.exportBtn}
+                    onClick={onExportData}
+                    disabled={endingProgram}
+                  >
+                    Export Data
+                  </button>
+                </div>
+                <p className={styles.confirmText} style={{ marginBottom: 8 }}>
+                  Type <strong>confirm</strong> to proceed:
+                </p>
+                <input
+                  type="text"
+                  value={endConfirmText}
+                  onChange={(e) => setEndConfirmText(e.target.value)}
+                  placeholder="confirm"
+                  className={styles.endConfirmInput}
+                  disabled={endingProgram}
+                />
+                {endProgramError && (
+                  <div className={styles.stateError}>{endProgramError}</div>
+                )}
+                <div
+                  className={styles.confirmActions}
+                  style={{ marginTop: 16 }}
+                >
+                  <button
+                    className={styles.cancelButton}
+                    onClick={() => {
+                      setConfirmAction(null);
+                      setEndConfirmText("");
+                      setEndProgramError(null);
+                    }}
+                    disabled={endingProgram}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className={styles.endProgramConfirmBtn}
+                    onClick={onEndProgram}
+                    disabled={
+                      endingProgram ||
+                      endConfirmText.toLowerCase() !== "confirm"
+                    }
+                  >
+                    {endingProgram ? "Ending..." : "End Program"}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </Dialog>
   );
 }

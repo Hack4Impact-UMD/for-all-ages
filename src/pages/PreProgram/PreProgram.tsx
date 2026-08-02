@@ -5,8 +5,6 @@ import SearchIcon from "@mui/icons-material/Search";
 import FilterListIcon from "@mui/icons-material/FilterList";
 import SettingsIcon from "@mui/icons-material/Settings";
 import AutorenewIcon from "@mui/icons-material/Autorenew";
-import SendIcon from "@mui/icons-material/Send";
-import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 import { auth, db, getUser, matchAll } from "../../firebase";
 import {
   collection,
@@ -866,7 +864,6 @@ const PreProgram = () => {
   }, [statusFilterOpen]);
 
   // global bools for program state
-  const programStarted = programState?.started ?? false;
   const matchesFinalized = programState?.matches_final ?? false;
 
   return (
@@ -884,34 +881,6 @@ const PreProgram = () => {
         </div>
 
         <div className={styles.buttonGroup}>
-          <button
-            onClick={() => setConfirmAction("start")}
-            className={styles.adminBtn}
-            disabled={programStateLoading || startingProgram || programStarted}
-          >
-            <SendIcon className={styles.icon} />
-            {programStarted
-              ? "Program Started"
-              : startingProgram
-                ? "Starting..."
-                : "Start Program"}
-          </button>
-          <button
-            onClick={() =>
-              setConfirmAction(matchesFinalized ? "unfinalize" : "finalize")
-            }
-            className={styles.adminBtn}
-            disabled={programStateLoading || finalizing}
-          >
-            <LockOutlinedIcon className={styles.icon} />
-            {matchesFinalized
-              ? finalizing
-                ? "Unlocking..."
-                : "Matches Locked"
-              : finalizing
-                ? "Locking..."
-                : "Lock In All Matches"}
-          </button>
           <button
             onClick={() => setSettingsPopup(true)}
             className={styles.adminBtn}
@@ -943,140 +912,11 @@ const PreProgram = () => {
           <button className={styles.exportBtn} onClick={handleExportData}>
             Export Data
           </button>
-          <button
-            className={styles.endProgramBtn}
-            onClick={() => {
-              setEndConfirmText("");
-              setEndProgramError(null);
-              setConfirmAction("endProgram");
-            }}
-          >
-            End Program
-          </button>
         </div>
         {programStateError && (
           <div className={styles.stateError}>{programStateError}</div>
         )}
       </div>
-
-      {/* ── Confirm overlay (start / finalize / endProgram) ── */}
-      {confirmAction && (
-        <div className={styles.confirmOverlay}>
-          <div className={styles.confirmCard}>
-            {/* ── Start / Finalize / Unlock dialogs ── */}
-            {(confirmAction === "start" ||
-              confirmAction === "finalize" ||
-              confirmAction === "unfinalize") && (
-              <>
-                <h3 className={styles.confirmTitle}>
-                  {confirmAction === "start"
-                    ? "Starting the Program"
-                    : confirmAction === "finalize"
-                      ? "Finalizing..."
-                      : "Unlock Matches"}
-                </h3>
-                <p className={styles.confirmText}>
-                  {confirmAction === "start"
-                    ? "Are you sure you want to start the program?"
-                    : confirmAction === "finalize"
-                      ? "Are you sure you want to lock all matches?"
-                      : "Are you sure you want to unlock all matches? Participants will no longer be able to view finalized match details until matches are locked again."}
-                </p>
-                <div className={styles.confirmActions}>
-                  <button
-                    className={styles.cancelButton}
-                    onClick={() => setConfirmAction(null)}
-                    disabled={startingProgram || finalizing}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    className={styles.confirmButton}
-                    onClick={
-                      confirmAction === "start"
-                        ? handleStartProgram
-                        : confirmAction === "finalize"
-                          ? handleFinalizeMatches
-                          : handleUnfinalizeMatches
-                    }
-                    disabled={startingProgram || finalizing}
-                  >
-                    Yes, I'm sure
-                  </button>
-                </div>
-              </>
-            )}
-
-            {/* ── End Program dialog ── */}
-            {confirmAction === "endProgram" && (
-              <>
-                <h3 className={styles.confirmTitle}>End Program</h3>
-                <p className={styles.confirmText}>
-                  This will permanently delete all participants, logs, weeks,
-                  and matches, and reset the program config. This cannot be
-                  undone.
-                </p>
-                <p className={styles.confirmText}>
-                  We recommend exporting your data first.
-                </p>
-                <div
-                  className={styles.confirmActions}
-                  style={{ marginBottom: 14 }}
-                >
-                  <button
-                    className={styles.exportBtn}
-                    onClick={handleExportData}
-                    disabled={endingProgram}
-                  >
-                    Export Data
-                  </button>
-                </div>
-                <p className={styles.confirmText} style={{ marginBottom: 8 }}>
-                  Type <strong>confirm</strong> to proceed:
-                </p>
-                <input
-                  type="text"
-                  value={endConfirmText}
-                  onChange={(e) => setEndConfirmText(e.target.value)}
-                  placeholder="confirm"
-                  className={styles.endConfirmInput}
-                  disabled={endingProgram}
-                />
-                {endProgramError && (
-                  <div className={styles.stateError}>{endProgramError}</div>
-                )}
-                <div
-                  className={styles.confirmActions}
-                  style={{ marginTop: 16 }}
-                >
-                  <button
-                    className={styles.cancelButton}
-                    onClick={() => {
-                      setConfirmAction(null);
-                      setEndConfirmText("");
-                      setEndProgramError(null);
-                    }}
-                    disabled={endingProgram}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    className={styles.endProgramConfirmBtn}
-                    onClick={handleEndProgram}
-                    disabled={
-                      endingProgram ||
-                      endConfirmText.toLowerCase() !== "confirm"
-                    }
-                  >
-                    {endingProgram ? "Ending..." : "End Program"}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-
       {banner && (
         <div className={`${styles.banner} ${styles[banner.type]}`}>
           {banner.message}
@@ -1244,6 +1084,21 @@ const PreProgram = () => {
         program={programState}
         setProgram={setProgramState}
         onThresholdChange={updateMatchStatuses}
+        programStateLoading={programStateLoading}
+        startingProgram={startingProgram}
+        finalizing={finalizing}
+        endingProgram={endingProgram}
+        confirmAction={confirmAction}
+        setConfirmAction={setConfirmAction}
+        endConfirmText={endConfirmText}
+        setEndConfirmText={setEndConfirmText}
+        endProgramError={endProgramError}
+        setEndProgramError={setEndProgramError}
+        onStartProgram={handleStartProgram}
+        onFinalizeMatches={handleFinalizeMatches}
+        onUnfinalizeMatches={handleUnfinalizeMatches}
+        onEndProgram={handleEndProgram}
+        onExportData={handleExportData}
       ></SettingsPopup>
 
       {selectedUser ? (
