@@ -529,9 +529,13 @@
   align-items: center;
 }
 
+.settingsButtonRow {
+  gap: 12px;
+}
+
 .dialogPaper {
   width: 50vw;
-  height: 85vh;
+  height: 90vh;
   padding: 20px;
 }
 
@@ -545,6 +549,10 @@
 .warning {
   color: red;
   text-align: center;
+  width: 100%;
+  height: auto;
+  box-sizing: border-box;
+  padding: 0 8px;
 }
 
 .close {
