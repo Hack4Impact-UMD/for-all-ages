@@ -21,6 +21,7 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import {
+  endProgram,
   finalizeMatches,
   startProgram,
   subscribeToProgramState,
@@ -698,15 +699,10 @@ const PreProgram = () => {
           week: 0,
         });
         await new Promise((res) => setTimeout(res, 800)); // simulate async delay
+        await endProgram(); // sets started: false, accepting_registrations: false — begins the registration edit period
         setMatches([]);
         setConfirmAction(null);
         setEndConfirmText("");
-        if (programState?.accepting_registrations !== undefined) {
-          const configRef = doc(db, "config", "programState");
-          await updateDoc(configRef, {
-            accepting_registrations: !programState.accepting_registrations,
-          });
-        }
         return;
       }
 
@@ -725,6 +721,7 @@ const PreProgram = () => {
         {
           matches_final: false,
           started: false,
+          accepting_registrations: false, // begins the registration edit period
           updatedAt: serverTimestamp(),
           week: 0,
           currentParticipants: 0,

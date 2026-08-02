@@ -26,7 +26,7 @@ import type { EditorQuestion, EditorSection } from "./useFormEditor";
 import { useFormEditor } from "./useFormEditor";
 import styles from "./FormBuilder.module.css";
 import RegistrationNew from "../Registration/RegistrationNew";
-import { getRegistrationStatus } from "../../services/programState";
+import { isRegistrationFormEditable } from "../../services/programState";
 
 // labels for the selection
 
@@ -443,7 +443,9 @@ const FormBuilder: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [banner, setBanner] = useState<BannerState | null>(null);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
-  const [registrationStatus, setRegistrationStatus] = useState<boolean | undefined>(undefined);
+  // Locked whenever we're outside the registration edit period (program
+  // running, or registration already locked/open to the public).
+  const [formLocked, setFormLocked] = useState<boolean | undefined>(undefined);
 
   // Which question id is currently being edited inline (null = none)
   const [editingQuestionId, setEditingQuestionId] = useState<string | null>(
@@ -461,25 +463,25 @@ const FormBuilder: React.FC = () => {
     }
   }, [sections.length, activeSectionIndex]);
 
-  // Check registration status on mount
+  // Check whether the edit period is active on mount
   useEffect(() => {
-    const fetchRegistrationStatus = async () => {
-      let regStat;
+    const fetchFormLocked = async () => {
+      let locked;
       try {
-        regStat = await getRegistrationStatus();
+        locked = !(await isRegistrationFormEditable());
       } catch (err) {
         console.error("Failed to fetch registration status: " + err);
-        regStat = true;
+        locked = true;
       } finally {
-        if(regStat !== undefined){
-          setRegistrationStatus(regStat);
-          if(regStat){
+        if(locked !== undefined){
+          setFormLocked(locked);
+          if(locked){
             setIsPreviewMode(true);
           }
         }
       }
     };
-    fetchRegistrationStatus();
+    fetchFormLocked();
   }, [])
 
   // Load form from Firestore on mount
@@ -545,11 +547,12 @@ const FormBuilder: React.FC = () => {
       setBanner(null);
       const formToSave = getForm();
 
-      const programStatus = await getRegistrationStatus();
-      // If the program is currently accepting registrations, block edits to the form
-      if(programStatus){
+      const editable = await isRegistrationFormEditable();
+      // Outside the edit period (program running, or registration already
+      // locked/open to the public), block edits to the form
+      if(!editable){
         setIsPreviewMode(true);
-        setRegistrationStatus(true);
+        setFormLocked(true);
         setBanner({
           type: "error",
           message:
@@ -708,7 +711,7 @@ const FormBuilder: React.FC = () => {
                   <button
                     type="button"
                     className={styles.tabCircleAdd}
-                    disabled={registrationStatus}
+                    disabled={formLocked}
                     onClick={() => {
                       addSection();
                       setActiveSectionIndex(sections.length);
@@ -738,7 +741,7 @@ const FormBuilder: React.FC = () => {
                   type="button"
                   className={`${styles.previewModeBtn} ${styles.titleRowBtn}`}
                   onClick={() => setIsPreviewMode(false)}
-                  disabled={registrationStatus}
+                  disabled={formLocked}
                 >
                   <span
                     className={styles.previewModeBtnIcon}
