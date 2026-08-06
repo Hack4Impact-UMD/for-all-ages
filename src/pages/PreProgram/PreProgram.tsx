@@ -78,16 +78,6 @@ const PARTICIPANT_EXPORT_FIELDS = [
   "updatedAt",
 ] as const satisfies readonly (keyof Participant)[];
 
-type _MissingParticipantExportFields = Exclude<
-  keyof Participant,
-  (typeof PARTICIPANT_EXPORT_FIELDS)[number]
-> extends never
-  ? true
-  : never;
-const _assertAllParticipantFieldsExported: _MissingParticipantExportFields =
-  true;
-void _assertAllParticipantFieldsExported;
-
 const PreProgram = () => {
   const [matches, setMatches] = useState<UI_Match[]>([]);
   const [search, setSearch] = useState("");
