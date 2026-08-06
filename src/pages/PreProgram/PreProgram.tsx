@@ -39,7 +39,7 @@ import SettingsPopup from "./SettingsPopup";
 import ParticipantInfoPopup from "../Dashboard/components/ParticipantInfoPopup/ParticipantInfoPopup";
 
 const DEFAULT_APPROVAL_THRESHOLD = 0.8; // 80%
-const DEV_MODE = true; // ← flip to false before deploying to production
+const DEV_MODE = false; // ← flip to false before deploying to production
 
 // Collections to wipe on End Program
 const COLLECTIONS_TO_CLEAR = [
