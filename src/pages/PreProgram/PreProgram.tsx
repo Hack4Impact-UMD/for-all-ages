@@ -19,7 +19,6 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import {
-  endProgram,
   finalizeMatches,
   startProgram,
   subscribeToProgramState,
@@ -697,7 +696,6 @@ const PreProgram = () => {
           week: 0,
         });
         await new Promise((res) => setTimeout(res, 800)); // simulate async delay
-        await endProgram(); // sets started: false, accepting_registrations: false — begins the registration edit period
         setMatches([]);
         setConfirmAction(null);
         setEndConfirmText("");
