@@ -197,7 +197,10 @@ export default function SettingsPopup({
             value={numWeeks}
             disabled={program?.started}
             onChange={(e) => {
-              setNumWeeks(Number(e.target.value));
+              const value = Number(e.target.value);
+              if (e.target.value !== "" && Number.isFinite(value)) {
+                setNumWeeks(value);
+              }
             }}
           ></input>
         </div>
@@ -217,7 +220,10 @@ export default function SettingsPopup({
             value={maxParticipants}
             disabled={program?.started || program?.matches_final}
             onChange={(e) => {
-              setMaxParticipants(Number(e.target.value));
+              const value = Number(e.target.value);
+              if (e.target.value !== "" && Number.isFinite(value)) {
+                setMaxParticipants(value);
+              }
             }}
           ></input>
         </div>
@@ -232,7 +238,10 @@ export default function SettingsPopup({
             value={autoApprovalThreshold}
             disabled={program?.started || program?.matches_final}
             onChange={(e) => {
-              setAutoApprovalThreshold(Number(e.target.value));
+              const value = Number(e.target.value);
+              if (e.target.value !== "" && Number.isFinite(value)) {
+                setAutoApprovalThreshold(value);
+              }
             }}
           />
         </div>
