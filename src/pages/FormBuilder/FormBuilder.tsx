@@ -26,7 +26,7 @@ import type { EditorQuestion, EditorSection } from "./useFormEditor";
 import { useFormEditor } from "./useFormEditor";
 import styles from "./FormBuilder.module.css";
 import RegistrationNew from "../Registration/RegistrationNew";
-import { isRegistrationFormEditable } from "../../services/programState";
+import { subscribeToProgramState } from "../../services/programState";
 
 // labels for the selection
 
@@ -442,10 +442,12 @@ const FormBuilder: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [banner, setBanner] = useState<BannerState | null>(null);
-  const [isPreviewMode, setIsPreviewMode] = useState(false);
+  // Fail closed: assume preview-only/locked until the live program state
+  // tells us otherwise, so controls never open up while the check is pending.
+  const [isPreviewMode, setIsPreviewMode] = useState(true);
   // Locked whenever we're outside the registration edit period (program
   // running, or registration already locked/open to the public).
-  const [formLocked, setFormLocked] = useState<boolean | undefined>(undefined);
+  const [formLocked, setFormLocked] = useState<boolean>(true);
 
   // Which question id is currently being edited inline (null = none)
   const [editingQuestionId, setEditingQuestionId] = useState<string | null>(
@@ -463,25 +465,25 @@ const FormBuilder: React.FC = () => {
     }
   }, [sections.length, activeSectionIndex]);
 
-  // Check whether the edit period is active on mount
+  // Subscribe to live program state so the lock/preview state updates
+  // whenever registration status changes, instead of only checking once on
+  // mount. Stays fail-closed (locked/preview) on missing data or errors.
   useEffect(() => {
-    const fetchFormLocked = async () => {
-      let locked;
-      try {
-        locked = !(await isRegistrationFormEditable());
-      } catch (err) {
-        console.error("Failed to fetch registration status: " + err);
-        locked = true;
-      } finally {
-        if(locked !== undefined){
-          setFormLocked(locked);
-          if(locked){
-            setIsPreviewMode(true);
-          }
+    const unsubscribe = subscribeToProgramState(
+      (state) => {
+        const locked = !state || !!state.started || !!state.accepting_registrations;
+        setFormLocked(locked);
+        if (locked) {
+          setIsPreviewMode(true);
         }
-      }
-    };
-    fetchFormLocked();
+      },
+      (err) => {
+        console.error("Failed to subscribe to registration status: " + err);
+        setFormLocked(true);
+        setIsPreviewMode(true);
+      },
+    );
+    return unsubscribe;
   }, [])
 
   // Load form from Firestore on mount
