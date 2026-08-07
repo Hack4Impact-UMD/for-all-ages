@@ -243,8 +243,7 @@ const BASIC_FIELD_KEYS = {
   displayName: "displayName",
   email: "email",
   phoneNumber: "phoneNumber",
-  address: "address",
-  userType: "user_type",
+  address: "address"
 } as const;
 
 const omitUndefined = <T extends Record<string, unknown>>(value: T): Partial<T> => {
@@ -356,19 +355,13 @@ const RegistrationNew = ({
     return question.title.toLowerCase().includes("email");
   };
 
-  const isUserTypeQuestion = (question: Question): boolean => {
-    // Use strict matching based on lockedKey to avoid false positives
-    return question.lockedKey === "user type";
-  };
-
   const isBasicInfoQuestion = (question: Question): boolean => {
     if (question.type === "address" || question.type === "phoneNumber") {
       return true;
     }
     if (
       isDisplayNameQuestion(question) ||
-      isEmailQuestion(question) ||
-      isUserTypeQuestion(question)
+      isEmailQuestion(question)
     ) {
       return true;
     }
@@ -397,17 +390,6 @@ const RegistrationNew = ({
     const m = today.getMonth() - birth.getMonth();
     if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
     return age;
-  };
-
-  const normalizeUserType = (value?: string): "student" | "adult" => {
-    const normalized = value?.trim().toLowerCase() ?? "";
-    if (normalized === "adult") {
-      return "adult";
-    } else if (normalized === "student") {
-      return "student";
-    } else {
-      throw new Error('Invalid user_type: must be \'student\' or \'adult\'');
-    }
   };
 
   const getNumericQuestionKeys = (formConfig: Form): Map<string, string> => {
@@ -447,8 +429,7 @@ const RegistrationNew = ({
     const values: Record<string, string> = {
       [BASIC_FIELD_KEYS.displayName]: "",
       [BASIC_FIELD_KEYS.email]: "",
-      [BASIC_FIELD_KEYS.phoneNumber]: "",
-      [BASIC_FIELD_KEYS.userType]: "",
+      [BASIC_FIELD_KEYS.phoneNumber]: ""
     };
 
     getQuestionEntries(formConfig).forEach(({ question, fieldName }) => {
@@ -458,12 +439,6 @@ const RegistrationNew = ({
         values[BASIC_FIELD_KEYS.displayName] = (formData.get(fieldName) as string) || "";
       } else if (isEmailQuestion(question)) {
         values[BASIC_FIELD_KEYS.email] = (formData.get(fieldName) as string) || "";
-      } else if (isUserTypeQuestion(question)) {
-        // Only assign user_type if a non-empty value is found (prevents overwrite by empty matches)
-        const userTypeValue = (formData.get(fieldName) as string)?.trim();
-        if (userTypeValue) {
-          values[BASIC_FIELD_KEYS.userType] = userTypeValue;
-        }
       }
     });
 
@@ -518,7 +493,6 @@ const RegistrationNew = ({
       email: (isManualEntry ? undefined : (user?.email || formEmail)) || undefined,
       phoneNumber: basicByKey[BASIC_FIELD_KEYS.phoneNumber] || undefined,
       address: parseAddress(formData, formConfig),
-      user_type: normalizeUserType(basicByKey[BASIC_FIELD_KEYS.userType]),
       role: "Participant",
       hasAuthAccount: !isManualEntry,
       isManualEntry,
