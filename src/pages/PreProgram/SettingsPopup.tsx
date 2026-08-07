@@ -75,6 +75,9 @@ export default function SettingsPopup({
     setAutoApprovalThreshold(threshold);
     setOriginalThreshold(threshold);
     setChanged(false);
+    setConfirmAction(null);
+    setConfirmingEndRegistration(false);
+    setEndRegistrationError(null);
   }, [program, isOpened]);
 
   useEffect(() => {
