@@ -81,6 +81,12 @@ export default function Navbar({ navItems }: NavbarProps) {
   const registrationClosed = Boolean(programState?.matches_final);
   const programStarted = Boolean(programState?.started);
 
+  // The registration form is only editable during the "edit period" —
+  // after End Program and before End Registration.
+  const registrationFormEditable = Boolean(
+    programState && !programState.started && !programState.accepting_registrations,
+  );
+
   return (
     <div className={styles.bar}>
       <div className={styles.logoContainer}>
@@ -98,13 +104,24 @@ export default function Navbar({ navItems }: NavbarProps) {
               location.pathname === "/admin/rematching";
           }
 
+          const isRegistrationForm = item.path === "/admin/form-builder";
+          const locked =
+            isRegistrationForm && isAdmin && !registrationFormEditable;
+
           return (
             <Link
               key={item.label}
               to={item.path}
-              className={`${styles.link} ${isActive ? styles.active : ""}`}
+              className={`${styles.link} ${isActive ? styles.active : ""} ${locked ? styles.linkLocked : ""}`}
+              title={locked ? "Locked outside the registration edit period" : undefined}
             >
               {item.label}
+              {locked && (
+                <span aria-hidden="true" className={styles.linkLockIcon}>
+                  {" "}
+                  🔒
+                </span>
+              )}
             </Link>
           );
         })}

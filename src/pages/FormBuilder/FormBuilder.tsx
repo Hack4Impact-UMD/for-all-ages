@@ -26,6 +26,7 @@ import type { EditorQuestion, EditorSection } from "./useFormEditor";
 import { useFormEditor } from "./useFormEditor";
 import styles from "./FormBuilder.module.css";
 import RegistrationNew from "../Registration/RegistrationNew";
+import { subscribeToProgramState } from "../../services/programState";
 
 // labels for the selection
 
@@ -441,7 +442,12 @@ const FormBuilder: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [banner, setBanner] = useState<BannerState | null>(null);
-  const [isPreviewMode, setIsPreviewMode] = useState(false);
+  // Fail closed: assume preview-only/locked until the live program state
+  // tells us otherwise, so controls never open up while the check is pending.
+  const [isPreviewMode, setIsPreviewMode] = useState(true);
+  // Locked whenever we're outside the registration edit period (program
+  // running, or registration already locked/open to the public).
+  const [formLocked, setFormLocked] = useState<boolean>(true);
 
   // Which question id is currently being edited inline (null = none)
   const [editingQuestionId, setEditingQuestionId] = useState<string | null>(
@@ -458,6 +464,27 @@ const FormBuilder: React.FC = () => {
       setActiveSectionIndex(sections.length - 1);
     }
   }, [sections.length, activeSectionIndex]);
+
+  // Subscribe to live program state so the lock/preview state updates
+  // whenever registration status changes, instead of only checking once on
+  // mount. Stays fail-closed (locked/preview) on missing data or errors.
+  useEffect(() => {
+    const unsubscribe = subscribeToProgramState(
+      (state) => {
+        const locked = !state || !!state.started || !!state.accepting_registrations;
+        setFormLocked(locked);
+        if (locked) {
+          setIsPreviewMode(true);
+        }
+      },
+      (err) => {
+        console.error("Failed to subscribe to registration status: " + err);
+        setFormLocked(true);
+        setIsPreviewMode(true);
+      },
+    );
+    return unsubscribe;
+  }, [])
 
   // Load form from Firestore on mount
   useEffect(() => {
@@ -521,6 +548,20 @@ const FormBuilder: React.FC = () => {
       setSaving(true);
       setBanner(null);
       const formToSave = getForm();
+
+      const editable = await isRegistrationFormEditable();
+      // Outside the edit period (program running, or registration already
+      // locked/open to the public), block edits to the form
+      if(!editable){
+        setIsPreviewMode(true);
+        setFormLocked(true);
+        setBanner({
+          type: "error",
+          message:
+            "You may not edit the registration form whenever registration is active."
+        })
+        return;
+      }
 
       if (!validateForm(formToSave)) {
         setBanner({
@@ -672,6 +713,7 @@ const FormBuilder: React.FC = () => {
                   <button
                     type="button"
                     className={styles.tabCircleAdd}
+                    disabled={formLocked}
                     onClick={() => {
                       addSection();
                       setActiveSectionIndex(sections.length);
@@ -701,6 +743,7 @@ const FormBuilder: React.FC = () => {
                   type="button"
                   className={`${styles.previewModeBtn} ${styles.titleRowBtn}`}
                   onClick={() => setIsPreviewMode(false)}
+                  disabled={formLocked}
                 >
                   <span
                     className={styles.previewModeBtnIcon}
