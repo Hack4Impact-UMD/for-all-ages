@@ -367,7 +367,7 @@ const Profile = () => {
 
         const profile: UserProfile = {
           uid: fbUser.uid,
-          name: data.displayName ?? data.name ?? fbUser.displayName ?? "",
+          name: data.displayName ?? fbUser.displayName ?? "",
           email: data.email ?? fbUser.email ?? "",
           pronouns,
           phone: formatPhone(data.phoneNumber ?? ""),
@@ -379,8 +379,8 @@ const Profile = () => {
           addressPostalCode: addr.postalCode ?? "",
           addressCountry: addr.country ?? "",
           interests: "",
-          startDate: data.startDate ?? "",
-          endDate: data.endDate ?? "",
+          startDate: "",
+          endDate: "",
           status,
           matchName,
           matchInterests: "",

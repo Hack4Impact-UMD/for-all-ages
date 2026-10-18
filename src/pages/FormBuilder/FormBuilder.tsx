@@ -26,7 +26,7 @@ import type { EditorQuestion, EditorSection } from "./useFormEditor";
 import { useFormEditor } from "./useFormEditor";
 import styles from "./FormBuilder.module.css";
 import RegistrationNew from "../Registration/RegistrationNew";
-import { subscribeToProgramState } from "../../services/programState";
+import { isRegistrationFormEditable, subscribeToProgramState } from "../../services/programState";
 
 // labels for the selection
 
