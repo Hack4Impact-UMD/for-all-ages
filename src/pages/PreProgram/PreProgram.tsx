@@ -706,7 +706,16 @@ const PreProgram = () => {
       for (const colName of COLLECTIONS_TO_CLEAR) {
         const snap = await getDocs(collection(db, colName));
         const batch = writeBatch(db);
-        snap.docs.forEach((d) => batch.delete(d.ref));
+
+        snap.docs.forEach((d) => {
+          // Preserve Admin accounts in the participants collection
+          if (colName === "participants" && d.data().role === "Admin") {
+            return;
+          }
+
+          batch.delete(d.ref);
+        });
+
         await batch.commit();
       }
 
