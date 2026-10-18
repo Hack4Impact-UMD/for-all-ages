@@ -112,6 +112,14 @@
   color: white;
 }
 
+.linkLocked {
+  opacity: 0.6;
+}
+
+.linkLockIcon {
+  font-size: 0.85em;
+}
+
 
 /* BUTTON */
 .button {
