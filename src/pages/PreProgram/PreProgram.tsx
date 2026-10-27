@@ -48,6 +48,14 @@ const COLLECTIONS_TO_CLEAR = [
   "waitlist",
 ];
 
+const ADMIN_ROLES = ["admin", "subadmin", "sub-admin"];
+
+// True for Admin/Subadmin accounts, including participants promoted to Subadmin.
+function isAdminProfile(data: { type?: unknown; role?: unknown }): boolean {
+  const role = typeof data.role === "string" ? data.role.toLowerCase() : "";
+  return data.type === "Admin" || ADMIN_ROLES.includes(role);
+}
+
 // Every field of the Participant type, in CSV column order. This drives the
 // "Users" export so a column always appears even when every document happens
 // to omit that field. The type check below fails to compile if a field is
@@ -706,7 +714,12 @@ const PreProgram = () => {
       for (const colName of COLLECTIONS_TO_CLEAR) {
         const snap = await getDocs(collection(db, colName));
         const batch = writeBatch(db);
-        snap.docs.forEach((d) => batch.delete(d.ref));
+        snap.docs.forEach((d) => {
+          // Admin and sub-admin profiles also live in "participants"; keep them
+          // so admins aren't locked out of the app after the reset.
+          if (colName === "participants" && isAdminProfile(d.data())) return;
+          batch.delete(d.ref);
+        });
         await batch.commit();
       }
 
