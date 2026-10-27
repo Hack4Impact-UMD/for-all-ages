@@ -8,7 +8,10 @@ import { MatchingService } from "./matching/src/services/matchingService";
 
 import { upsertFreeResponse } from "./matching/src/services/upsertUser.js";
 import computeMatchScoreService from "./matching/src/services/calculateMatchScore.js";
-import { deleteUserFromPinecone } from "./matching/src/services/deleteUser.js";
+import {
+  deleteUserFromPinecone,
+  deleteAllUsersFromPinecone,
+} from "./matching/src/services/deleteUser.js";
 
 import { Readable } from "stream";
 
@@ -380,6 +383,34 @@ export const deleteUser = onCall(async (request) => {
       "internal",
       `Partial deletion failure: ${errors.join("; ")}`,
     );
+  }
+
+  return { success: true };
+});
+
+// Clears every participant vector from Pinecone. Called by End Program so the
+// next cohort's matching run doesn't return last cohort's (deleted) users.
+export const clearMatchingIndex = onCall(async (request) => {
+  const callerUserId = request.auth?.uid;
+  if (!callerUserId) {
+    throw new HttpsError("unauthenticated", "Sign in required.");
+  }
+
+  const callerDoc = await admin
+    .firestore()
+    .collection(PARTICIPANTS)
+    .doc(callerUserId)
+    .get();
+  const callerRole = callerDoc.data()?.role;
+  if (typeof callerRole !== "string" || callerRole.toLowerCase() !== "admin") {
+    throw new HttpsError("permission-denied", "Admins only.");
+  }
+
+  try {
+    await deleteAllUsersFromPinecone();
+  } catch (err) {
+    console.error("Error clearMatchingIndex:", err);
+    throw new HttpsError("internal", `Failed to clear matching index: ${err}`);
   }
 
   return { success: true };

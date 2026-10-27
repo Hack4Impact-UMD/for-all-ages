@@ -5,7 +5,13 @@ import SearchIcon from "@mui/icons-material/Search";
 import FilterListIcon from "@mui/icons-material/FilterList";
 import SettingsIcon from "@mui/icons-material/Settings";
 import AutorenewIcon from "@mui/icons-material/Autorenew";
-import { auth, db, getUser, matchAll } from "../../firebase";
+import {
+  auth,
+  clearMatchingIndex,
+  db,
+  getUser,
+  matchAll,
+} from "../../firebase";
 import {
   collection,
   deleteDoc,
@@ -198,21 +204,41 @@ const PreProgram = () => {
     unmatchedStudents: string[],
     unmatchedSeniors: string[],
   ): Promise<UI_Match[]> => {
-    const pairRows: UI_Match[] = await Promise.all(
+    // matchAll can return IDs whose participant doc no longer exists (e.g. a
+    // stale vector in Pinecone). Skip those instead of failing the whole run.
+    const findUser = (uid: string) =>
+      getUser(uid).catch(() => {
+        console.warn(`Skipping match result for missing participant ${uid}`);
+        return null;
+      });
+
+    const approvalThreshold =
+      (programState?.autoApprovalThreshold ??
+        DEFAULT_APPROVAL_THRESHOLD * 100) / 100;
+
+    const pairRows: UI_Match[] = [];
+    // If one side of a pair is missing, the other person is still unmatched.
+    const studentIds = [...unmatchedStudents];
+    const seniorIds = [...unmatchedSeniors];
+
+    await Promise.all(
       rawMatches.map(async (m) => {
-        const u1 = await getUser(m.studentId);
-        const u2 = await getUser(m.seniorId);
+        const [u1, u2] = await Promise.all([
+          findUser(m.studentId),
+          findUser(m.seniorId),
+        ]);
+        if (!u1 || !u2) {
+          if (u1) studentIds.push(m.studentId);
+          if (u2) seniorIds.push(m.seniorId);
+          return;
+        }
 
         const pct = Math.round(m.scores.finalScore * 100);
-
-        const approvalThreshold =
-          (programState?.autoApprovalThreshold ??
-            DEFAULT_APPROVAL_THRESHOLD * 100) / 100;
 
         const status: MatchStatus =
           m.scores.finalScore >= approvalThreshold ? "Approved" : "Pending";
 
-        return {
+        pairRows.push({
           name1: u1.displayName,
           name2: u2.displayName,
           participant1_id: u1.userUid,
@@ -221,39 +247,38 @@ const PreProgram = () => {
           status,
           score: m.scores.finalScore,
           approvedBy: status === "Approved" ? "Auto-Approved" : "",
-        };
+        });
       }),
     );
 
-    const unmatchedStudentRows: UI_Match[] = await Promise.all(
-      unmatchedStudents.map(async (uid) => {
-        const u = await getUser(uid);
-        return {
-          name1: u.displayName,
-          name2: "No match yet",
-          participant1_id: u.userUid,
-          participant2_id: null,
-          confidence: undefined,
-          status: "No Match",
-          score: 0,
-        };
-      }),
-    );
+    const [students, seniors] = await Promise.all([
+      Promise.all(studentIds.map(findUser)),
+      Promise.all(seniorIds.map(findUser)),
+    ]);
 
-    const unmatchedSeniorRows: UI_Match[] = await Promise.all(
-      unmatchedSeniors.map(async (uid) => {
-        const u = await getUser(uid);
-        return {
-          name1: "No match yet",
-          name2: u.displayName,
-          participant1_id: null,
-          participant2_id: u.userUid,
-          confidence: undefined,
-          status: "No Match",
-          score: 0,
-        };
-      }),
-    );
+    const unmatchedStudentRows: UI_Match[] = students
+      .filter((u) => u != null)
+      .map((u) => ({
+        name1: u.displayName,
+        name2: "No match yet",
+        participant1_id: u.userUid,
+        participant2_id: null,
+        confidence: undefined,
+        status: "No Match",
+        score: 0,
+      }));
+
+    const unmatchedSeniorRows: UI_Match[] = seniors
+      .filter((u) => u != null)
+      .map((u) => ({
+        name1: "No match yet",
+        name2: u.displayName,
+        participant1_id: null,
+        participant2_id: u.userUid,
+        confidence: undefined,
+        status: "No Match",
+        score: 0,
+      }));
 
     return [...pairRows, ...unmatchedStudentRows, ...unmatchedSeniorRows];
   };
@@ -504,6 +529,10 @@ const PreProgram = () => {
       setMatches(sorted);
     } catch (err) {
       console.error("Error creating matches:", err);
+      setBanner({
+        message: "Failed to create matches. Please try again.",
+        type: "error",
+      });
     } finally {
       setMatching(false);
     }
@@ -709,6 +738,10 @@ const PreProgram = () => {
         setEndConfirmText("");
         return;
       }
+
+      // Clear last cohort's vectors first. If this fails nothing has been
+      // deleted yet, so the admin can safely retry.
+      await clearMatchingIndex();
 
       // Delete all docs in each collection (Firestore has no "delete collection" API)
       for (const colName of COLLECTIONS_TO_CLEAR) {

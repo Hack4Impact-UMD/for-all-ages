@@ -103,6 +103,12 @@ export async function deleteUser(targetUserId: string) {
   return result.data;
 }
 
+export async function clearMatchingIndex() {
+  const callable = httpsCallable(functions, "clearMatchingIndex");
+  const result = await callable();
+  return result.data;
+}
+
 export async function getUser(uid: string) {
   const userRef = doc(db, "participants", uid);
   const snapshot = await getDoc(userRef);
