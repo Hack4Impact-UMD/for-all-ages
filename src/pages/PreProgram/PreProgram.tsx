@@ -477,6 +477,10 @@ const PreProgram = () => {
         const currentStatus = data.status;
         const currentApprovedBy = data.approvedBy ?? "";
 
+        // Leave matches an admin approved by hand alone; the threshold only
+        // governs auto-approval.
+        if (currentApprovedBy && currentApprovedBy !== "Auto-Approved") return;
+
         const newStatus = similarity >= newThreshold ? "approved" : "pending";
         const shouldClearApprovedBy =
           newStatus !== "approved" && currentApprovedBy;
