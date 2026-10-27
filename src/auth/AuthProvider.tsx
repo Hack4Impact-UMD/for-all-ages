@@ -30,9 +30,7 @@ function isAdminRole(role?: string | null) {
 function isSubadminRole(role?: string | null) {
   if (!role) return false;
   const normalized = role.toLowerCase();
-  return (
-    normalized === "subadmin"
-  );
+  return normalized === "subadmin" || normalized === "sub-admin";
 }
 
 type AuthCtx = {

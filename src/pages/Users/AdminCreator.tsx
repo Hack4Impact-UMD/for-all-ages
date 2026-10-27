@@ -72,7 +72,7 @@ function composeDisplayName(doc: ParticipantDoc): string {
 }
 
 export default function AdminDashboard() {
-  const { user } = useAuth();
+  const { user, isSubadmin } = useAuth();
   const [admins, setAdmins] = useState<AdminRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -557,16 +557,21 @@ export default function AdminDashboard() {
                           data-label="Delete"
                           className={`${styles.deleteCell} ${styles.colDelete}`}
                         >
-                          <button
-                            type="button"
-                            className={styles.deleteButton}
-                            onClick={() => handleDeleteUser(admin)}
-                            disabled={deletingId === admin.id}
-                            aria-label={`Delete ${admin.name}`}
-                            title="Delete user"
-                          >
-                            <FaTrash aria-hidden />
-                          </button>
+                          {/* Sub-admins can't delete admin or sub-admin accounts */}
+                          {isSubadmin && admin.role !== "Participant" ? (
+                            <span>—</span>
+                          ) : (
+                            <button
+                              type="button"
+                              className={styles.deleteButton}
+                              onClick={() => handleDeleteUser(admin)}
+                              disabled={deletingId === admin.id}
+                              aria-label={`Delete ${admin.name}`}
+                              title="Delete user"
+                            >
+                              <FaTrash aria-hidden />
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))

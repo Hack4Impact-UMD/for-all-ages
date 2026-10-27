@@ -289,6 +289,26 @@ export const deleteUser = onCall(async (request) => {
     throw new HttpsError("permission-denied", "Admins only.");
   }
 
+  // Only full admins may delete admin or sub-admin accounts.
+  if (callerRole !== "admin") {
+    const targetSnap = await db.collection(PARTICIPANTS).doc(trimmedTargetId).get();
+    const targetData = targetSnap.data();
+    const targetRole = (
+      targetData && typeof targetData.role === "string" ? targetData.role : ""
+    ).toLowerCase();
+    if (
+      targetData?.type === "Admin" ||
+      targetRole === "admin" ||
+      targetRole === "subadmin" ||
+      targetRole === "sub-admin"
+    ) {
+      throw new HttpsError(
+        "permission-denied",
+        "Only admins can delete admin or sub-admin accounts.",
+      );
+    }
+  }
+
   const errors: string[] = [];
 
   try {

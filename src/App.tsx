@@ -154,6 +154,18 @@ function AdminGate() {
   return <Outlet />;
 }
 
+// Pages only full admins may use (program controls, matching, form editing).
+// Sub-admins are sent to the Users page instead.
+function FullAdminGate() {
+  const { isSubadmin } = useAuth();
+
+  if (isSubadmin) {
+    return <Navigate to="/admin/creator" replace />;
+  }
+
+  return <Outlet />;
+}
+
 function App() {
   return (
     <BrowserRouter>
@@ -188,13 +200,15 @@ function App() {
               path=""
               element={<Navigate to="/admin/dashboard" replace />}
             />
-            <Route path="dashboard" element={<AdminDashboard />} />
-            <Route path="recap" element={<RecapPage />} />
             <Route path="creator" element={<AdminCreator />} />
             <Route path="add-participant" element={<Registration />} />
-            <Route path="main" element={<PreProgram />} />
-            <Route path="rematching" element={<Rematching />} />
-            <Route path="form-builder" element={<FormBuilder />} />
+            <Route element={<FullAdminGate />}>
+              <Route path="dashboard" element={<AdminDashboard />} />
+              <Route path="recap" element={<RecapPage />} />
+              <Route path="main" element={<PreProgram />} />
+              <Route path="rematching" element={<Rematching />} />
+              <Route path="form-builder" element={<FormBuilder />} />
+            </Route>
           </Route>
         </Route>
 
