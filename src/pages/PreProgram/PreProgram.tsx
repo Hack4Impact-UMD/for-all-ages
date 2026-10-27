@@ -369,12 +369,11 @@ const PreProgram = () => {
       if (waitlistedIds.has(id)) return;
       const displayName =
         data.displayName ?? data.name ?? data.fullName ?? "Unnamed participant";
-      const userType = (data.user_type ?? data.userType) as
-        | "Student"
-        | "Adult"
-        | "Senior"
-        | undefined;
-      if (userType === "Student") {
+      // Registration stores lowercase "student" / "adult"; compare case-insensitively.
+      const userType = String(data.user_type ?? data.userType ?? "")
+        .trim()
+        .toLowerCase();
+      if (userType === "student") {
         unmatchedRows.push({
           name1: displayName,
           name2: "No match yet",
@@ -384,7 +383,7 @@ const PreProgram = () => {
           status: "No Match",
           score: 0,
         });
-      } else if (userType === "Adult" || userType === "Senior") {
+      } else if (userType === "adult" || userType === "senior") {
         unmatchedRows.push({
           name1: "No match yet",
           name2: displayName,
