@@ -107,7 +107,10 @@ export const matchAll = onRequest(async (req, res) => {
   // Fetch the dynamically constructed config with the creator's min/max ranges
   const config = await getDynamicMatchingConfig();
   const service = new MatchingService(config as MatchingConfig);
-  const result = await service.runMatching();
+  const excludeIds: string[] = Array.isArray(req.body?.excludeIds)
+    ? req.body.excludeIds.filter((id: unknown) => typeof id === "string")
+    : [];
+  const result = await service.runMatching(excludeIds);
 
   res.status(200).json({
     result: result,

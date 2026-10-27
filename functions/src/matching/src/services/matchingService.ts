@@ -19,7 +19,11 @@ export class MatchingService {
     this.validateConfig();
   }
 
-  async runMatching(): Promise<MatchingResult> {
+  /**
+   * @param excludeIds Participants to leave out of this run (e.g. people who
+   *   already have a manually approved match that must be kept).
+   */
+  async runMatching(excludeIds: string[] = []): Promise<MatchingResult> {
     const startTime = Date.now();
     logger.info('='.repeat(60));
     logger.info('STARTING MATCHING PIPELINE');
@@ -30,7 +34,14 @@ export class MatchingService {
       logger.info(`  Weights: FRQ=${this.config.frqWeight}, Quant=${this.config.quantWeight}`);
 
       logger.info('\n[Phase 2] Data Retrieval');
-      const { students, seniors, excluded } = await fetchAllParticipants();
+      const fetched = await fetchAllParticipants();
+      const excludeSet = new Set(excludeIds);
+      const students = fetched.students.filter(p => !excludeSet.has(p.id));
+      const seniors = fetched.seniors.filter(p => !excludeSet.has(p.id));
+      const { excluded } = fetched;
+      if (excludeSet.size > 0) {
+        logger.info(`  Excluding ${excludeSet.size} already-matched participants`);
+      }
       
       if (students.length === 0 || seniors.length === 0) {
         throw new Error('No participants found for matching');

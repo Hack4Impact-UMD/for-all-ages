@@ -15,6 +15,7 @@ import {
 import {
   collection,
   deleteDoc,
+  type QueryDocumentSnapshot,
   doc,
   getDocs,
   query,
@@ -60,6 +61,16 @@ const ADMIN_ROLES = ["admin", "subadmin", "sub-admin"];
 function isAdminProfile(data: { type?: unknown; role?: unknown }): boolean {
   const role = typeof data.role === "string" ? data.role.toLowerCase() : "";
   return data.type === "Admin" || ADMIN_ROLES.includes(role);
+}
+
+// A match an admin approved by hand (in this table or via Rematching).
+function isManualApproval(data: { status?: unknown; approvedBy?: unknown }) {
+  return (
+    data.status === "approved" &&
+    typeof data.approvedBy === "string" &&
+    data.approvedBy !== "" &&
+    data.approvedBy !== "Auto-Approved"
+  );
 }
 
 // Every field of the Participant type, in CSV column order. This drives the
@@ -422,40 +433,36 @@ const PreProgram = () => {
     return "low";
   };
 
-  const storeMatches = async (list: UI_Match[]): Promise<UI_Match[]> => {
+  /**
+   * Replace the given match docs with the new list in a single atomic batch,
+   * so a failure can't leave the program with no matches at all.
+   */
+  const storeMatches = async (
+    list: UI_Match[],
+    docsToReplace: QueryDocumentSnapshot[],
+  ) => {
     const colRef = collection(db, "matches");
+    const batch = writeBatch(db);
 
-    // Delete all existing match docs
-    const existingDocs = await getDocs(colRef);
-    const deleteBatch = writeBatch(db);
-    existingDocs.forEach((d) => deleteBatch.delete(d.ref));
-    await deleteBatch.commit();
-
-    const writeBatchRef = writeBatch(db);
-    const withIds: UI_Match[] = [];
+    docsToReplace.forEach((d) => batch.delete(d.ref));
 
     list.forEach((m) => {
       // Skip unmatched rows (no Firestore doc)
       if (m.status === "No Match" || !m.participant1_id || !m.participant2_id) {
-        withIds.push({ ...m, matchId: undefined });
         return;
       }
 
-      const newDocRef = doc(colRef);
-      writeBatchRef.set(newDocRef, {
+      batch.set(doc(colRef), {
         participant1_id: m.participant1_id,
         participant2_id: m.participant2_id,
         similarity: m.confidence,
         status: m.status === "Approved" ? "approved" : "pending",
         approvedBy: m.approvedBy ?? "",
       });
-
-      withIds.push({ ...m, matchId: newDocRef.id });
     });
 
-    await writeBatchRef.commit();
+    await batch.commit();
     console.log("Matches stored successfully.");
-    return withIds;
   };
 
   const updateMatchStatuses = async (newThreshold: number) => {
@@ -514,7 +521,29 @@ const PreProgram = () => {
   const handleMatch = async () => {
     setMatching(true);
     try {
-      const res = await matchAll();
+      // Manually approved matches are kept, and their participants are left
+      // out of this run. Everything else is replaced.
+      const existingSnap = await getDocs(collection(db, "matches"));
+      const manualDocs = existingSnap.docs.filter((d) =>
+        isManualApproval(d.data()),
+      );
+      const docsToReplace = existingSnap.docs.filter(
+        (d) => !isManualApproval(d.data()),
+      );
+
+      if (existingSnap.size > 0) {
+        const confirmed = window.confirm(
+          `Create Matches will replace ${docsToReplace.length} existing match(es). ` +
+            `${manualDocs.length} manually approved match(es) will be kept. Continue?`,
+        );
+        if (!confirmed) return;
+      }
+
+      const excludeIds = manualDocs
+        .flatMap((d) => [d.data().participant1_id, d.data().participant2_id])
+        .filter((id): id is string => typeof id === "string" && id !== "");
+
+      const res = await matchAll({ excludeIds });
       const {
         matches: rawMatches,
         unmatchedStudents = [],
@@ -527,9 +556,9 @@ const PreProgram = () => {
         unmatchedSeniors,
       );
 
-      const storedWithIds = await storeMatches(converted);
-      const sorted = sortMatches(storedWithIds);
-      setMatches(sorted);
+      await storeMatches(converted, docsToReplace);
+      // Reload so the table shows kept manual matches alongside the new ones.
+      await loadMatches();
     } catch (err) {
       console.error("Error creating matches:", err);
       setBanner({
