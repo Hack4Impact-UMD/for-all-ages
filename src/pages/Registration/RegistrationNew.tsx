@@ -747,19 +747,22 @@ const RegistrationNew = ({
         if (shouldWaitlist) {
           const waitlistRef = doc(db, "waitlist", participantId);
           await setDoc(waitlistRef, { uid: participantId, createdAt: serverTimestamp() });
-        } else {
-          // Upsert Pinecone for both self-serve and manual registrations using
-          // the same payload shape the matching pipeline already expects.
-          // Skip for ages 36-54, wait for admin to enter matching
-          if (computedUserType !== null) {
-            await upsertUser({
-              uid: participantId,
-              textResponses,
-              numericResponses,
-              user_type: computedUserType,
-              pronouns: getPronouns(formData, form)
-            });
-          }
+        }
+
+        // Upsert Pinecone for both self-serve and manual registrations using
+        // the same payload shape the matching pipeline already expects.
+        // Waitlisted users are upserted too: matchAll skips anyone on the
+        // waitlist, and having a vector lets admins score and pair them in
+        // Rematching when a spot opens.
+        // Skip for ages 36-54, wait for admin to enter matching
+        if (computedUserType !== null) {
+          await upsertUser({
+            uid: participantId,
+            textResponses,
+            numericResponses,
+            user_type: computedUserType,
+            pronouns: getPronouns(formData, form)
+          });
         }
 
         // Everything succeeded: mark registration complete.

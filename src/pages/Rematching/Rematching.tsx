@@ -12,6 +12,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  increment,
   writeBatch,
 } from "firebase/firestore";
 import { auth, db, computeMatchScore, getUser } from "../../firebase";
@@ -521,10 +522,22 @@ export default function Rematching() {
         approvedBy: adminName,
       });
 
-      // Remove waitlisted participants from the waitlist collection
+      // Remove waitlisted participants from the waitlist collection. Anyone
+      // promoted off the waitlist now counts toward currentParticipants.
       const waitlistRef = collection(db, "waitlist");
-      batch.delete(doc(waitlistRef, selectedStudent.id));
-      batch.delete(doc(waitlistRef, selectedAdult.id));
+      const selectedIds = [selectedStudent.id, selectedAdult.id];
+      const waitlistSnaps = await Promise.all(
+        selectedIds.map((id) => getDoc(doc(waitlistRef, id))),
+      );
+      const promotedCount = waitlistSnaps.filter((s) => s.exists()).length;
+      if (promotedCount > 0) {
+        batch.set(
+          doc(db, "config", "programState"),
+          { currentParticipants: increment(promotedCount) },
+          { merge: true },
+        );
+      }
+      selectedIds.forEach((id) => batch.delete(doc(waitlistRef, id)));
 
       await batch.commit();
       setSelectedStudent(null);
