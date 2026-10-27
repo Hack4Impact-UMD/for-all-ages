@@ -11,7 +11,6 @@ import { useAuth } from "./auth/AuthProvider";
 import UserDashboard from "./pages/Dashboard/UserDashboard";
 import AdminDashboard from "./pages/Dashboard/AdminDashboard";
 import AdminCreator from "./pages/Users/AdminCreator";
-import MatchedDashboard from "./pages/Dashboard/MatchedDashboard";
 import LoginSignup from "./pages/Login/Login-Signup";
 import Registration from "./pages/Registration/RegistrationNew";
 import Profile from "./pages/Profile/Profile";
@@ -179,15 +178,9 @@ function App() {
                 </ProgramGate>
               }
             />
-            <Route
-              path="matched"
-              element={
-                <ProgramGate>
-                  <MatchedDashboard />
-                </ProgramGate>
-              }
-            />
             <Route path="waiting" element={<Waiting />} />
+            {/* Unknown paths (e.g. the removed /user/matched) go to the dashboard */}
+            <Route path="*" element={<Navigate to="/user/dashboard" replace />} />
           </Route>
 
           <Route path="/admin/*" element={<AdminGate />}>
