@@ -38,13 +38,23 @@ export const functions = getFunctions(app, "us-central1");
 export { analytics };
 
 // FUNCTIONS
+
+// The HTTP functions verify the caller's Firebase ID token.
+export async function authHeaders(): Promise<Record<string, string>> {
+  const token = await auth.currentUser?.getIdToken();
+  if (!token) {
+    throw new Error("You must be signed in to do that.");
+  }
+  return { Authorization: `Bearer ${token}` };
+}
+
 const MATCHING_URL =
   // "https://us-central1-for-all-ages-8a4e2.cloudfunctions.net/matchAllWithGender";
   "https://us-central1-for-all-ages-8a4e2.cloudfunctions.net/matchAll";
 export async function matchAll(body: any = {}) {
   const res = await fetch(MATCHING_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
     body: JSON.stringify(body),
   });
 
@@ -67,7 +77,7 @@ export async function upsertUser(body: {
 }) {
   const res = await fetch(UPSERT_USER_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
     body: JSON.stringify(body),
   });
 
@@ -85,7 +95,7 @@ const COMPUTE_MATCH_SCORE_URL =
 export async function computeMatchScore(body: { uid1: string; uid2: string }) {
   const res = await fetch(COMPUTE_MATCH_SCORE_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
     body: JSON.stringify(body),
   });
 

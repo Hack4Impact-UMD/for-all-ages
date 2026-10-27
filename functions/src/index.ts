@@ -25,6 +25,46 @@ type ProgramState = {
   matches_final: boolean;
 };
 
+type Caller = { uid: string; isAdmin: boolean; isFullAdmin: boolean };
+
+/**
+ * Verifies the Firebase ID token in the Authorization header and looks up the
+ * caller's role. Sends a 401 and returns null if the token is missing or
+ * invalid. CORS only restricts browsers, so every HTTP function must call this.
+ */
+async function authenticate(
+  req: { headers: Record<string, string | string[] | undefined> },
+  res: { status: (code: number) => { json: (body: unknown) => void } },
+): Promise<Caller | null> {
+  const header = req.headers.authorization;
+  const match =
+    typeof header === "string" ? header.match(/^Bearer (.+)$/) : null;
+  if (!match) {
+    res.status(401).json({ error: "Missing Authorization bearer token." });
+    return null;
+  }
+
+  let uid: string;
+  try {
+    uid = (await admin.auth().verifyIdToken(match[1])).uid;
+  } catch {
+    res.status(401).json({ error: "Invalid or expired ID token." });
+    return null;
+  }
+
+  const callerDoc = await admin.firestore().collection(PARTICIPANTS).doc(uid).get();
+  const rawRole = callerDoc.data()?.role;
+  const role = typeof rawRole === "string" ? rawRole.toLowerCase() : "";
+  return {
+    uid,
+    isFullAdmin: role === "admin",
+    isAdmin: role === "admin" || role === "subadmin" || role === "sub-admin",
+  };
+}
+
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+const MAX_PROFILE_PICTURE_BYTES = 5 * 1024 * 1024;
+
 function buildNumericScoreRanges(form: any): Record<string, { min: number; max: number }> {
   const scoreRanges: Record<string, { min: number; max: number }> = {};
   const usedKeys = new Set<string>();
@@ -96,11 +136,18 @@ export const matchAll = onRequest(async (req, res) => {
   // CORS headers
   res.set("Access-Control-Allow-Origin", CORS_ORIGIN);
   res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.set("Access-Control-Allow-Headers", "Content-Type");
+  res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
     res.status(204).send("");
+    return;
+  }
+
+  const caller = await authenticate(req, res);
+  if (!caller) return;
+  if (!caller.isFullAdmin) {
+    res.status(403).json({ error: "Admins only." });
     return;
   }
 
@@ -121,7 +168,7 @@ export const upsertUser = onRequest(async (req, res) => {
   // CORS headers
   res.set("Access-Control-Allow-Origin", CORS_ORIGIN);
   res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.set("Access-Control-Allow-Headers", "Content-Type");
+  res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -134,8 +181,16 @@ export const upsertUser = onRequest(async (req, res) => {
     return;
   }
 
+  const caller = await authenticate(req, res);
+  if (!caller) return;
+
   try {
     const { uid, textResponses, numericResponses, user_type, pronouns } = req.body;
+
+    if (!uid || (uid !== caller.uid && !caller.isAdmin)) {
+      res.status(403).json({ error: "You can only update your own profile." });
+      return;
+    }
 
     // Validate using Object.keys since numericResponses is now a Record/Object
     const hasText = textResponses && textResponses.length > 0;
@@ -165,7 +220,7 @@ export const addToWaitlist = onRequest(async (req, res) => {
   // CORS headers
   res.set("Access-Control-Allow-Origin", CORS_ORIGIN);
   res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.set("Access-Control-Allow-Headers", "Content-Type");
+  res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -175,6 +230,13 @@ export const addToWaitlist = onRequest(async (req, res) => {
 
   if (req.method !== "POST") {
     res.status(405).json({ error: "Method not allowed. Use POST." });
+    return;
+  }
+
+  const caller = await authenticate(req, res);
+  if (!caller) return;
+  if (!caller.isAdmin) {
+    res.status(403).json({ error: "Admins only." });
     return;
   }
 
@@ -217,7 +279,7 @@ export const computeMatchScore = onRequest(async (req, res) => {
   // CORS headers
   res.set("Access-Control-Allow-Origin", CORS_ORIGIN);
   res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.set("Access-Control-Allow-Headers", "Content-Type");
+  res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
   if (req.method === "OPTIONS") {
     res.status(204).send("");
@@ -226,6 +288,13 @@ export const computeMatchScore = onRequest(async (req, res) => {
 
   if (req.method !== "POST") {
     res.status(405).json({ error: "Method not allowed. Use POST." });
+    return;
+  }
+
+  const caller = await authenticate(req, res);
+  if (!caller) return;
+  if (!caller.isFullAdmin) {
+    res.status(403).json({ error: "Admins only." });
     return;
   }
 
@@ -442,7 +511,7 @@ export const clearMatchingIndex = onCall(async (request) => {
 export const removeProfilePicture = onRequest(async (req, res) => {
   res.set("Access-Control-Allow-Origin", CORS_ORIGIN);
   res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.set("Access-Control-Allow-Headers", "Content-Type");
+  res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
   if (req.method === "OPTIONS") {
     res.status(204).send("");
@@ -457,10 +526,18 @@ export const removeProfilePicture = onRequest(async (req, res) => {
   try {
     console.log("removeProfilePicture body:", req.body);
 
+    const caller = await authenticate(req, res);
+    if (!caller) return;
+
     const { uid } = req.body;
 
     if (!uid) {
       res.status(400).send("Missing uid");
+      return;
+    }
+
+    if (uid !== caller.uid && !caller.isAdmin) {
+      res.status(403).send("You can only change your own profile picture.");
       return;
     }
 
@@ -488,7 +565,7 @@ export const removeProfilePicture = onRequest(async (req, res) => {
 export const uploadProfilePicture = onRequest(async (req, res) => {
   res.set("Access-Control-Allow-Origin", CORS_ORIGIN);
   res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.set("Access-Control-Allow-Headers", "Content-Type");
+  res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
   if (req.method === "OPTIONS") {
     res.status(204).send("");
@@ -500,10 +577,17 @@ export const uploadProfilePicture = onRequest(async (req, res) => {
     return;
   }
 
-  const bb = busboy({ headers: req.headers });
+  const caller = await authenticate(req, res);
+  if (!caller) return;
+
+  const bb = busboy({
+    headers: req.headers,
+    limits: { files: 1, fileSize: MAX_PROFILE_PICTURE_BYTES },
+  });
   let uid: string | null = null;
   let fileBuffer: Buffer | null = null;
   let fileMimeType = "image/jpeg";
+  let fileTooLarge = false;
 
   bb.on("field", (name: any, value: any) => {
     if (name === "uid") uid = value;
@@ -513,6 +597,9 @@ export const uploadProfilePicture = onRequest(async (req, res) => {
     fileMimeType = info.mimeType;
     const chunks: Buffer[] = [];
     file.on("data", (chunk: any) => chunks.push(chunk));
+    file.on("limit", () => {
+      fileTooLarge = true;
+    });
     file.on("end", () => {
       fileBuffer = Buffer.concat(chunks);
     });
@@ -528,6 +615,21 @@ export const uploadProfilePicture = onRequest(async (req, res) => {
     if (!uid || !fileBuffer) {
       console.warn("missing uid or fileBuffer", { uid, fileBuffer });
       res.status(400).send("Missing uid or file.");
+      return;
+    }
+
+    if (uid !== caller.uid && !caller.isAdmin) {
+      res.status(403).send("You can only change your own profile picture.");
+      return;
+    }
+
+    if (fileTooLarge) {
+      res.status(413).send("File is too large (max 5 MB).");
+      return;
+    }
+
+    if (!ALLOWED_IMAGE_TYPES.includes(fileMimeType)) {
+      res.status(415).send("Only JPEG, PNG, WebP or GIF images are allowed.");
       return;
     }
 
