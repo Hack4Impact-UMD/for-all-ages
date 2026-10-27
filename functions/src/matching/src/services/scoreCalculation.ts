@@ -151,29 +151,26 @@ export function getTopMatchesForParticipant(
 function normalizePronoun(pronoun?: string): string | undefined {
   if (!pronoun) return undefined;
   
-  const lower = pronoun.toLowerCase().trim();
-  
-  // They/Them variations (check FIRST - most specific, contains 'he')
-  if (lower.includes('they') || lower.includes('them')) {
+  // Match whole words, not substrings: "other" contains "her" and "she"
+  // contains "he", so substring checks misclassify them.
+  const tokens = new Set(pronoun.toLowerCase().split(/[^a-z]+/).filter(Boolean));
+
+  // They/Them variations (checked first so "she/they" stays neutral)
+  if (tokens.has('they') || tokens.has('them') || tokens.has('theirs')) {
     return 'they/them';
   }
-  
-  // She/Her variations (check BEFORE he/him since "she" contains "he")
-  if (lower.includes('she') || lower.includes('her')) {
+
+  // She/Her variations
+  if (tokens.has('she') || tokens.has('her') || tokens.has('hers')) {
     return 'she/her';
   }
 
-  // Other
-  if (lower.includes('other')) {
-    return 'other';
-  }
-  
   // He/Him variations
-  if (lower.includes('he') || lower.includes('him')) {
+  if (tokens.has('he') || tokens.has('him') || tokens.has('his')) {
     return 'he/him';
   }
-  
-  // Default to 'other' for anything else
+
+  // "Other" and anything unrecognized
   return 'other';
 }
 
