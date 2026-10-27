@@ -13,6 +13,8 @@ import {
   deleteAllUsersFromPinecone,
 } from "./matching/src/services/deleteUser.js";
 
+import { buildMatchablePayload } from "./matchablePayload";
+
 import { Readable } from "stream";
 
 admin.initializeApp();
@@ -478,6 +480,63 @@ export const deleteUser = onCall(async (request) => {
   }
 
   return { success: true };
+});
+
+// Lets an admin place a participant who registered without a group (ages
+// 36-54, or no date of birth) as a student or older adult, and adds them to
+// Pinecone so they can be matched.
+export const assignUserType = onCall(async (request) => {
+  const callerUserId = request.auth?.uid;
+  if (!callerUserId) {
+    throw new HttpsError("unauthenticated", "Sign in required.");
+  }
+
+  const db = admin.firestore();
+  const callerDoc = await db.collection(PARTICIPANTS).doc(callerUserId).get();
+  const callerRole = callerDoc.data()?.role;
+  const role = typeof callerRole === "string" ? callerRole.toLowerCase() : "";
+  if (role !== "admin" && role !== "subadmin" && role !== "sub-admin") {
+    throw new HttpsError("permission-denied", "Admins only.");
+  }
+
+  const targetUserId = request.data?.targetUserId;
+  const userType = request.data?.userType;
+  if (typeof targetUserId !== "string" || targetUserId.trim() === "") {
+    throw new HttpsError("invalid-argument", "Missing required field: targetUserId.");
+  }
+  if (userType !== "student" && userType !== "adult") {
+    throw new HttpsError("invalid-argument", "userType must be 'student' or 'adult'.");
+  }
+
+  const targetRef = db.collection(PARTICIPANTS).doc(targetUserId);
+  const targetSnap = await targetRef.get();
+  if (targetSnap.data()?.type !== "Participant") {
+    throw new HttpsError("not-found", "Participant not found.");
+  }
+
+  const [formSnap, responseSnap] = await Promise.all([
+    db.doc("config/registrationForm").get(),
+    db.collection("FormResponse").doc(targetUserId).get(),
+  ]);
+  const { textResponses, numericResponses, pronouns } = buildMatchablePayload(
+    formSnap.data(),
+    responseSnap.data()?.questions ?? [],
+  );
+
+  // Upsert before setting user_type so a failure doesn't leave someone who
+  // looks placed but can't be matched.
+  const hasResponses =
+    textResponses.length > 0 || Object.keys(numericResponses).length > 0;
+  if (hasResponses) {
+    await upsertFreeResponse(targetUserId, textResponses, numericResponses, userType, pronouns);
+  }
+
+  await targetRef.update({
+    user_type: userType,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  return { success: true, upserted: hasResponses };
 });
 
 // Clears every participant vector from Pinecone. Called by End Program so the

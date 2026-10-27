@@ -113,6 +113,15 @@ export async function deleteUser(targetUserId: string) {
   return result.data;
 }
 
+export async function assignUserType(
+  targetUserId: string,
+  userType: "student" | "adult",
+) {
+  const callable = httpsCallable(functions, "assignUserType");
+  const result = await callable({ targetUserId, userType });
+  return result.data;
+}
+
 export async function clearMatchingIndex() {
   const callable = httpsCallable(functions, "clearMatchingIndex");
   const result = await callable();
