@@ -14,26 +14,10 @@ import { doc, onSnapshot, type Unsubscribe } from "firebase/firestore";
 
 import { auth, db } from "../firebase";
 import type { ParticipantDoc, ProgramState } from "../types";
+import { isAdminRole, isSubadminRole } from "../utils/roles";
 
 type AuthClaims = Record<string, unknown>;
 
-function isAdminRole(role?: string | null) {
-  if (!role) return false;
-  const normalized = role.toLowerCase();
-  return (
-    normalized === "admin" ||
-    normalized === "subadmin" ||
-    normalized === "sub-admin"
-  );
-}
-
-function isSubadminRole(role?: string | null) {
-  if (!role) return false;
-  const normalized = role.toLowerCase();
-  return (
-    normalized === "subadmin"
-  );
-}
 
 type AuthCtx = {
   user: User | null;

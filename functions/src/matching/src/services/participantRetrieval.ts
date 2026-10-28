@@ -41,8 +41,9 @@ async function getWaitlistedIds(): Promise<Set<string>> {
     return waitlistedIds;
   } catch (error) {
     logger.error('Error fetching waitlisted IDs:', error);
-    // Return empty set if fetch fails, to allow matching to continue
-    return new Set();
+    // Waitlisted users have vectors too, so matching without this list would
+    // pair them. Fail the run instead.
+    throw new Error(`Could not load the waitlist; matching aborted: ${error}`);
   }
 }
 

@@ -130,6 +130,8 @@ export interface AdminRecord {
   user_type?: string | null;
   status?: string | null;
   university?: string | null;
+  /** True once registration finished (participant doc has type "Participant"). */
+  registered?: boolean;
 }
 
 /** Banner message for success/error feedback */

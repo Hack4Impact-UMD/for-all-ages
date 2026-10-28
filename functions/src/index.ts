@@ -8,7 +8,14 @@ import { MatchingService } from "./matching/src/services/matchingService";
 
 import { upsertFreeResponse } from "./matching/src/services/upsertUser.js";
 import computeMatchScoreService from "./matching/src/services/calculateMatchScore.js";
-import { deleteUserFromPinecone } from "./matching/src/services/deleteUser.js";
+import {
+  deleteUserFromPinecone,
+  deleteAllUsersFromPinecone,
+} from "./matching/src/services/deleteUser.js";
+
+import { buildMatchablePayload } from "./matchablePayload";
+import { assignNumericKeys, getFormQuestions } from "./numericKeys";
+import { getCallerRole, isAdminRole, isFullAdminRole, normalizeRole } from "./roles";
 
 import { Readable } from "stream";
 
@@ -17,58 +24,52 @@ admin.initializeApp();
 const CORS_ORIGIN = process.env.CORS_ORIGIN || "http://localhost:5173";
 const PARTICIPANTS = "participants";
 
-type ProgramState = {
-  started: boolean;
-  matches_final: boolean;
-};
+type Caller = { uid: string; isAdmin: boolean; isFullAdmin: boolean };
+
+/**
+ * Verifies the Firebase ID token in the Authorization header and looks up the
+ * caller's role. Sends a 401 and returns null if the token is missing or
+ * invalid. CORS only restricts browsers, so every HTTP function must call this.
+ */
+async function authenticate(
+  req: { headers: Record<string, string | string[] | undefined> },
+  res: { status: (code: number) => { json: (body: unknown) => void } },
+): Promise<Caller | null> {
+  const header = req.headers.authorization;
+  const match =
+    typeof header === "string" ? header.match(/^Bearer (.+)$/) : null;
+  if (!match) {
+    res.status(401).json({ error: "Missing Authorization bearer token." });
+    return null;
+  }
+
+  let uid: string;
+  try {
+    uid = (await admin.auth().verifyIdToken(match[1])).uid;
+  } catch {
+    res.status(401).json({ error: "Invalid or expired ID token." });
+    return null;
+  }
+
+  const role = await getCallerRole(uid);
+  return {
+    uid,
+    isFullAdmin: isFullAdminRole(role),
+    isAdmin: isAdminRole(role),
+  };
+}
+
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+const MAX_PROFILE_PICTURE_BYTES = 5 * 1024 * 1024;
 
 function buildNumericScoreRanges(form: any): Record<string, { min: number; max: number }> {
   const scoreRanges: Record<string, { min: number; max: number }> = {};
-  const usedKeys = new Set<string>();
-  let nextNumericIndex = 1;
-
-  const getNextNumericKey = (): string => {
-    while (usedKeys.has(`numeric${nextNumericIndex}`)) {
-      nextNumericIndex += 1;
-    }
-    const key = `numeric${nextNumericIndex}`;
-    usedKeys.add(key);
-    nextNumericIndex += 1;
-    return key;
-  };
-
-  if (!form || !Array.isArray(form.sections)) {
-    return scoreRanges;
-  }
-
-  form.sections.forEach((section: any) => {
-    if (!Array.isArray(section.questions)) {
-      return;
-    }
-
-    section.questions.forEach((q: any) => {
-      if (!q.matchable || (q.type !== "Slider" && q.type !== "Number" && typeof q.min !== "number")) {
-        return;
-      }
-
-      const existingKey =
-        typeof q.numericKey === "string" && q.numericKey.trim().length > 0
-          ? q.numericKey.trim()
-          : "";
-
-      const key =
-        existingKey && !usedKeys.has(existingKey)
-          ? existingKey
-          : getNextNumericKey();
-
-      usedKeys.add(key);
-      scoreRanges[key] = {
-        min: q.min ?? 1,
-        max: q.max ?? 5,
-      };
-    });
+  assignNumericKeys(getFormQuestions(form)).forEach((key, q) => {
+    scoreRanges[key] = {
+      min: q.min ?? 1,
+      max: q.max ?? 5,
+    };
   });
-
   return scoreRanges;
 }
 
@@ -93,7 +94,7 @@ export const matchAll = onRequest(async (req, res) => {
   // CORS headers
   res.set("Access-Control-Allow-Origin", CORS_ORIGIN);
   res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.set("Access-Control-Allow-Headers", "Content-Type");
+  res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -101,10 +102,20 @@ export const matchAll = onRequest(async (req, res) => {
     return;
   }
 
+  const caller = await authenticate(req, res);
+  if (!caller) return;
+  if (!caller.isFullAdmin) {
+    res.status(403).json({ error: "Admins only." });
+    return;
+  }
+
   // Fetch the dynamically constructed config with the creator's min/max ranges
   const config = await getDynamicMatchingConfig();
   const service = new MatchingService(config as MatchingConfig);
-  const result = await service.runMatching();
+  const excludeIds: string[] = Array.isArray(req.body?.excludeIds)
+    ? req.body.excludeIds.filter((id: unknown) => typeof id === "string")
+    : [];
+  const result = await service.runMatching(excludeIds);
 
   res.status(200).json({
     result: result,
@@ -115,7 +126,7 @@ export const upsertUser = onRequest(async (req, res) => {
   // CORS headers
   res.set("Access-Control-Allow-Origin", CORS_ORIGIN);
   res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.set("Access-Control-Allow-Headers", "Content-Type");
+  res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -128,8 +139,16 @@ export const upsertUser = onRequest(async (req, res) => {
     return;
   }
 
+  const caller = await authenticate(req, res);
+  if (!caller) return;
+
   try {
     const { uid, textResponses, numericResponses, user_type, pronouns } = req.body;
+
+    if (!uid || (uid !== caller.uid && !caller.isAdmin)) {
+      res.status(403).json({ error: "You can only update your own profile." });
+      return;
+    }
 
     // Validate using Object.keys since numericResponses is now a Record/Object
     const hasText = textResponses && textResponses.length > 0;
@@ -159,7 +178,7 @@ export const addToWaitlist = onRequest(async (req, res) => {
   // CORS headers
   res.set("Access-Control-Allow-Origin", CORS_ORIGIN);
   res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.set("Access-Control-Allow-Headers", "Content-Type");
+  res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -169,6 +188,13 @@ export const addToWaitlist = onRequest(async (req, res) => {
 
   if (req.method !== "POST") {
     res.status(405).json({ error: "Method not allowed. Use POST." });
+    return;
+  }
+
+  const caller = await authenticate(req, res);
+  if (!caller) return;
+  if (!caller.isAdmin) {
+    res.status(403).json({ error: "Admins only." });
     return;
   }
 
@@ -211,7 +237,7 @@ export const computeMatchScore = onRequest(async (req, res) => {
   // CORS headers
   res.set("Access-Control-Allow-Origin", CORS_ORIGIN);
   res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.set("Access-Control-Allow-Headers", "Content-Type");
+  res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
   if (req.method === "OPTIONS") {
     res.status(204).send("");
@@ -220,6 +246,13 @@ export const computeMatchScore = onRequest(async (req, res) => {
 
   if (req.method !== "POST") {
     res.status(405).json({ error: "Method not allowed. Use POST." });
+    return;
+  }
+
+  const caller = await authenticate(req, res);
+  if (!caller) return;
+  if (!caller.isFullAdmin) {
+    res.status(403).json({ error: "Admins only." });
     return;
   }
 
@@ -269,18 +302,22 @@ export const deleteUser = onCall(async (request) => {
     throw new HttpsError("permission-denied", "Profile not found.");
   }
 
-  const callerData = callerDoc.data();
-  const callerRole = (
-    callerData && typeof callerData.role === "string" ? callerData.role : ""
-  ).toLowerCase();
+  const callerRole = normalizeRole(callerDoc.data()?.role);
 
-  const isAdmin =
-    callerRole === "admin" ||
-    callerRole === "subadmin" ||
-    callerRole === "sub-admin";
-
-  if (!isAdmin) {
+  if (!isAdminRole(callerRole)) {
     throw new HttpsError("permission-denied", "Admins only.");
+  }
+
+  // Only full admins may delete admin or sub-admin accounts.
+  if (!isFullAdminRole(callerRole)) {
+    const targetSnap = await db.collection(PARTICIPANTS).doc(trimmedTargetId).get();
+    const targetData = targetSnap.data();
+    if (targetData?.type === "Admin" || isAdminRole(targetData?.role)) {
+      throw new HttpsError(
+        "permission-denied",
+        "Only admins can delete admin or sub-admin accounts.",
+      );
+    }
   }
 
   const errors: string[] = [];
@@ -316,11 +353,8 @@ export const deleteUser = onCall(async (request) => {
   try {
     const targetDocRef = db.collection(PARTICIPANTS).doc(trimmedTargetId);
     const targetSnap = await targetDocRef.get();
-    const targetData = targetSnap.data();
-    const targetRole = (
-      targetData && typeof targetData.role === "string" ? targetData.role : ""
-    ).toLowerCase();
-    const isParticipant = !targetRole || targetRole === "participant" || targetRole === "";
+    const targetRole = normalizeRole(targetSnap.data()?.role);
+    const isParticipant = targetRole === "" || targetRole === "participant";
 
     await targetDocRef.delete();
 
@@ -345,24 +379,16 @@ export const deleteUser = onCall(async (request) => {
   }
 
   try {
+    // Delete every match the user is in, on either side, so none is left
+    // pointing at a deleted participant.
     const matchesRef = db.collection("matches");
-
-    let snapshot = await matchesRef
-      .where("participant1_id", "==", trimmedTargetId)
-      .limit(1)
-      .get();
-
-    //check participant2 if not found yet
-    if (snapshot.empty) {
-      snapshot = await matchesRef
-        .where("participant2_id", "==", trimmedTargetId)
-        .limit(1)
-        .get();
-    }
-
-    if (!snapshot.empty) {
-      await snapshot.docs[0].ref.delete();
-    }
+    const snapshots = await Promise.all([
+      matchesRef.where("participant1_id", "==", trimmedTargetId).get(),
+      matchesRef.where("participant2_id", "==", trimmedTargetId).get(),
+    ]);
+    await Promise.all(
+      snapshots.flatMap((snap) => snap.docs.map((d) => d.ref.delete())),
+    );
   } catch (err) {
     console.error("Error deleteUser (matches):", err);
     errors.push(`Matches: ${err}`);
@@ -385,10 +411,84 @@ export const deleteUser = onCall(async (request) => {
   return { success: true };
 });
 
+// Lets an admin place a participant who registered without a group (ages
+// 36-54, or no date of birth) as a student or older adult, and adds them to
+// Pinecone so they can be matched.
+export const assignUserType = onCall(async (request) => {
+  const callerUserId = request.auth?.uid;
+  if (!callerUserId) {
+    throw new HttpsError("unauthenticated", "Sign in required.");
+  }
+
+  if (!isAdminRole(await getCallerRole(callerUserId))) {
+    throw new HttpsError("permission-denied", "Admins only.");
+  }
+
+  const db = admin.firestore();
+
+  const targetUserId = request.data?.targetUserId;
+  const userType = request.data?.userType;
+  if (typeof targetUserId !== "string" || targetUserId.trim() === "") {
+    throw new HttpsError("invalid-argument", "Missing required field: targetUserId.");
+  }
+  if (userType !== "student" && userType !== "adult") {
+    throw new HttpsError("invalid-argument", "userType must be 'student' or 'adult'.");
+  }
+
+  const targetRef = db.collection(PARTICIPANTS).doc(targetUserId);
+  const targetSnap = await targetRef.get();
+  if (targetSnap.data()?.type !== "Participant") {
+    throw new HttpsError("not-found", "Participant not found.");
+  }
+
+  const [formSnap, responseSnap] = await Promise.all([
+    db.doc("config/registrationForm").get(),
+    db.collection("FormResponse").doc(targetUserId).get(),
+  ]);
+  const { textResponses, numericResponses, pronouns } = buildMatchablePayload(
+    formSnap.data(),
+    responseSnap.data()?.questions ?? [],
+  );
+
+  // Upsert before setting user_type so a failure doesn't leave someone who
+  // looks placed but can't be matched. Like registration, this upserts even
+  // with no matchable answers (upsertFreeResponse embeds a placeholder).
+  await upsertFreeResponse(targetUserId, textResponses, numericResponses, userType, pronouns);
+
+  await targetRef.update({
+    user_type: userType,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  return { success: true };
+});
+
+// Clears every participant vector from Pinecone. Called by End Program so the
+// next cohort's matching run doesn't return last cohort's (deleted) users.
+export const clearMatchingIndex = onCall(async (request) => {
+  const callerUserId = request.auth?.uid;
+  if (!callerUserId) {
+    throw new HttpsError("unauthenticated", "Sign in required.");
+  }
+
+  if (!isFullAdminRole(await getCallerRole(callerUserId))) {
+    throw new HttpsError("permission-denied", "Admins only.");
+  }
+
+  try {
+    await deleteAllUsersFromPinecone();
+  } catch (err) {
+    console.error("Error clearMatchingIndex:", err);
+    throw new HttpsError("internal", `Failed to clear matching index: ${err}`);
+  }
+
+  return { success: true };
+});
+
 export const removeProfilePicture = onRequest(async (req, res) => {
   res.set("Access-Control-Allow-Origin", CORS_ORIGIN);
   res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.set("Access-Control-Allow-Headers", "Content-Type");
+  res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
   if (req.method === "OPTIONS") {
     res.status(204).send("");
@@ -403,10 +503,18 @@ export const removeProfilePicture = onRequest(async (req, res) => {
   try {
     console.log("removeProfilePicture body:", req.body);
 
+    const caller = await authenticate(req, res);
+    if (!caller) return;
+
     const { uid } = req.body;
 
     if (!uid) {
       res.status(400).send("Missing uid");
+      return;
+    }
+
+    if (uid !== caller.uid && !caller.isAdmin) {
+      res.status(403).send("You can only change your own profile picture.");
       return;
     }
 
@@ -434,7 +542,7 @@ export const removeProfilePicture = onRequest(async (req, res) => {
 export const uploadProfilePicture = onRequest(async (req, res) => {
   res.set("Access-Control-Allow-Origin", CORS_ORIGIN);
   res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.set("Access-Control-Allow-Headers", "Content-Type");
+  res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
   if (req.method === "OPTIONS") {
     res.status(204).send("");
@@ -446,10 +554,17 @@ export const uploadProfilePicture = onRequest(async (req, res) => {
     return;
   }
 
-  const bb = busboy({ headers: req.headers });
+  const caller = await authenticate(req, res);
+  if (!caller) return;
+
+  const bb = busboy({
+    headers: req.headers,
+    limits: { files: 1, fileSize: MAX_PROFILE_PICTURE_BYTES },
+  });
   let uid: string | null = null;
   let fileBuffer: Buffer | null = null;
   let fileMimeType = "image/jpeg";
+  let fileTooLarge = false;
 
   bb.on("field", (name: any, value: any) => {
     if (name === "uid") uid = value;
@@ -459,6 +574,9 @@ export const uploadProfilePicture = onRequest(async (req, res) => {
     fileMimeType = info.mimeType;
     const chunks: Buffer[] = [];
     file.on("data", (chunk: any) => chunks.push(chunk));
+    file.on("limit", () => {
+      fileTooLarge = true;
+    });
     file.on("end", () => {
       fileBuffer = Buffer.concat(chunks);
     });
@@ -474,6 +592,21 @@ export const uploadProfilePicture = onRequest(async (req, res) => {
     if (!uid || !fileBuffer) {
       console.warn("missing uid or fileBuffer", { uid, fileBuffer });
       res.status(400).send("Missing uid or file.");
+      return;
+    }
+
+    if (uid !== caller.uid && !caller.isAdmin) {
+      res.status(403).send("You can only change your own profile picture.");
+      return;
+    }
+
+    if (fileTooLarge) {
+      res.status(413).send("File is too large (max 5 MB).");
+      return;
+    }
+
+    if (!ALLOWED_IMAGE_TYPES.includes(fileMimeType)) {
+      res.status(415).send("Only JPEG, PNG, WebP or GIF images are allowed.");
       return;
     }
 

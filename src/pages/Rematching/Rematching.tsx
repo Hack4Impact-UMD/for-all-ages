@@ -12,7 +12,8 @@ import {
   doc,
   getDoc,
   getDocs,
-  writeBatch,
+  increment,
+  runTransaction,
 } from "firebase/firestore";
 import { auth, db, computeMatchScore, getUser } from "../../firebase";
 import type { Form, Question, RematchingParticipant } from "../../types";
@@ -494,39 +495,58 @@ export default function Rematching() {
 
       const matchesRef = collection(db, "matches");
       const allMatchesSnap = await getDocs(matchesRef);
-      const batch = writeBatch(db);
+      const replacedMatchRefs = allMatchesSnap.docs
+        .filter((matchDoc) => {
+          const data = matchDoc.data() as any;
+          const p1 = data.participant1_id;
+          const p2 = data.participant2_id;
+          if (!p1 || !p2) return false;
 
-      allMatchesSnap.forEach((matchDoc) => {
-        const data = matchDoc.data() as any;
-        const p1 = data.participant1_id;
-        const p2 = data.participant2_id;
-        if (!p1 || !p2) return;
+          return (
+            p1 === selectedStudent.id ||
+            p2 === selectedStudent.id ||
+            p1 === selectedAdult.id ||
+            p2 === selectedAdult.id
+          );
+        })
+        .map((matchDoc) => matchDoc.ref);
 
-        const involvesSelected =
-          p1 === selectedStudent.id ||
-          p2 === selectedStudent.id ||
-          p1 === selectedAdult.id ||
-          p2 === selectedAdult.id;
-
-        if (involvesSelected) batch.delete(matchDoc.ref);
-      });
-
-      const newMatchRef = doc(matchesRef);
-      batch.set(newMatchRef, {
-        participant1_id: selectedStudent.id,
-        participant2_id: selectedAdult.id,
-        status: "approved",
-        similarity:
-          matchPercentage != null ? Math.round(matchPercentage) : null,
-        approvedBy: adminName,
-      });
-
-      // Remove waitlisted participants from the waitlist collection
       const waitlistRef = collection(db, "waitlist");
-      batch.delete(doc(waitlistRef, selectedStudent.id));
-      batch.delete(doc(waitlistRef, selectedAdult.id));
+      const selectedIds = [selectedStudent.id, selectedAdult.id];
 
-      await batch.commit();
+      // The waitlist reads and the count increment share one transaction, so
+      // two admins promoting the same person can't count them twice.
+      await runTransaction(db, async (transaction) => {
+        const waitlistSnaps = await Promise.all(
+          selectedIds.map((id) => transaction.get(doc(waitlistRef, id))),
+        );
+
+        replacedMatchRefs.forEach((ref) => transaction.delete(ref));
+
+        transaction.set(doc(matchesRef), {
+          participant1_id: selectedStudent.id,
+          participant2_id: selectedAdult.id,
+          status: "approved",
+          similarity:
+            matchPercentage != null ? Math.round(matchPercentage) : null,
+          approvedBy: adminName,
+          manual: true,
+        });
+
+        // Anyone promoted off the waitlist now counts toward
+        // currentParticipants.
+        const promotedCount = waitlistSnaps.filter((s) => s.exists()).length;
+        if (promotedCount > 0) {
+          transaction.set(
+            doc(db, "config", "programState"),
+            { currentParticipants: increment(promotedCount) },
+            { merge: true },
+          );
+        }
+        waitlistSnaps.forEach((s) => {
+          if (s.exists()) transaction.delete(s.ref);
+        });
+      });
       setSelectedStudent(null);
       setSelectedAdult(null);
       await loadData();
