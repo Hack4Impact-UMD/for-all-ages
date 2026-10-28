@@ -129,12 +129,19 @@ export async function clearMatchingIndex() {
 }
 
 export async function getUser(uid: string) {
-  const userRef = doc(db, "participants", uid);
-  const snapshot = await getDoc(userRef);
+  const data = await getUserOrNull(uid);
 
-  if (!snapshot.exists()) {
+  if (!data) {
     throw new Error(`User with uid ${uid} not found`);
   }
 
-  return snapshot.data();
+  return data;
+}
+
+// Like getUser, but returns null when the participant doc doesn't exist.
+// Network and permission errors still throw.
+export async function getUserOrNull(uid: string) {
+  if (!uid) return null;
+  const snapshot = await getDoc(doc(db, "participants", uid));
+  return snapshot.exists() ? snapshot.data() : null;
 }
