@@ -135,6 +135,7 @@ export default function AdminDashboard() {
               address: formatAddress(data.address ?? null),
               user_type: normaliseUserType(data.user_type ?? null),
               university: data.university ?? null,
+              registered: data.type === "Participant",
               userUid: data.userUid ?? null,
             };
           });
@@ -536,6 +537,9 @@ export default function AdminDashboard() {
                         <td data-label="Group" className={styles.colGroup}>
                           {admin.role === "Participant" && admin.user_type ? (
                             <span>{admin.user_type}</span>
+                          ) : admin.role === "Participant" && !admin.registered ? (
+                            // Placement needs a finished registration.
+                            <span>Registration incomplete</span>
                           ) : admin.role === "Participant" ? (
                             <select
                               value=""
