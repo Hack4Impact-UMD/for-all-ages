@@ -581,6 +581,13 @@ const RegistrationNew = ({
           if (value.trim() !== "") {
             textResponses.push(value);
           }
+        } else if (questionType === "multiple") {
+          // Embed every selected option, joined the same way FormResponse
+          // stores it (formData.get would only return the first).
+          const value = (formData.getAll(fieldName) as string[]).join(", ");
+          if (value.trim() !== "") {
+            textResponses.push(value);
+          }
         } else if (
           [
             "short_input",
@@ -588,7 +595,6 @@ const RegistrationNew = ({
             "long_input",
             "Dropdown",
             "Radio",
-            "multiple",
             "Date",
           ].includes(questionType)
         ) {

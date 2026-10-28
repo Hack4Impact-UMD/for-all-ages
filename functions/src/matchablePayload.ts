@@ -3,6 +3,8 @@
 // src/pages/Registration/RegistrationNew.tsx so admin placement produces the
 // same vector a normal registration would.
 
+import { assignNumericKeys, getFormQuestions } from "./numericKeys";
+
 const TEXT_QUESTION_TYPES = [
   "short_input",
   "medium_input",
@@ -14,7 +16,7 @@ const TEXT_QUESTION_TYPES = [
   "Date",
 ];
 
-type StoredAnswer = { title?: unknown; answer?: unknown };
+type StoredAnswer = { title?: unknown; type?: unknown; answer?: unknown };
 
 export function buildMatchablePayload(
   form: any,
@@ -24,50 +26,36 @@ export function buildMatchablePayload(
   numericResponses: Record<string, number>;
   pronouns: string;
 } {
-  const answers = new Map<string, unknown>();
+  // Stored answers only carry the question's title and type, in form order.
+  // Queue them per title+type and hand them out in form order, so two
+  // questions sharing a title each get their own answer.
+  const answerQueues = new Map<string, unknown[]>();
+  const answerKey = (title: unknown, type: unknown) => `${type}\u0000${title}`;
   storedAnswers.forEach((a) => {
-    if (typeof a.title === "string") answers.set(a.title, a.answer);
+    if (typeof a.title !== "string") return;
+    const key = answerKey(a.title, a.type);
+    const queue = answerQueues.get(key) ?? [];
+    queue.push(a.answer);
+    answerQueues.set(key, queue);
   });
+  const takeAnswer = (q: any): unknown => answerQueues.get(answerKey(q.title, q.type))?.shift();
 
-  const questions: any[] = [];
-  if (form && Array.isArray(form.sections)) {
-    form.sections.forEach((section: any) => {
-      if (Array.isArray(section.questions)) questions.push(...section.questions);
-    });
-  }
-
-  // Same numeric key assignment as getNumericQuestionKeys at registration.
-  const usedKeys = new Set<string>();
-  let nextNumericIndex = 1;
-  const getNextNumericKey = (): string => {
-    while (usedKeys.has(`numeric${nextNumericIndex}`)) nextNumericIndex += 1;
-    const key = `numeric${nextNumericIndex}`;
-    usedKeys.add(key);
-    nextNumericIndex += 1;
-    return key;
-  };
-  const numericKeys = new Map<any, string>();
-  questions.forEach((q) => {
-    if (q.type !== "Slider" || !q.matchable) return;
-    const existingKey = typeof q.numericKey === "string" ? q.numericKey.trim() : "";
-    if (existingKey && !usedKeys.has(existingKey)) {
-      usedKeys.add(existingKey);
-      numericKeys.set(q, existingKey);
-      return;
-    }
-    numericKeys.set(q, getNextNumericKey());
-  });
+  const questions = getFormQuestions(form);
+  const numericKeys = assignNumericKeys(questions);
 
   const textResponses: string[] = [];
   const numericResponses: Record<string, number> = {};
-  let pronouns = "Other";
+  let pronouns: string | null = null;
 
   questions.forEach((q) => {
     const title = typeof q.title === "string" ? q.title : "";
-    const answer = answers.get(title);
+    const answer = takeAnswer(q);
 
     if (title.toLowerCase().includes("pronoun")) {
-      if (typeof answer === "string" && answer.trim() !== "") pronouns = answer;
+      // Registration uses the first pronoun question only.
+      if (pronouns === null) {
+        pronouns = typeof answer === "string" && answer.trim() !== "" ? answer : "Other";
+      }
       return;
     }
     if (!q.matchable) return;
@@ -82,5 +70,5 @@ export function buildMatchablePayload(
     }
   });
 
-  return { textResponses, numericResponses, pronouns };
+  return { textResponses, numericResponses, pronouns: pronouns ?? "Other" };
 }

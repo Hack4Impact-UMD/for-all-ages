@@ -14,6 +14,8 @@ import {
 } from "./matching/src/services/deleteUser.js";
 
 import { buildMatchablePayload } from "./matchablePayload";
+import { assignNumericKeys, getFormQuestions } from "./numericKeys";
+import { getCallerRole, isAdminRole, isFullAdminRole, normalizeRole } from "./roles";
 
 import { Readable } from "stream";
 
@@ -21,11 +23,6 @@ admin.initializeApp();
 
 const CORS_ORIGIN = process.env.CORS_ORIGIN || "http://localhost:5173";
 const PARTICIPANTS = "participants";
-
-type ProgramState = {
-  started: boolean;
-  matches_final: boolean;
-};
 
 type Caller = { uid: string; isAdmin: boolean; isFullAdmin: boolean };
 
@@ -54,13 +51,11 @@ async function authenticate(
     return null;
   }
 
-  const callerDoc = await admin.firestore().collection(PARTICIPANTS).doc(uid).get();
-  const rawRole = callerDoc.data()?.role;
-  const role = typeof rawRole === "string" ? rawRole.toLowerCase() : "";
+  const role = await getCallerRole(uid);
   return {
     uid,
-    isFullAdmin: role === "admin",
-    isAdmin: role === "admin" || role === "subadmin" || role === "sub-admin",
+    isFullAdmin: isFullAdminRole(role),
+    isAdmin: isAdminRole(role),
   };
 }
 
@@ -69,51 +64,12 @@ const MAX_PROFILE_PICTURE_BYTES = 5 * 1024 * 1024;
 
 function buildNumericScoreRanges(form: any): Record<string, { min: number; max: number }> {
   const scoreRanges: Record<string, { min: number; max: number }> = {};
-  const usedKeys = new Set<string>();
-  let nextNumericIndex = 1;
-
-  const getNextNumericKey = (): string => {
-    while (usedKeys.has(`numeric${nextNumericIndex}`)) {
-      nextNumericIndex += 1;
-    }
-    const key = `numeric${nextNumericIndex}`;
-    usedKeys.add(key);
-    nextNumericIndex += 1;
-    return key;
-  };
-
-  if (!form || !Array.isArray(form.sections)) {
-    return scoreRanges;
-  }
-
-  form.sections.forEach((section: any) => {
-    if (!Array.isArray(section.questions)) {
-      return;
-    }
-
-    section.questions.forEach((q: any) => {
-      if (!q.matchable || (q.type !== "Slider" && q.type !== "Number" && typeof q.min !== "number")) {
-        return;
-      }
-
-      const existingKey =
-        typeof q.numericKey === "string" && q.numericKey.trim().length > 0
-          ? q.numericKey.trim()
-          : "";
-
-      const key =
-        existingKey && !usedKeys.has(existingKey)
-          ? existingKey
-          : getNextNumericKey();
-
-      usedKeys.add(key);
-      scoreRanges[key] = {
-        min: q.min ?? 1,
-        max: q.max ?? 5,
-      };
-    });
+  assignNumericKeys(getFormQuestions(form)).forEach((key, q) => {
+    scoreRanges[key] = {
+      min: q.min ?? 1,
+      max: q.max ?? 5,
+    };
   });
-
   return scoreRanges;
 }
 
@@ -346,33 +302,17 @@ export const deleteUser = onCall(async (request) => {
     throw new HttpsError("permission-denied", "Profile not found.");
   }
 
-  const callerData = callerDoc.data();
-  const callerRole = (
-    callerData && typeof callerData.role === "string" ? callerData.role : ""
-  ).toLowerCase();
+  const callerRole = normalizeRole(callerDoc.data()?.role);
 
-  const isAdmin =
-    callerRole === "admin" ||
-    callerRole === "subadmin" ||
-    callerRole === "sub-admin";
-
-  if (!isAdmin) {
+  if (!isAdminRole(callerRole)) {
     throw new HttpsError("permission-denied", "Admins only.");
   }
 
   // Only full admins may delete admin or sub-admin accounts.
-  if (callerRole !== "admin") {
+  if (!isFullAdminRole(callerRole)) {
     const targetSnap = await db.collection(PARTICIPANTS).doc(trimmedTargetId).get();
     const targetData = targetSnap.data();
-    const targetRole = (
-      targetData && typeof targetData.role === "string" ? targetData.role : ""
-    ).toLowerCase();
-    if (
-      targetData?.type === "Admin" ||
-      targetRole === "admin" ||
-      targetRole === "subadmin" ||
-      targetRole === "sub-admin"
-    ) {
+    if (targetData?.type === "Admin" || isAdminRole(targetData?.role)) {
       throw new HttpsError(
         "permission-denied",
         "Only admins can delete admin or sub-admin accounts.",
@@ -413,11 +353,8 @@ export const deleteUser = onCall(async (request) => {
   try {
     const targetDocRef = db.collection(PARTICIPANTS).doc(trimmedTargetId);
     const targetSnap = await targetDocRef.get();
-    const targetData = targetSnap.data();
-    const targetRole = (
-      targetData && typeof targetData.role === "string" ? targetData.role : ""
-    ).toLowerCase();
-    const isParticipant = !targetRole || targetRole === "participant" || targetRole === "";
+    const targetRole = normalizeRole(targetSnap.data()?.role);
+    const isParticipant = targetRole === "" || targetRole === "participant";
 
     await targetDocRef.delete();
 
@@ -442,24 +379,16 @@ export const deleteUser = onCall(async (request) => {
   }
 
   try {
+    // Delete every match the user is in, on either side, so none is left
+    // pointing at a deleted participant.
     const matchesRef = db.collection("matches");
-
-    let snapshot = await matchesRef
-      .where("participant1_id", "==", trimmedTargetId)
-      .limit(1)
-      .get();
-
-    //check participant2 if not found yet
-    if (snapshot.empty) {
-      snapshot = await matchesRef
-        .where("participant2_id", "==", trimmedTargetId)
-        .limit(1)
-        .get();
-    }
-
-    if (!snapshot.empty) {
-      await snapshot.docs[0].ref.delete();
-    }
+    const snapshots = await Promise.all([
+      matchesRef.where("participant1_id", "==", trimmedTargetId).get(),
+      matchesRef.where("participant2_id", "==", trimmedTargetId).get(),
+    ]);
+    await Promise.all(
+      snapshots.flatMap((snap) => snap.docs.map((d) => d.ref.delete())),
+    );
   } catch (err) {
     console.error("Error deleteUser (matches):", err);
     errors.push(`Matches: ${err}`);
@@ -491,13 +420,11 @@ export const assignUserType = onCall(async (request) => {
     throw new HttpsError("unauthenticated", "Sign in required.");
   }
 
-  const db = admin.firestore();
-  const callerDoc = await db.collection(PARTICIPANTS).doc(callerUserId).get();
-  const callerRole = callerDoc.data()?.role;
-  const role = typeof callerRole === "string" ? callerRole.toLowerCase() : "";
-  if (role !== "admin" && role !== "subadmin" && role !== "sub-admin") {
+  if (!isAdminRole(await getCallerRole(callerUserId))) {
     throw new HttpsError("permission-denied", "Admins only.");
   }
+
+  const db = admin.firestore();
 
   const targetUserId = request.data?.targetUserId;
   const userType = request.data?.userType;
@@ -524,19 +451,16 @@ export const assignUserType = onCall(async (request) => {
   );
 
   // Upsert before setting user_type so a failure doesn't leave someone who
-  // looks placed but can't be matched.
-  const hasResponses =
-    textResponses.length > 0 || Object.keys(numericResponses).length > 0;
-  if (hasResponses) {
-    await upsertFreeResponse(targetUserId, textResponses, numericResponses, userType, pronouns);
-  }
+  // looks placed but can't be matched. Like registration, this upserts even
+  // with no matchable answers (upsertFreeResponse embeds a placeholder).
+  await upsertFreeResponse(targetUserId, textResponses, numericResponses, userType, pronouns);
 
   await targetRef.update({
     user_type: userType,
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
   });
 
-  return { success: true, upserted: hasResponses };
+  return { success: true };
 });
 
 // Clears every participant vector from Pinecone. Called by End Program so the
@@ -547,13 +471,7 @@ export const clearMatchingIndex = onCall(async (request) => {
     throw new HttpsError("unauthenticated", "Sign in required.");
   }
 
-  const callerDoc = await admin
-    .firestore()
-    .collection(PARTICIPANTS)
-    .doc(callerUserId)
-    .get();
-  const callerRole = callerDoc.data()?.role;
-  if (typeof callerRole !== "string" || callerRole.toLowerCase() !== "admin") {
+  if (!isFullAdminRole(await getCallerRole(callerUserId))) {
     throw new HttpsError("permission-denied", "Admins only.");
   }
 
