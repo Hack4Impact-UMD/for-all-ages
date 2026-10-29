@@ -660,6 +660,11 @@ const RegistrationNew = ({
 
       const dob = getDateOfBirth(formData, form);
       const age = dob ? computeAge(dob) : null;
+      if (age !== null && (age < 14 || age > 110)) {
+        setSubmitError("Please check your date of birth.");
+        setSubmitting(false);
+        return;
+      }
       const computedUserType: "student" | "adult" | null =
         age === null || age < 0 ? null :
         age >= 55 ? "adult" :
