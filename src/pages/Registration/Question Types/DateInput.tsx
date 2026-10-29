@@ -9,12 +9,17 @@ export default function DateInput({
   required: boolean;
   className?: string;
 }) {
-  const today = new Date().toISOString().split("T")[0];
+  const now = new Date();
+  const today = now.toISOString().split("T")[0];
+  const oldest = new Date(now);
+  oldest.setFullYear(now.getFullYear() - 110);
+  const min = oldest.toISOString().split("T")[0];
 
   return (
     <input
       type="date"
       name={name}
+      min={min}
       max={today}
       required={required}
       className={className ?? styles.fieldInput}
