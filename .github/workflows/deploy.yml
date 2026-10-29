@@ -16,6 +16,10 @@ concurrency:
 
 jobs:
   build-and-deploy:
+    # Only prod is ever published. main has no Vite base path, so a main
+    # build served under /for-all-ages/ 404s its assets (blank page). This
+    # also stops a manual run on another branch from deploying it.
+    if: github.ref == 'refs/heads/prod'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
