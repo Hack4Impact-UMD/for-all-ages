@@ -11,7 +11,6 @@ import { useAuth } from "./auth/AuthProvider";
 import UserDashboard from "./pages/Dashboard/UserDashboard";
 import AdminDashboard from "./pages/Dashboard/AdminDashboard";
 import AdminCreator from "./pages/Users/AdminCreator";
-import MatchedDashboard from "./pages/Dashboard/MatchedDashboard";
 import LoginSignup from "./pages/Login/Login-Signup";
 import Registration from "./pages/Registration/RegistrationNew";
 import Profile from "./pages/Profile/Profile";
@@ -155,6 +154,18 @@ function AdminGate() {
   return <Outlet />;
 }
 
+// Pages only full admins may use (program controls, matching, form editing).
+// Sub-admins are sent to the Users page instead.
+function FullAdminGate() {
+  const { isSubadmin } = useAuth();
+
+  if (isSubadmin) {
+    return <Navigate to="/admin/creator" replace />;
+  }
+
+  return <Outlet />;
+}
+
 function App() {
   return (
     <HashRouter>
@@ -176,26 +187,25 @@ function App() {
                 </ProgramGate>
               }
             />
-            <Route
-              path="matched"
-              element={
-                <ProgramGate>
-                  <MatchedDashboard />
-                </ProgramGate>
-              }
-            />
             <Route path="waiting" element={<Waiting />} />
+            {/* Unknown paths (e.g. the removed /user/matched) go to the dashboard */}
+            <Route path="*" element={<Navigate to="/user/dashboard" replace />} />
           </Route>
 
           <Route path="/admin/*" element={<AdminGate />}>
-            <Route path="" element={<Navigate to="/admin/dashboard" replace />} />
-            <Route path="dashboard" element={<AdminDashboard />} />
-            <Route path="recap" element={<RecapPage />} />
+            <Route
+              path=""
+              element={<Navigate to="/admin/dashboard" replace />}
+            />
             <Route path="creator" element={<AdminCreator />} />
             <Route path="add-participant" element={<Registration />} />
-            <Route path="main" element={<PreProgram />} />
-            <Route path="rematching" element={<Rematching />} />
-            <Route path="form-builder" element={<FormBuilder />} />
+            <Route element={<FullAdminGate />}>
+              <Route path="dashboard" element={<AdminDashboard />} />
+              <Route path="recap" element={<RecapPage />} />
+              <Route path="main" element={<PreProgram />} />
+              <Route path="rematching" element={<Rematching />} />
+              <Route path="form-builder" element={<FormBuilder />} />
+            </Route>
           </Route>
         </Route>
 

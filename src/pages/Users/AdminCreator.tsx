@@ -10,7 +10,7 @@ import {
 import { FaTrash } from "react-icons/fa";
 import layoutStyles from "../Dashboard/Dashboard.module.css";
 import styles from "./AdminCreator.module.css";
-import { db, deleteUser } from "../../firebase";
+import { assignUserType, db, deleteUser } from "../../firebase";
 import {
   promoteParticipantToSubadmin,
   demoteSubadminToParticipant,
@@ -72,7 +72,7 @@ function composeDisplayName(doc: ParticipantDoc): string {
 }
 
 export default function AdminDashboard() {
-  const { user } = useAuth();
+  const { user, isSubadmin } = useAuth();
   const [admins, setAdmins] = useState<AdminRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -82,6 +82,7 @@ export default function AdminDashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [banner, setBanner] = useState<BannerState | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [placingId, setPlacingId] = useState<string | null>(null);
   const [promoteTarget, setPromoteTarget] = useState<AdminRecord | null>(null);
   const [demoteTarget, setDemoteTarget] = useState<AdminRecord | null>(null);
   const [selectedUser, setSelectedUser] = useState<AdminRecord | null>(null);
@@ -134,6 +135,7 @@ export default function AdminDashboard() {
               address: formatAddress(data.address ?? null),
               user_type: normaliseUserType(data.user_type ?? null),
               university: data.university ?? null,
+              registered: data.type === "Participant",
               userUid: data.userUid ?? null,
             };
           });
@@ -290,6 +292,33 @@ export default function AdminDashboard() {
       setDeletingId(null);
     }
   }, []);
+
+  // Participants aged 36-54 (or with no date of birth) register without a
+  // group; an admin places them so they can be matched.
+  const handlePlaceUser = useCallback(
+    async (admin: AdminRecord, userType: "student" | "adult") => {
+      const label = userType === "student" ? "a student" : "an older adult";
+      if (!window.confirm(`Place ${admin.name} in matching as ${label}?`)) {
+        return;
+      }
+      setPlacingId(admin.id);
+      setBanner(null);
+
+      try {
+        await assignUserType(admin.id, userType);
+        setBanner({ type: "success", message: `${admin.name} placed as ${label}.` });
+      } catch (err) {
+        const message =
+          err && typeof err === "object" && "message" in err
+            ? String((err as { message: string }).message)
+            : "Could not place user.";
+        setBanner({ type: "error", message });
+      } finally {
+        setPlacingId(null);
+      }
+    },
+    [],
+  );
 
   return (
     <div className={layoutStyles.page}>
@@ -508,6 +537,27 @@ export default function AdminDashboard() {
                         <td data-label="Group" className={styles.colGroup}>
                           {admin.role === "Participant" && admin.user_type ? (
                             <span>{admin.user_type}</span>
+                          ) : admin.role === "Participant" && !admin.registered ? (
+                            // Placement needs a finished registration.
+                            <span>Registration incomplete</span>
+                          ) : admin.role === "Participant" ? (
+                            <select
+                              value=""
+                              disabled={placingId === admin.id}
+                              onChange={(e) =>
+                                handlePlaceUser(
+                                  admin,
+                                  e.target.value as "student" | "adult",
+                                )
+                              }
+                              aria-label={`Place ${admin.name} in a group`}
+                            >
+                              <option value="" disabled>
+                                Place as…
+                              </option>
+                              <option value="student">Student</option>
+                              <option value="adult">Older Adult</option>
+                            </select>
                           ) : (
                             <span>—</span>
                           )}
@@ -557,16 +607,21 @@ export default function AdminDashboard() {
                           data-label="Delete"
                           className={`${styles.deleteCell} ${styles.colDelete}`}
                         >
-                          <button
-                            type="button"
-                            className={styles.deleteButton}
-                            onClick={() => handleDeleteUser(admin)}
-                            disabled={deletingId === admin.id}
-                            aria-label={`Delete ${admin.name}`}
-                            title="Delete user"
-                          >
-                            <FaTrash aria-hidden />
-                          </button>
+                          {/* Sub-admins can't delete admin or sub-admin accounts */}
+                          {isSubadmin && admin.role !== "Participant" ? (
+                            <span>—</span>
+                          ) : (
+                            <button
+                              type="button"
+                              className={styles.deleteButton}
+                              onClick={() => handleDeleteUser(admin)}
+                              disabled={deletingId === admin.id}
+                              aria-label={`Delete ${admin.name}`}
+                              title="Delete user"
+                            >
+                              <FaTrash aria-hidden />
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))

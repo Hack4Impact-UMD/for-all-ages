@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import styles from "./ProfilePictureEdit.module.css";
 import EditIcon from "@mui/icons-material/Edit";
 import ProfilePicture from "../ProfilePicture/ProfilePicture";
+import { authHeaders } from "../../../../firebase";
 
 interface ProfilePictureEditProps {
   uid: string;
@@ -40,6 +41,7 @@ export default function ProfilePictureEdit({ uid }: ProfilePictureEditProps) {
         "https://us-central1-for-all-ages-prd.cloudfunctions.net/uploadProfilePicture",
         {
           method: "POST",
+          headers: await authHeaders(),
           body: formData,
         },
       );
@@ -74,6 +76,7 @@ export default function ProfilePictureEdit({ uid }: ProfilePictureEditProps) {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            ...(await authHeaders()),
           },
           body: JSON.stringify({ uid }),
         },

@@ -581,6 +581,13 @@ const RegistrationNew = ({
           if (value.trim() !== "") {
             textResponses.push(value);
           }
+        } else if (questionType === "multiple") {
+          // Embed every selected option, joined the same way FormResponse
+          // stores it (formData.get would only return the first).
+          const value = (formData.getAll(fieldName) as string[]).join(", ");
+          if (value.trim() !== "") {
+            textResponses.push(value);
+          }
         } else if (
           [
             "short_input",
@@ -588,7 +595,6 @@ const RegistrationNew = ({
             "long_input",
             "Dropdown",
             "Radio",
-            "multiple",
             "Date",
           ].includes(questionType)
         ) {
@@ -679,9 +685,15 @@ const RegistrationNew = ({
           getDoc(formResponseDocRef)
         ]);
 
-        // Create Participant document
+        // A participant who already finished registering is re-submitting.
+        const alreadyRegistered = participantSnap.data()?.type === "Participant";
+
+        // Save the profile and answers, but don't mark registration complete
+        // (type: "Participant") until the capacity check and Pinecone upsert
+        // have succeeded. Until then RegistrationGate keeps showing the form,
+        // so a failed submit can simply be retried.
         const participantData = {
-          ...(omitUndefined({ type: "Participant", ...basicInfo }) as Participant),
+          ...omitUndefined({ ...basicInfo }),
           user_type: computedUserType,
           ...(dob && { dateOfBirth: dob }),
           updatedAt: serverTimestamp(),
@@ -702,9 +714,20 @@ const RegistrationNew = ({
         const programStateRef = doc(db, "config", "programState");
         let shouldWaitlist = false;
 
-        if (!participantSnap.exists()) {
+        if (!alreadyRegistered) {
           shouldWaitlist = await runTransaction(db, async (transaction) => {
-            const programSnap = await transaction.get(programStateRef);
+            const [programSnap, ownSnap] = await Promise.all([
+              transaction.get(programStateRef),
+              transaction.get(participantDocRef),
+            ]);
+
+            // A previous attempt already made (and counted) the decision but
+            // failed afterwards; reuse it so retries don't count twice.
+            const previousDecision = ownSnap.data()?.capacityDecision;
+            if (previousDecision === "counted" || previousDecision === "waitlisted") {
+              return previousDecision === "waitlisted";
+            }
+
             const programData = programSnap.data();
             const matchesFinal = programData?.matches_final === true;
             const programStarted = programData?.started === true;
@@ -713,36 +736,47 @@ const RegistrationNew = ({
 
             // Once matches are finalized, keep all new registrations on waitlist
             // until the program has started, regardless of participant capacity.
-            if (matchesFinal && !programStarted) {
-              return true;
-            }
+            const waitlist = (matchesFinal && !programStarted) || current >= max;
 
-            if (current >= max) {
-              return true;
+            if (!waitlist) {
+              transaction.set(programStateRef, { currentParticipants: increment(1) }, { merge: true });
             }
-            transaction.set(programStateRef, { currentParticipants: increment(1) }, { merge: true });
-            return false;
+            transaction.set(
+              participantDocRef,
+              { capacityDecision: waitlist ? "waitlisted" : "counted" },
+              { merge: true },
+            );
+            return waitlist;
           });
         }
-
 
         if (shouldWaitlist) {
           const waitlistRef = doc(db, "waitlist", participantId);
           await setDoc(waitlistRef, { uid: participantId, createdAt: serverTimestamp() });
+        }
+
+        // Upsert Pinecone for both self-serve and manual registrations using
+        // the same payload shape the matching pipeline already expects.
+        // Waitlisted users are upserted too: matchAll skips anyone on the
+        // waitlist, and having a vector lets admins score and pair them in
+        // Rematching when a spot opens.
+        // Skip for ages 36-54, wait for admin to enter matching
+        if (computedUserType !== null) {
+          await upsertUser({
+            uid: participantId,
+            textResponses,
+            numericResponses,
+            user_type: computedUserType,
+            pronouns: getPronouns(formData, form)
+          });
+        }
+
+        // Everything succeeded: mark registration complete.
+        await setDoc(participantDocRef, { type: "Participant" }, { merge: true });
+
+        if (shouldWaitlist) {
           navigate("/waiting", { replace: true });
         } else {
-          // Upsert Pinecone for both self-serve and manual registrations using
-          // the same payload shape the matching pipeline already expects.
-          // Skip for ages 36-54, wait for admin to enter matching
-          if (computedUserType !== null) {
-            await upsertUser({
-              uid: participantId,
-              textResponses,
-              numericResponses,
-              user_type: computedUserType,
-              pronouns: getPronouns(formData, form)
-            });
-          }
           // Navigate to dashboard
           navigate(isManualEntry ? "/admin/creator" : "/user/dashboard", { replace: true });
         }

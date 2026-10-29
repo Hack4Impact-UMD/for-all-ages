@@ -4,6 +4,13 @@ import { createRequire } from 'module';
 
 const requireModule = createRequire(import.meta.url);
 
+// Cost for pairs with no score (pronoun-incompatible). It must be far above any
+// real cost (1 - finalScore is always in [0, 1]) so the solver only uses such a
+// pair when no compatible assignment exists, and below the padding cost so
+// dummy rows/columns are still the last resort.
+const INCOMPATIBLE_COST = 1000;
+const PADDING_COST = 999999;
+
 export function hungarianMatching(
   scores: SimilarityScore[],
   students: ParticipantWithEmbedding[],
@@ -61,9 +68,9 @@ function createCostMatrix(
       if (i < studentIds.length && j < seniorIds.length) {
         const key = `${studentIds[i]}:${seniorIds[j]}`;
         const score = scoreMap.get(key);
-        row.push(score ? 1 - score.finalScore : 1.0);
+        row.push(score ? 1 - score.finalScore : INCOMPATIBLE_COST);
       } else {
-        row.push(999999);
+        row.push(PADDING_COST);
       }
     }
     costMatrix.push(row);

@@ -5,10 +5,19 @@ import SearchIcon from "@mui/icons-material/Search";
 import FilterListIcon from "@mui/icons-material/FilterList";
 import SettingsIcon from "@mui/icons-material/Settings";
 import AutorenewIcon from "@mui/icons-material/Autorenew";
-import { auth, db, getUser, matchAll } from "../../firebase";
+import {
+  auth,
+  clearMatchingIndex,
+  db,
+  getUser,
+  getUserOrNull,
+  matchAll,
+} from "../../firebase";
 import {
   collection,
   deleteDoc,
+  deleteField,
+  type QueryDocumentSnapshot,
   doc,
   getDocs,
   query,
@@ -16,8 +25,9 @@ import {
   setDoc,
   updateDoc,
   where,
-  writeBatch,
 } from "firebase/firestore";
+import { commitInChunks, type BatchOp } from "../../utils/firestoreBatch";
+import { isAdminRole } from "../../utils/roles";
 import {
   finalizeMatches,
   startProgram,
@@ -37,7 +47,7 @@ import SettingsPopup from "./SettingsPopup";
 import ParticipantInfoPopup from "../Dashboard/components/ParticipantInfoPopup/ParticipantInfoPopup";
 
 const DEFAULT_APPROVAL_THRESHOLD = 0.8; // 80%
-const DEV_MODE = false; // ← flip to false before deploying to production
+const DEV_MODE = false; // true simulates End Program without touching Firestore
 
 // Collections to wipe on End Program
 const COLLECTIONS_TO_CLEAR = [
@@ -47,6 +57,32 @@ const COLLECTIONS_TO_CLEAR = [
   "weeks",
   "waitlist",
 ];
+
+// True for Admin/Subadmin accounts, including participants promoted to Subadmin.
+function isAdminProfile(data: { type?: unknown; role?: unknown }): boolean {
+  return (
+    data.type === "Admin" ||
+    isAdminRole(typeof data.role === "string" ? data.role : null)
+  );
+}
+
+// A match whose status an admin set by hand (approved or moved to pending, in
+// this table or via Rematching). The threshold and Create Matches leave these
+// alone. Older docs have no `manual` flag, so a hand approval is also
+// recognised by its approvedBy name.
+function isManualDecision(data: {
+  manual?: unknown;
+  status?: unknown;
+  approvedBy?: unknown;
+}) {
+  if (data.manual === true) return true;
+  return (
+    data.status === "approved" &&
+    typeof data.approvedBy === "string" &&
+    data.approvedBy !== "" &&
+    data.approvedBy !== "Auto-Approved"
+  );
+}
 
 // Every field of the Participant type, in CSV column order. This drives the
 // "Users" export so a column always appears even when every document happens
@@ -183,28 +219,43 @@ const PreProgram = () => {
   }, []);
 
   /**
-   * Convert backend match results + unmatched arrays into UI_Match rows.
+   * Convert backend match results into UI_Match pair rows. Unmatched
+   * participants aren't stored, and loadMatches rebuilds their rows afterwards.
    */
   const convertMatches = async (
     rawMatches: BackendMatch[],
-    unmatchedStudents: string[],
-    unmatchedSeniors: string[],
   ): Promise<UI_Match[]> => {
-    const pairRows: UI_Match[] = await Promise.all(
+    // matchAll can return IDs whose participant doc no longer exists (e.g. a
+    // stale vector in Pinecone). Skip those pairs; any other read error
+    // propagates so the run fails instead of silently dropping real pairs.
+    const findUser = async (uid: string) => {
+      const user = await getUserOrNull(uid);
+      if (!user) {
+        console.warn(`Skipping match result for missing participant ${uid}`);
+      }
+      return user;
+    };
+
+    const approvalThreshold =
+      (programState?.autoApprovalThreshold ??
+        DEFAULT_APPROVAL_THRESHOLD * 100) / 100;
+
+    const pairRows: UI_Match[] = [];
+
+    await Promise.all(
       rawMatches.map(async (m) => {
-        const u1 = await getUser(m.studentId);
-        const u2 = await getUser(m.seniorId);
+        const [u1, u2] = await Promise.all([
+          findUser(m.studentId),
+          findUser(m.seniorId),
+        ]);
+        if (!u1 || !u2) return;
 
         const pct = Math.round(m.scores.finalScore * 100);
-
-        const approvalThreshold =
-          (programState?.autoApprovalThreshold ??
-            DEFAULT_APPROVAL_THRESHOLD * 100) / 100;
 
         const status: MatchStatus =
           m.scores.finalScore >= approvalThreshold ? "Approved" : "Pending";
 
-        return {
+        pairRows.push({
           name1: u1.displayName,
           name2: u2.displayName,
           participant1_id: u1.userUid,
@@ -213,41 +264,11 @@ const PreProgram = () => {
           status,
           score: m.scores.finalScore,
           approvedBy: status === "Approved" ? "Auto-Approved" : "",
-        };
+        });
       }),
     );
 
-    const unmatchedStudentRows: UI_Match[] = await Promise.all(
-      unmatchedStudents.map(async (uid) => {
-        const u = await getUser(uid);
-        return {
-          name1: u.displayName,
-          name2: "No match yet",
-          participant1_id: u.userUid,
-          participant2_id: null,
-          confidence: undefined,
-          status: "No Match",
-          score: 0,
-        };
-      }),
-    );
-
-    const unmatchedSeniorRows: UI_Match[] = await Promise.all(
-      unmatchedSeniors.map(async (uid) => {
-        const u = await getUser(uid);
-        return {
-          name1: "No match yet",
-          name2: u.displayName,
-          participant1_id: null,
-          participant2_id: u.userUid,
-          confidence: undefined,
-          status: "No Match",
-          score: 0,
-        };
-      }),
-    );
-
-    return [...pairRows, ...unmatchedStudentRows, ...unmatchedSeniorRows];
+    return pairRows;
   };
 
   const loadMatches = useCallback(async () => {
@@ -274,8 +295,13 @@ const PreProgram = () => {
           matchedIds.add(p1);
           matchedIds.add(p2);
 
-          const u1 = await getUser(p1);
-          const u2 = await getUser(p2);
+          // A match can outlive a deleted participant. Show it with a
+          // placeholder name so an admin can separate it, instead of failing
+          // the whole table.
+          const [u1, u2] = await Promise.all([
+            getUserOrNull(p1),
+            getUserOrNull(p2),
+          ]);
 
           const rawStatus = (data.status as string | undefined) || "";
           const approvalThreshold = programState?.autoApprovalThreshold ?? 80;
@@ -297,8 +323,8 @@ const PreProgram = () => {
           const approvedBy = (data.approvedBy as string | undefined) ?? "";
 
           return {
-            name1: u1.displayName,
-            name2: u2.displayName,
+            name1: u1?.displayName ?? "Deleted participant",
+            name2: u2?.displayName ?? "Deleted participant",
             participant1_id: p1,
             participant2_id: p2,
             confidence: similarity,
@@ -336,12 +362,11 @@ const PreProgram = () => {
       if (waitlistedIds.has(id)) return;
       const displayName =
         data.displayName ?? data.name ?? data.fullName ?? "Unnamed participant";
-      const userType = (data.user_type ?? data.userType) as
-        | "Student"
-        | "Adult"
-        | "Senior"
-        | undefined;
-      if (userType === "Student") {
+      // Registration stores lowercase "student" / "adult"; compare case-insensitively.
+      const userType = String(data.user_type ?? data.userType ?? "")
+        .trim()
+        .toLowerCase();
+      if (userType === "student") {
         unmatchedRows.push({
           name1: displayName,
           name2: "No match yet",
@@ -351,7 +376,7 @@ const PreProgram = () => {
           status: "No Match",
           score: 0,
         });
-      } else if (userType === "Adult" || userType === "Senior") {
+      } else if (userType === "adult" || userType === "senior") {
         unmatchedRows.push({
           name1: "No match yet",
           name2: displayName,
@@ -390,40 +415,39 @@ const PreProgram = () => {
     return "low";
   };
 
-  const storeMatches = async (list: UI_Match[]): Promise<UI_Match[]> => {
+  /**
+   * Replace the given match docs with the new list. New matches are written
+   * before the old ones are deleted (in chunks under Firestore's 500-op batch
+   * limit), so a failure part-way leaves extra matches rather than none, and
+   * re-running Create Matches cleans them up.
+   */
+  const storeMatches = async (
+    list: UI_Match[],
+    docsToReplace: QueryDocumentSnapshot[],
+  ) => {
     const colRef = collection(db, "matches");
-
-    // Delete all existing match docs
-    const existingDocs = await getDocs(colRef);
-    const deleteBatch = writeBatch(db);
-    existingDocs.forEach((d) => deleteBatch.delete(d.ref));
-    await deleteBatch.commit();
-
-    const writeBatchRef = writeBatch(db);
-    const withIds: UI_Match[] = [];
+    const ops: BatchOp[] = [];
 
     list.forEach((m) => {
       // Skip unmatched rows (no Firestore doc)
       if (m.status === "No Match" || !m.participant1_id || !m.participant2_id) {
-        withIds.push({ ...m, matchId: undefined });
         return;
       }
 
-      const newDocRef = doc(colRef);
-      writeBatchRef.set(newDocRef, {
+      const data = {
         participant1_id: m.participant1_id,
         participant2_id: m.participant2_id,
         similarity: m.confidence,
         status: m.status === "Approved" ? "approved" : "pending",
         approvedBy: m.approvedBy ?? "",
-      });
-
-      withIds.push({ ...m, matchId: newDocRef.id });
+      };
+      ops.push((batch) => batch.set(doc(colRef), data));
     });
 
-    await writeBatchRef.commit();
+    docsToReplace.forEach((d) => ops.push((batch) => batch.delete(d.ref)));
+
+    await commitInChunks(db, ops);
     console.log("Matches stored successfully.");
-    return withIds;
   };
 
   const updateMatchStatuses = async (newThreshold: number) => {
@@ -436,11 +460,15 @@ const PreProgram = () => {
         return;
       }
 
-      const batch = writeBatch(db);
-      let updateCount = 0;
+      const ops: BatchOp[] = [];
 
       snap.docs.forEach((matchDoc) => {
         const data = matchDoc.data();
+
+        // Leave matches an admin approved or moved to pending by hand alone;
+        // the threshold only governs automatic decisions.
+        if (isManualDecision(data)) return;
+
         const similarity = data.similarity ?? 0;
         const currentStatus = data.status;
         const currentApprovedBy = data.approvedBy ?? "";
@@ -450,20 +478,20 @@ const PreProgram = () => {
           newStatus !== "approved" && currentApprovedBy;
 
         if (newStatus !== currentStatus || shouldClearApprovedBy) {
-          batch.update(matchDoc.ref, {
+          const update = {
             status: newStatus,
             approvedBy:
               newStatus === "approved"
                 ? currentApprovedBy || "Auto-Approved"
                 : "",
-          });
-          updateCount++;
+          };
+          ops.push((batch) => batch.update(matchDoc.ref, update));
         }
       });
 
-      if (updateCount > 0) {
-        await batch.commit();
-        console.log(`Updated status for ${updateCount} matches`);
+      if (ops.length > 0) {
+        await commitInChunks(db, ops);
+        console.log(`Updated status for ${ops.length} matches`);
       } else {
         console.log("No matches needed status updates");
       }
@@ -478,24 +506,40 @@ const PreProgram = () => {
   const handleMatch = async () => {
     setMatching(true);
     try {
-      const res = await matchAll();
-      const {
-        matches: rawMatches,
-        unmatchedStudents = [],
-        unmatchedSeniors = [],
-      } = res.result;
-
-      const converted = await convertMatches(
-        rawMatches,
-        unmatchedStudents,
-        unmatchedSeniors,
+      // Matches an admin decided on by hand are kept, and their participants
+      // are left out of this run. Everything else is replaced.
+      const existingSnap = await getDocs(collection(db, "matches"));
+      const manualDocs = existingSnap.docs.filter((d) =>
+        isManualDecision(d.data()),
+      );
+      const docsToReplace = existingSnap.docs.filter(
+        (d) => !isManualDecision(d.data()),
       );
 
-      const storedWithIds = await storeMatches(converted);
-      const sorted = sortMatches(storedWithIds);
-      setMatches(sorted);
+      if (existingSnap.size > 0) {
+        const confirmed = window.confirm(
+          `Create Matches will replace ${docsToReplace.length} existing match(es). ` +
+            `${manualDocs.length} match(es) an admin approved or set to pending by hand will be kept. Continue?`,
+        );
+        if (!confirmed) return;
+      }
+
+      const excludeIds = manualDocs
+        .flatMap((d) => [d.data().participant1_id, d.data().participant2_id])
+        .filter((id): id is string => typeof id === "string" && id !== "");
+
+      const res = await matchAll({ excludeIds });
+      const converted = await convertMatches(res.result.matches);
+
+      await storeMatches(converted, docsToReplace);
+      // Reload so the table shows kept manual matches alongside the new ones.
+      await loadMatches();
     } catch (err) {
       console.error("Error creating matches:", err);
+      setBanner({
+        message: "Failed to create matches. Please try again.",
+        type: "error",
+      });
     } finally {
       setMatching(false);
     }
@@ -702,13 +746,32 @@ const PreProgram = () => {
         return;
       }
 
-      // Delete all docs in each collection (Firestore has no "delete collection" API)
+      // Delete all docs in each collection (Firestore has no "delete
+      // collection" API), chunked under the 500-op batch limit. Every step is
+      // safe to repeat, so if anything fails the admin can just retry.
       for (const colName of COLLECTIONS_TO_CLEAR) {
         const snap = await getDocs(collection(db, colName));
-        const batch = writeBatch(db);
-        snap.docs.forEach((d) => batch.delete(d.ref));
-        await batch.commit();
+        const ops: BatchOp[] = snap.docs.map((d) => {
+          // Admin and sub-admin profiles also live in "participants"; keep them
+          // so admins aren't locked out of the app after the reset. A
+          // participant promoted to sub-admin drops their cohort placement,
+          // since their vector is cleared below.
+          if (colName === "participants" && isAdminProfile(d.data())) {
+            return (batch) =>
+              batch.update(d.ref, {
+                user_type: deleteField(),
+                capacityDecision: deleteField(),
+              });
+          }
+          return (batch) => batch.delete(d.ref);
+        });
+        await commitInChunks(db, ops);
       }
+
+      // Clear last cohort's vectors after their Firestore docs are gone. If
+      // this fails, the leftover vectors point at deleted participants, which
+      // Create Matches already skips.
+      await clearMatchingIndex();
 
       // Reset config doc
       const configRef = doc(db, "config", "programState");
@@ -813,6 +876,9 @@ const PreProgram = () => {
       await updateDoc(matchRef, {
         status: firestoreStatus,
         approvedBy: newStatus === "Approved" ? adminName : "",
+        // Marks an admin's decision so the threshold and Create Matches
+        // don't override it.
+        manual: true,
       });
 
       setBanner({
