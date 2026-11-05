@@ -524,26 +524,35 @@
 
 .settingsRow {
   width: 100%;
-  height: 80px;
+  min-height: 64px;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  gap: 8px 12px;
+}
+
+.settingsRow > p {
+  margin: 0;
 }
 
 .settingsButtonRow {
   gap: 12px;
+  flex-wrap: wrap;
+  height: auto;
+  min-height: 80px;
+}
+
+.settingsButtonRow .adminBtn {
+  flex: 1 1 180px;
+  max-width: none;
 }
 
 .dialogPaper {
-  width: 50vw;
-  height: 90vh;
-  padding: 20px;
-}
-
-.numberInput {
-  width: 100px;
-  height: 30px;
-  background-color: rgb(230, 230, 230);
-  margin-left: 10px;
+  width: min(560px, 92vw);
+  height: auto;
+  max-height: 90vh;
+  padding: 24px;
+  box-sizing: border-box;
 }
 
 .warning {
@@ -553,11 +562,6 @@
   height: auto;
   box-sizing: border-box;
   padding: 0 8px;
-}
-
-.close {
-  background-color: rgb(230, 230, 230);
-  margin-top: 10px;
 }
 
 .score {
@@ -608,26 +612,6 @@
   color: inherit;
   cursor: pointer;
   padding: 0;
-}
-
-.registrationRowYes {
-  background-color: green;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  padding: 4px 8px;
-  cursor: default;
-  margin: 10px;
-}
-
-.registrationRowNo {
-  background-color: red;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  padding: 4px 8px;
-  cursor: default;
-  margin: 10px;
 }
 
 .table th,
@@ -708,4 +692,128 @@
   .searchInput {
     min-height: 56px;
   }
+}
+
+.sectionHeading {
+  width: 100%;
+  margin: 16px 0 4px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(15, 107, 177, 0.2);
+  font-family: Merriweather, serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #0f6bb1;
+  text-align: left;
+}
+
+.settingsInput {
+  width: 120px;
+  color-scheme: light;
+  padding: 10px 16px;
+  border-radius: 9999px;
+  border: 2px solid rgba(15, 107, 177, 0.2);
+  outline: none;
+  font-size: 15px;
+  font-family: Merriweather, serif;
+  color: #0f4f86;
+  background: #ffffff;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.settingsInput:focus {
+  border-color: #0f6bb1;
+  box-shadow: 0 0 0 3px rgba(15, 107, 177, 0.1);
+}
+
+.settingsInput:disabled {
+  background: #f1f4f8;
+  color: rgba(15, 79, 134, 0.5);
+  border-color: rgba(15, 107, 177, 0.1);
+  cursor: not-allowed;
+}
+
+.endRegistrationBtn {
+  padding: 10px 20px;
+  border-radius: 9999px;
+  border: 2px solid #0f6bb1;
+  background: #ffffff;
+  color: #0f4f86;
+  font-family: Merriweather, serif;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.endRegistrationBtn:hover:not(:disabled) {
+  background: #eaf3fb;
+}
+
+.endRegistrationBtn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(15, 107, 177, 0.25);
+}
+
+.endRegistrationBtn:disabled {
+  background: #f1f4f8;
+  border-color: rgba(15, 107, 177, 0.15);
+  color: rgba(15, 79, 134, 0.6);
+  cursor: not-allowed;
+}
+
+.saveBtn {
+  width: 100%;
+  padding: 12px 20px;
+  border-radius: 9999px;
+  border: 2px solid #0f6bb1;
+  background: #0f6bb1;
+  color: #ffffff;
+  font-family: Merriweather, serif;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.saveBtn:hover:not(:disabled) {
+  background: #0f4f86;
+  border-color: #0f4f86;
+}
+
+.saveBtn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(15, 107, 177, 0.25);
+}
+
+.saveBtn:disabled {
+  background: #e3eaf1;
+  border-color: #e3eaf1;
+  color: #5f7387;
+  cursor: not-allowed;
+}
+
+.closeBtn {
+  width: 100%;
+  margin-top: 10px;
+  padding: 12px 20px;
+  border-radius: 9999px;
+  border: 2px solid rgba(15, 107, 177, 0.3);
+  background: #ffffff;
+  color: #0f4f86;
+  font-family: Merriweather, serif;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.closeBtn:hover {
+  background: #eaf3fb;
+}
+
+.closeBtn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(15, 107, 177, 0.25);
 }

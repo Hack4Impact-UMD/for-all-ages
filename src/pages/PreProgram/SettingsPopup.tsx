@@ -7,6 +7,7 @@ import { db } from "../../firebase";
 import { endRegistration } from "../../services/programState";
 import SendIcon from "@mui/icons-material/Send";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
+import PersonTag from "../Dashboard/components/PersonTag/PersonTag";
 
 type ConfirmAction = "start" | "finalize" | "unfinalize" | "endProgram" | null;
 
@@ -187,10 +188,12 @@ export default function SettingsPopup({
           </button>
         </div>
 
+        <h4 className={styles.sectionHeading}>Program Details</h4>
+
         <div className={styles.settingsRow}>
-          <p>Number of weeks: </p>
+          <p>Number of Weeks: </p>
           <input
-            className={styles.numberInput}
+            className={styles.settingsInput}
             max={99}
             min={1}
             type="number"
@@ -213,7 +216,7 @@ export default function SettingsPopup({
         <div className={styles.settingsRow}>
           <p>Maximum Number of Participants: </p>
           <input
-            className={styles.numberInput}
+            className={styles.settingsInput}
             min={2}
             type="number"
             step={2}
@@ -229,9 +232,9 @@ export default function SettingsPopup({
         </div>
 
         <div className={styles.settingsRow}>
-          <p>Automatic Approval Threshold (%) : </p>
+          <p>Automatic Approval Threshold (%): </p>
           <input
-            className={styles.numberInput}
+            className={styles.settingsInput}
             min={0}
             max={100}
             type="number"
@@ -246,16 +249,17 @@ export default function SettingsPopup({
           />
         </div>
 
+        <h4 className={styles.sectionHeading}>Registration</h4>
+
         <div className={styles.settingsRow}>
           <p>Accepting Registrations: </p>
-          <button className={program?.accepting_registrations ? (!program.matches_final ? styles.registrationRowYes : styles.registrationRowNo) : styles.registrationRowNo}>
-            {program?.accepting_registrations ? (!program.matches_final ? "YES" : "NO") : "NO"}
-          </button>
+          <PersonTag names={program?.accepting_registrations && !program.matches_final ? "Yes" : "No"} variant={program?.accepting_registrations && !program.matches_final ? "green" : "rose"} />
         </div>
 
         <div className={styles.settingsRow}>
           <p>Registration Form: </p>
           <button
+            className={styles.endRegistrationBtn}
             onClick={() => setConfirmingEndRegistration(true)}
             disabled={!inEditPeriod || endingRegistration}
             title={!inEditPeriod ? (program?.accepting_registrations ? "Registration form is locked and open to the public." : "End Program to begin the registration edit period first.") : undefined}
@@ -267,10 +271,10 @@ export default function SettingsPopup({
         {confirmingEndRegistration && (
           <div className={styles.settingsRow}>
             <p>This locks the registration form (no more edits) and opens registration to the public. This cannot be undone until the next End Program.</p>
-            <button onClick={handleEndRegistration} disabled={endingRegistration}>
+            <button className={styles.endRegistrationBtn} onClick={handleEndRegistration} disabled={endingRegistration}>
               {endingRegistration ? "Ending..." : "Yes, end registration"}
             </button>
-            <button onClick={() => setConfirmingEndRegistration(false)} disabled={endingRegistration}>
+            <button className={styles.endRegistrationBtn} onClick={() => setConfirmingEndRegistration(false)} disabled={endingRegistration}>
               Cancel
             </button>
           </div>
@@ -280,10 +284,10 @@ export default function SettingsPopup({
 
         {program?.started || program?.matches_final ? <p className={styles.warning}>One or more settings may not be editable if the program has started or matches have been made final.</p> : <></>}
       </div>
-      <button onClick={handleSave} disabled={!changed}>
+      <button className={styles.saveBtn} onClick={handleSave} disabled={!changed}>
         Save
       </button>
-      <button onClick={close} className={styles.close}>
+      <button onClick={close} className={styles.closeBtn}>
         Close
       </button>
 
