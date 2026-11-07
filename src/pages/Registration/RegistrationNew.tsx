@@ -1,5 +1,14 @@
 import styles from "./Registration.module.css";
 import { stripPhone, isValidPhone } from "../../utils/phone";
+import {
+  MAX_AGE,
+  MIN_AGE,
+  computeAge,
+  isDateOfBirthQuestion,
+  isPlausibleAge,
+  userTypeForAge,
+  yearsAgo,
+} from "../../utils/age";
 import type { Form, Question, Section, FormResponse, Participant, Questions, RawAddress } from "../../types";
 import { useRef, useState, useEffect } from "react";
 import ShortInput from "./Question Types/ShortInput";
@@ -29,10 +38,12 @@ function QuestionRenderer({
   question,
   name,
   previewMode = false,
+  enforceAgeLimits = true,
 }: {
   question: Question;
   name: string;
   previewMode?: boolean;
+  enforceAgeLimits?: boolean;
 }) {
   const { type, title, description, options, min, max, required } = question;
   const requiredMark = required ? <span className={styles.requiredStar}> *</span> : null;
@@ -132,7 +143,11 @@ function QuestionRenderer({
       return withDisabledState(
         <div className={styles.fieldGroup}>
           {labelContent}
-          <DateInput name={name} required={required} />
+          {enforceAgeLimits && isDateOfBirthQuestion(question) ? (
+            <DateInput name={name} required={required} min={yearsAgo(MAX_AGE)} max={yearsAgo(MIN_AGE)} />
+          ) : (
+            <DateInput name={name} required={required} />
+          )}
         </div>
       );
     case "phoneNumber":
@@ -195,12 +210,14 @@ function FormRenderer({
   navFooter,
   previewMode = false,
   hideSectionTitles = false,
+  enforceAgeLimits = true,
 }: {
   form: Form;
   currentStep: number;
   navFooter: React.ReactNode;
   previewMode?: boolean;
   hideSectionTitles?: boolean;
+  enforceAgeLimits?: boolean;
 }) {
   return (
     <>
@@ -220,6 +237,7 @@ function FormRenderer({
               question={question}
               name={`s${sectionIndex}_q${questionIndex}`}
               previewMode={previewMode}
+              enforceAgeLimits={enforceAgeLimits}
             />
           ))}
           {sectionIndex === currentStep && navFooter}
@@ -368,28 +386,12 @@ const RegistrationNew = ({
     return false;
   };
 
-  const isDateOfBirthQuestion = (question: Question): boolean => {
-    if (question.lockedKey === "date of birth") return true;
-    const title = question.title.toLowerCase();
-    return title.includes("date of birth") || title.includes("birthday") || title === "dob";
-  };
-
   const getDateOfBirth = (formData: FormData, formConfig: Form): string | null => {
     const entry = getQuestionEntries(formConfig).find(({ question }) =>
       isDateOfBirthQuestion(question)
     );
     if (!entry) return null;
     return (formData.get(entry.fieldName) as string) || null;
-  };
-
-  const computeAge = (dob: string): number | null => {
-    const birth = new Date(`${dob}T00:00:00`);
-    if (isNaN(birth.getTime())) return null;
-    const today = new Date();
-    let age = today.getFullYear() - birth.getFullYear();
-    const m = today.getMonth() - birth.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
-    return age;
   };
 
   const getNumericQuestionKeys = (formConfig: Form): Map<string, string> => {
@@ -660,16 +662,14 @@ const RegistrationNew = ({
 
       const dob = getDateOfBirth(formData, form);
       const age = dob ? computeAge(dob) : null;
-      if (age !== null && (age < 14 || age > 110)) {
+      // A DOB that doesn't parse, or is in the future, is always rejected.
+      // Admins entering someone manually may go outside the usual age range.
+      if (dob && (age === null || age < 0 || (!isManualEntry && !isPlausibleAge(age)))) {
         setSubmitError("Please check your date of birth.");
         setSubmitting(false);
         return;
       }
-      const computedUserType: "student" | "adult" | null =
-        age === null || age < 0 ? null :
-        age >= 55 ? "adult" :
-        age >= 36 ? null :
-        "student";
+      const computedUserType = age === null ? null : userTypeForAge(age);
 
       const performRegistration = async () => {
         // Extract basic info for Participant
@@ -912,6 +912,7 @@ const RegistrationNew = ({
         currentStep={currentStep}
         previewMode={previewMode}
         hideSectionTitles={previewMode && compactPreview}
+        enforceAgeLimits={!isManualEntry}
         navFooter={
           <>
             {!previewMode && submitError && (

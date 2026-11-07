@@ -1,26 +1,25 @@
 import styles from "../Registration.module.css";
+import { toLocalDateString } from "../../../utils/age";
 
 export default function DateInput({
   name,
   required,
   className,
+  min,
+  max,
 }: {
   name: string;
   required: boolean;
   className?: string;
+  min?: string;
+  max?: string;
 }) {
-  const now = new Date();
-  const today = now.toISOString().split("T")[0];
-  const oldest = new Date(now);
-  oldest.setFullYear(now.getFullYear() - 110);
-  const min = oldest.toISOString().split("T")[0];
-
   return (
     <input
       type="date"
       name={name}
       min={min}
-      max={today}
+      max={max ?? toLocalDateString(new Date())}
       required={required}
       className={className ?? styles.fieldInput}
       style={{ maxWidth: 250 }}
