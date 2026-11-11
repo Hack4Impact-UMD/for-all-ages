@@ -7,7 +7,6 @@ import { db } from "../../firebase";
 import { endRegistration } from "../../services/programState";
 import SendIcon from "@mui/icons-material/Send";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
-import PersonTag from "../Dashboard/components/PersonTag/PersonTag";
 
 type ConfirmAction = "start" | "finalize" | "unfinalize" | "endProgram" | null;
 
@@ -253,7 +252,9 @@ export default function SettingsPopup({
 
         <div className={styles.settingsRow}>
           <p>Accepting Registrations: </p>
-          <PersonTag names={program?.accepting_registrations && !program.matches_final ? "Yes" : "No"} variant={program?.accepting_registrations && !program.matches_final ? "green" : "rose"} />
+          <span className={`${styles.statusLabel} ${program?.accepting_registrations && !program.matches_final ? styles.statusYes : styles.statusNo}`}>
+            {program?.accepting_registrations && !program.matches_final ? "Yes" : "No"}
+          </span>
         </div>
 
         <div className={styles.settingsRow}>
@@ -269,14 +270,18 @@ export default function SettingsPopup({
         </div>
 
         {confirmingEndRegistration && (
-          <div className={styles.settingsRow}>
-            <p>This locks the registration form (no more edits) and opens registration to the public. This cannot be undone until the next End Program.</p>
-            <button className={styles.endRegistrationBtn} onClick={handleEndRegistration} disabled={endingRegistration}>
-              {endingRegistration ? "Ending..." : "Yes, end registration"}
-            </button>
-            <button className={styles.endRegistrationBtn} onClick={() => setConfirmingEndRegistration(false)} disabled={endingRegistration}>
-              Cancel
-            </button>
+          <div className={styles.confirmRegistration}>
+            <p className={styles.confirmRegistrationText}>
+              This locks the registration form (no more edits) and opens registration to the public. This cannot be undone until the next End Program.
+            </p>
+            <div className={styles.confirmRegistrationActions}>
+              <button className={styles.endRegistrationBtn} onClick={handleEndRegistration} disabled={endingRegistration}>
+                {endingRegistration ? "Ending..." : "Yes, end registration"}
+              </button>
+              <button className={styles.endRegistrationBtn} onClick={() => setConfirmingEndRegistration(false)} disabled={endingRegistration}>
+                Cancel
+              </button>
+            </div>
           </div>
         )}
 

@@ -515,6 +515,7 @@
   flex-direction: column;
   justify-content: start;
   align-items: center;
+  margin-bottom: 16px;
 }
 
 .settingsContainer > p {
@@ -540,6 +541,11 @@
   flex-wrap: wrap;
   height: auto;
   min-height: 80px;
+  box-sizing: border-box;
+  padding: 16px;
+  margin-top: 8px;
+  background-color: #127bbe;
+  border-radius: 16px;
 }
 
 .settingsButtonRow .adminBtn {
@@ -816,4 +822,50 @@
 .closeBtn:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px rgba(15, 107, 177, 0.25);
+}
+
+.confirmRegistration {
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 4px 0 16px;
+  padding: 14px 16px;
+  background: #f3f8fc;
+  border: 1px solid rgba(15, 107, 177, 0.2);
+  border-radius: 12px;
+}
+
+.confirmRegistrationText {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #1d1d1d;
+}
+
+.confirmRegistrationActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.statusLabel {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: default;
+  box-shadow: none;
+}
+
+.statusYes {
+  background: #d4edda;
+  color: #155724;
+}
+
+.statusNo {
+  background: #f8d7da;
+  color: #721c24;
 }
