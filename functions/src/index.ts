@@ -16,6 +16,7 @@ import {
 import { buildMatchablePayload } from "./matchablePayload";
 import { assignNumericKeys, getFormQuestions } from "./numericKeys";
 import { getCallerRole, isAdminRole, isFullAdminRole, normalizeRole } from "./roles";
+import { computeAge, isPlausibleAge, userTypeForAge } from "./age";
 
 import { Readable } from "stream";
 
@@ -162,11 +163,28 @@ export const upsertUser = onRequest(async (req, res) => {
       return;
     }
 
+    // Participants can't pick their own user_type: derive it from the date of
+    // birth they saved. Admins may set it directly (manual entry, 36-54s).
+    let userType = user_type;
+    if (!caller.isAdmin) {
+      const participantSnap = await admin.firestore().collection(PARTICIPANTS).doc(uid).get();
+      const age = computeAge(participantSnap.get("dateOfBirth"));
+      if (age === null || !isPlausibleAge(age)) {
+        res.status(400).json({ error: "Please check your date of birth." });
+        return;
+      }
+      userType = userTypeForAge(age);
+      if (userType === null) {
+        res.status(400).json({ error: "An admin must assign your participant type." });
+        return;
+      }
+    }
+
     await upsertFreeResponse(
       uid,
       textResponses || [],
       numericResponses || {},
-      user_type,
+      userType,
       pronouns
     );
 
