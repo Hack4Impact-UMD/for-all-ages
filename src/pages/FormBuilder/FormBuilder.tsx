@@ -217,7 +217,7 @@ function InlineEditor({
           className={styles.inlineTitleInput}
           value={question.title ?? ""}
           placeholder="Question Title"
-          disabled={question.locked}
+          disabled={question.locked && question.lockedKey !== "date of birth"}
           onChange={(e) =>
             e.target.value.length < 100
               ? onUpdate({ title: e.target.value })
