@@ -11,6 +11,7 @@ import { useAuth } from "./auth/AuthProvider";
 import UserDashboard from "./pages/Dashboard/UserDashboard";
 import AdminDashboard from "./pages/Dashboard/AdminDashboard";
 import AdminCreator from "./pages/Users/AdminCreator";
+import CampusRoster from "./pages/Users/CampusRoster";
 import LoginSignup from "./pages/Login/Login-Signup";
 import Registration from "./pages/Registration/RegistrationNew";
 import Profile from "./pages/Profile/Profile";
@@ -20,6 +21,7 @@ import PreProgram from "./pages/PreProgram/PreProgram";
 import FormBuilder from "./pages/FormBuilder/FormBuilder";
 import Waiting from "./pages/Waiting/Waiting";
 import MainLayout from "./components/MainLayout";
+import { SUBADMIN_CAN_MANAGE_PARTICIPANTS } from "./utils/roles";
 
 function RouteLoader() {
   return <div className="route-loading">Loading...</div>;
@@ -63,9 +65,12 @@ function RegistrationGate() {
     participant,
     participantLoading,
     isAdmin,
+    isSubadmin,
   } = useAuth();
   const location = useLocation();
   const role = (participant as { role?: string | null } | null)?.role ?? null;
+  const registered =
+    (participant as { type?: string } | null)?.type === "Participant";
 
   if (loading || participantLoading) {
     return <RouteLoader />;
@@ -79,14 +84,15 @@ function RegistrationGate() {
     return <Navigate to="/" replace />;
   }
 
-  if (role && isAdmin) {
+  // Sub-admins who also participate fill out the form like anyone else.
+  const subadminRegistering =
+    isSubadmin && participant?.participantOptIn === true && !registered;
+
+  if (role && isAdmin && !subadminRegistering) {
     return <Navigate to="/admin/" replace />;
   }
 
-  if (
-    participant &&
-    (participant as { type?: string }).type === "Participant"
-  ) {
+  if (registered) {
     return <Navigate to="/user/dashboard" replace />;
   }
 
@@ -166,6 +172,25 @@ function FullAdminGate() {
   return <Outlet />;
 }
 
+// Sub-admins see a read-only roster of their campus unless they're allowed to
+// manage participants. A wrapper, so AdminCreator's subscriptions to every
+// participant never mount for them.
+function UsersPage() {
+  const { isSubadmin } = useAuth();
+  if (isSubadmin && !SUBADMIN_CAN_MANAGE_PARTICIPANTS) {
+    return <CampusRoster />;
+  }
+  return <AdminCreator />;
+}
+
+function ManageParticipantsGate() {
+  const { isSubadmin } = useAuth();
+  if (isSubadmin && !SUBADMIN_CAN_MANAGE_PARTICIPANTS) {
+    return <Navigate to="/admin/creator" replace />;
+  }
+  return <Outlet />;
+}
+
 function App() {
   return (
     <BrowserRouter>
@@ -200,8 +225,10 @@ function App() {
               path=""
               element={<Navigate to="/admin/dashboard" replace />}
             />
-            <Route path="creator" element={<AdminCreator />} />
-            <Route path="add-participant" element={<Registration />} />
+            <Route path="creator" element={<UsersPage />} />
+            <Route element={<ManageParticipantsGate />}>
+              <Route path="add-participant" element={<Registration />} />
+            </Route>
             <Route element={<FullAdminGate />}>
               <Route path="dashboard" element={<AdminDashboard />} />
               <Route path="recap" element={<RecapPage />} />

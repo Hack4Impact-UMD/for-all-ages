@@ -43,6 +43,10 @@ export interface Participant {
     pronouns?: string | null
     heardAbout?: string | null
     university?: string | null
+    /** Student's school from registration; used for sub-admin campus rosters. */
+    school?: string | null
+    /** Sub-admin only: also registers and is matched as a participant. */
+    participantOptIn?: boolean
     preferenceScores?: PreferenceScores | null
     status?: string | null
     role?: Role | "Participant" | null
@@ -132,6 +136,7 @@ export interface AdminRecord {
   university?: string | null;
   /** True once registration finished (participant doc has type "Participant"). */
   registered?: boolean;
+  participantOptIn?: boolean;
 }
 
 /** Banner message for success/error feedback */
@@ -173,6 +178,7 @@ export interface InviteAdminParams {
   email: string;
   role: Role;
   university?: string | null;
+  participantOptIn?: boolean;
 }
 
 /** Event edit form values (roadmap events) */

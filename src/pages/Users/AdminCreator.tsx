@@ -14,6 +14,7 @@ import { assignUserType, db, deleteUser } from "../../firebase";
 import {
   promoteParticipantToSubadmin,
   demoteSubadminToParticipant,
+  setSubadminParticipantOptIn,
 } from "../../services/adminAccounts";
 import type {
   Role,
@@ -83,6 +84,7 @@ export default function AdminDashboard() {
   const [banner, setBanner] = useState<BannerState | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [placingId, setPlacingId] = useState<string | null>(null);
+  const [optInId, setOptInId] = useState<string | null>(null);
   const [promoteTarget, setPromoteTarget] = useState<AdminRecord | null>(null);
   const [demoteTarget, setDemoteTarget] = useState<AdminRecord | null>(null);
   const [selectedUser, setSelectedUser] = useState<AdminRecord | null>(null);
@@ -136,6 +138,7 @@ export default function AdminDashboard() {
               user_type: normaliseUserType(data.user_type ?? null),
               university: data.university ?? null,
               registered: data.type === "Participant",
+              participantOptIn: data.participantOptIn === true,
               userUid: data.userUid ?? null,
             };
           });
@@ -191,15 +194,11 @@ export default function AdminDashboard() {
       });
     }
 
-    if (
-      (roleFilter === "All" || roleFilter === "Participant") &&
-      groupFilter !== "All"
-    ) {
-      list = list.filter((user) => {
-        const user_type = normaliseUserType(user.user_type);
-        const r = normaliseRole(user.role);
-        return r === "Participant" && user_type === groupFilter;
-      });
+    // Sub-admins can be registered participants too, so match on group alone.
+    if (roleFilter !== "Admin" && groupFilter !== "All") {
+      list = list.filter(
+        (user) => normaliseUserType(user.user_type) === groupFilter,
+      );
     }
 
     if (term) {
@@ -217,7 +216,7 @@ export default function AdminDashboard() {
   }, [admins, searchTerm, roleFilter, groupFilter]);
 
   useEffect(() => {
-    if (roleFilter === "Admin" || roleFilter === "Subadmin") {
+    if (roleFilter === "Admin") {
       setGroupFilter("All");
     }
   }, [roleFilter]);
@@ -320,6 +319,32 @@ export default function AdminDashboard() {
     [],
   );
 
+  const handleSetOptIn = useCallback(
+    async (admin: AdminRecord, enabled: boolean) => {
+      setOptInId(admin.id);
+      setBanner(null);
+
+      try {
+        await setSubadminParticipantOptIn(admin.id, enabled);
+        setBanner({
+          type: "success",
+          message: enabled
+            ? `${admin.name} can now register as a participant.`
+            : `${admin.name} will no longer be asked to register.`,
+        });
+      } catch (err) {
+        console.error("Failed to update participant opt-in", err);
+        setBanner({
+          type: "error",
+          message: "Could not update this sub-admin. Please try again.",
+        });
+      } finally {
+        setOptInId(null);
+      }
+    },
+    [],
+  );
+
   return (
     <div className={layoutStyles.page}>
       <div className={`${layoutStyles.surface} ${styles.surfaceTight}`}>
@@ -351,14 +376,17 @@ export default function AdminDashboard() {
                 fontSize={15}
               ></Button>
 
-              <Button
-                type="Primary"
-                onClick={() => setIsModalOpen(true)}
-                text={"Add New User"}
-                height={40}
-                width={150}
-                fontSize={15}
-              ></Button>
+              {/* Sub-admins must never invite admins or change roles. */}
+              {!isSubadmin ? (
+                <Button
+                  type="Primary"
+                  onClick={() => setIsModalOpen(true)}
+                  text={"Add New User"}
+                  height={40}
+                  width={150}
+                  fontSize={15}
+                ></Button>
+              ) : null}
             </div>
           </div>
 
@@ -380,7 +408,7 @@ export default function AdminDashboard() {
               </select>
             </div>
 
-            {(roleFilter === "All" || roleFilter === "Participant") && (
+            {roleFilter !== "Admin" && (
               <div className={styles.filterField}>
                 <label className={styles.fieldLabel} htmlFor="group-filter">
                   Group
@@ -535,12 +563,9 @@ export default function AdminDashboard() {
                           {admin.address || "—"}
                         </td>
                         <td data-label="Group" className={styles.colGroup}>
-                          {admin.role === "Participant" && admin.user_type ? (
+                          {admin.registered && admin.user_type ? (
                             <span>{admin.user_type}</span>
-                          ) : admin.role === "Participant" && !admin.registered ? (
-                            // Placement needs a finished registration.
-                            <span>Registration incomplete</span>
-                          ) : admin.role === "Participant" ? (
+                          ) : admin.registered ? (
                             <select
                               value=""
                               disabled={placingId === admin.id}
@@ -558,6 +583,32 @@ export default function AdminDashboard() {
                               <option value="student">Student</option>
                               <option value="adult">Older Adult</option>
                             </select>
+                          ) : admin.role === "Participant" ? (
+                            // Placement needs a finished registration.
+                            <span>Registration incomplete</span>
+                          ) : admin.role === "Subadmin" ? (
+                            <div>
+                              <span>
+                                {admin.participantOptIn
+                                  ? "Invited to register"
+                                  : "Not participating"}
+                              </span>
+                              {!isSubadmin ? (
+                                <div style={{ marginTop: "0.25rem" }}>
+                                  <Button
+                                    type="Outline"
+                                    disabled={optInId === admin.id}
+                                    onClick={() =>
+                                      handleSetOptIn(admin, !admin.participantOptIn)
+                                    }
+                                    text={admin.participantOptIn ? "Undo" : "Allow"}
+                                    height={26}
+                                    width={64}
+                                    fontSize={11}
+                                  ></Button>
+                                </div>
+                              ) : null}
+                            </div>
                           ) : (
                             <span>—</span>
                           )}
@@ -568,7 +619,8 @@ export default function AdminDashboard() {
                         >
                           {/* Conditionally render the promote or demote
                           button based on the role of the user */}
-                          {(admin.role === "Participant" ||
+                          {!isSubadmin &&
+                          (admin.role === "Participant" ||
                             admin.role === "Subadmin") &&
                           !waitlistedIds.has(admin.id) ? (
                             admin.role === "Participant" ? (

@@ -26,6 +26,7 @@ import AddressInput from "./Question Types/AddressInput";
 import { collection, doc, getDoc, setDoc, serverTimestamp, runTransaction, increment } from "firebase/firestore";
 import { db, upsertUser } from "../../firebase";
 import { useAuth } from "../../auth/AuthProvider";
+import { isAdminRole } from "../../utils/roles";
 import { useLocation, useNavigate } from "react-router-dom";
 
 
@@ -447,6 +448,23 @@ const RegistrationNew = ({
     return values;
   };
 
+  // The school answer is copied onto the participant doc so sub-admins' campus
+  // rosters can query it without reading FormResponse.
+  const getSchool = (formData: FormData, formConfig: Form): string | null => {
+    const entry = getQuestionEntries(formConfig).find(
+      ({ question }) => question.lockedKey === "school",
+    );
+    if (!entry) return null;
+
+    const selectedValue = (formData.get(entry.fieldName) as string) || "";
+    const value =
+      entry.question.type === "DropdownWithOther" &&
+      selectedValue.trim().toLowerCase() === "other"
+        ? ((formData.get(`${entry.fieldName}_other`) as string) || "")
+        : selectedValue;
+    return value.trim() || null;
+  };
+
   const getPronouns = (formData: FormData, formConfig: Form): string => {
     const entry = getQuestionEntries(formConfig).find(
       ({ question }) => question.title?.toLowerCase().includes("pronoun")
@@ -693,13 +711,20 @@ const RegistrationNew = ({
         // A participant who already finished registering is re-submitting.
         const alreadyRegistered = participantSnap.data()?.type === "Participant";
 
+        // Sub-admins can register as participants too; keep their admin role.
+        const keepsAdminRole = isAdminRole(participantSnap.data()?.role);
+        const { role, ...basicInfoWithoutRole } = basicInfo;
+
         // Save the profile and answers, but don't mark registration complete
         // (type: "Participant") until the capacity check and Pinecone upsert
         // have succeeded. Until then RegistrationGate keeps showing the form,
         // so a failed submit can simply be retried.
         const participantData = {
-          ...omitUndefined({ ...basicInfo }),
+          ...omitUndefined(
+            keepsAdminRole ? basicInfoWithoutRole : { ...basicInfoWithoutRole, role },
+          ),
           user_type: computedUserType,
+          school: getSchool(formData, form),
           ...(dob && { dateOfBirth: dob }),
           updatedAt: serverTimestamp(),
           ...(!participantSnap.exists() && { createdAt: serverTimestamp() }),

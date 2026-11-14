@@ -3,6 +3,7 @@ import styles from "./Components.module.css";
 import Logo from "../assets/For all Ages high res logo 2022 (1).svg";
 import { useAuth } from "../auth/AuthProvider";
 import { useMemo } from "react";
+import { SUBADMIN_CAN_MANAGE_PARTICIPANTS } from "../utils/roles";
 
 interface NavItem {
   label: string;
@@ -27,17 +28,20 @@ const PARTICIPANT_NAV_ITEMS: NavItem[] = [
   { label: "Profile", path: "/profile" },
 ];
 
-const SUBADMIN_NAV_ITEMS: NavItem[] = [
-  { label: "Users", path: "/admin/creator" },
-  { label: "Profile", path: "/profile" },
-];
-
 const DEFAULT_NAV_ITEMS: NavItem[] = [{ label: "Login", path: "/" }];
 
 export default function Navbar({ navItems }: NavbarProps) {
   const location = useLocation();
-  const { participantLoading, isAdmin, programState, programStateLoading, isSubadmin} =
-    useAuth();
+  const {
+    participant,
+    participantLoading,
+    isAdmin,
+    programState,
+    programStateLoading,
+    isSubadmin,
+  } = useAuth();
+  const registered = participant?.type === "Participant";
+  const participantOptIn = participant?.participantOptIn === true;
 
   // Automatically determine navItems based on user type if not provided
   const determinedNavItems = useMemo(() => {
@@ -49,8 +53,21 @@ export default function Navbar({ navItems }: NavbarProps) {
     }
 
     // Return appropriate navItems based on user type
+    // Sub-admins can also be participants, so their links depend on whether
+    // they've registered.
     if (isSubadmin) {
-      return SUBADMIN_NAV_ITEMS;
+      const items: NavItem[] = [];
+      if (registered) {
+        items.push({ label: "Dashboard", path: "/user/dashboard" });
+      } else if (participantOptIn) {
+        items.push({ label: "Register", path: "/registration" });
+      }
+      items.push({
+        label: SUBADMIN_CAN_MANAGE_PARTICIPANTS ? "Users" : "Roster",
+        path: "/admin/creator",
+      });
+      items.push({ label: "Profile", path: "/profile" });
+      return items;
     }
 
     if (isAdmin) {
@@ -58,7 +75,7 @@ export default function Navbar({ navItems }: NavbarProps) {
     }
 
     return PARTICIPANT_NAV_ITEMS;
-  }, [navItems, participantLoading, isAdmin]);
+  }, [navItems, participantLoading, isAdmin, isSubadmin, registered, participantOptIn]);
 
   const adminProgramStatusText = useMemo(() => {
     if (programStateLoading) {
@@ -87,10 +104,16 @@ export default function Navbar({ navItems }: NavbarProps) {
     programState && !programState.started && !programState.accepting_registrations,
   );
 
+  const logoPath = isSubadmin
+    ? registered
+      ? "/user/dashboard"
+      : "/admin/creator"
+    : `/${isAdmin ? "admin" : "user"}/dashboard`;
+
   return (
     <div className={styles.bar}>
       <div className={styles.logoContainer}>
-        <Link to={`/${isAdmin ? "admin":"user"}/dashboard`} className={styles.logoLink}>
+        <Link to={logoPath} className={styles.logoLink}>
           <img src={Logo} alt="For All Ages Logo" className={styles.logo} />
         </Link>
       </div>
