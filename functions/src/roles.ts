@@ -21,6 +21,16 @@ export function isFullAdminRole(role: unknown): boolean {
   return normalizeRole(role) === "admin";
 }
 
+// Whether sub-admins may delete and place participants. Flip this together
+// with the client copy in src/utils/roles.ts; setting both to true restores
+// the old behaviour (sub-admins get the full Users page).
+export const SUBADMIN_CAN_MANAGE_PARTICIPANTS = false;
+
+export function canManageParticipants(role: unknown): boolean {
+  if (isFullAdminRole(role)) return true;
+  return SUBADMIN_CAN_MANAGE_PARTICIPANTS && isAdminRole(role);
+}
+
 /** The caller's normalized role from their participants doc ("" if none). */
 export async function getCallerRole(uid: string): Promise<string> {
   const snap = await admin.firestore().collection("participants").doc(uid).get();
