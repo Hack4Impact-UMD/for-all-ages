@@ -36,7 +36,6 @@ export const LOCKED_QUESTIONS : Question[] = [
     required: true,
     matchable: false,
     locked: true,
-    optionsLocked: true,
     lockedKey: "date of birth",
   },
   {
@@ -136,6 +135,7 @@ const formToState = (form?: Form | null): FormEditorState => {
         questions: (section.questions ?? []).map((q) => ({
           ...q,
           locked: q.locked && q.lockedKey ? LOCKED_QUESTION_ORDER.includes(q.lockedKey) : q.locked,
+          optionsLocked: q.lockedKey === "date of birth" ? false : q.optionsLocked,
           id: createId("question"),
         })),
       })),
