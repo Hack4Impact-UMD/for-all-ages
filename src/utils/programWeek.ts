@@ -10,6 +10,9 @@ export function getCurrentWeek(
 
     const MS_PER_WEEK = 1000 * 60 * 60 * 24 * 7;
     const elapsed = Math.floor((Date.now() - new Date(startDate).getTime()) / MS_PER_WEEK);
+    // A malformed startDate gives NaN; treat it as not started (matches the
+    // server's currentProgramWeek in functions/src/index.ts).
+    if (!Number.isFinite(elapsed)) return 1;
     return Math.min(Math.max(elapsed + 1, 1), numWeeks);
 }
 

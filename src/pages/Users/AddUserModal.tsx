@@ -26,6 +26,7 @@ type AddAdminFormState = {
   role: AddUserRole;
   university: string;
   participantName: string;
+  participantOptIn: boolean;
 };
 
 export default function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps) {
@@ -38,6 +39,7 @@ export default function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps
     role: "Admin",
     university: "",
     participantName: "",
+    participantOptIn: false,
   });
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -213,6 +215,7 @@ export default function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps
         role: form.role as Role,
         university:
           form.role === "Subadmin" ? form.university.trim() : undefined,
+        participantOptIn: form.role === "Subadmin" && form.participantOptIn,
       });
 
       const displayName =
@@ -252,6 +255,8 @@ export default function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps
         role: form.role as Role,
         university:
           form.role === "Subadmin" ? form.university.trim() : undefined,
+        participantOptIn:
+          form.role === "Subadmin" ? form.participantOptIn : undefined,
       });
 
       const roleLabel = form.role === "Subadmin" ? "Sub-admin" : "Admin";
@@ -440,6 +445,29 @@ export default function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps
                       </option>
                     ))}
                   </select>
+                </div>
+              ) : null}
+
+              {form.role === "Subadmin" ? (
+                <div className={styles.field}>
+                  <label className={styles.checkboxOption}>
+                    <input
+                      type="checkbox"
+                      name="participantOptIn"
+                      checked={form.participantOptIn}
+                      onChange={(event) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          participantOptIn: event.target.checked,
+                        }))
+                      }
+                    />
+                    Also a participant
+                  </label>
+                  <p className={styles.fieldHint} style={{ color: "#475569" }}>
+                    They will fill out the registration form after signing in
+                    and be matched like any other student.
+                  </p>
                 </div>
               ) : null}
             </>

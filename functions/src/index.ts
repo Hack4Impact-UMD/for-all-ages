@@ -15,7 +15,13 @@ import {
 
 import { buildMatchablePayload } from "./matchablePayload";
 import { assignNumericKeys, getFormQuestions } from "./numericKeys";
-import { getCallerRole, isAdminRole, isFullAdminRole, normalizeRole } from "./roles";
+import {
+  canManageParticipants,
+  getCallerRole,
+  isAdminRole,
+  isFullAdminRole,
+  normalizeRole,
+} from "./roles";
 import { computeAge, isPlausibleAge, userTypeForAge } from "./age";
 
 import { Readable } from "stream";
@@ -324,7 +330,7 @@ export const deleteUser = onCall(async (request) => {
 
   const callerRole = normalizeRole(callerDoc.data()?.role);
 
-  if (!isAdminRole(callerRole)) {
+  if (!canManageParticipants(callerRole)) {
     throw new HttpsError("permission-denied", "Admins only.");
   }
 
@@ -373,15 +379,19 @@ export const deleteUser = onCall(async (request) => {
   try {
     const targetDocRef = db.collection(PARTICIPANTS).doc(trimmedTargetId);
     const targetSnap = await targetDocRef.get();
-    const targetRole = normalizeRole(targetSnap.data()?.role);
-    const isParticipant = targetRole === "" || targetRole === "participant";
+    const targetData = targetSnap.data();
+    // Decide from the doc rather than the role, since a sub-admin can also be
+    // a counted participant. Older docs have no capacityDecision.
+    const wasCounted =
+      targetData?.capacityDecision === "counted" ||
+      (targetData?.capacityDecision == null && targetData?.type === "Participant");
 
     await targetDocRef.delete();
 
-    // Decrement currentParticipants if they were a counted participant (not waitlisted, not admin).
+    // Decrement currentParticipants if they were counted and not waitlisted.
     // Skip decrement if waitlist lookup failed to avoid corrupting the count.
     // Use a transaction to guard against going below 0.
-    if (!waitlistLookupFailed && !isOnWaitlist && isParticipant && targetSnap.exists) {
+    if (!waitlistLookupFailed && !isOnWaitlist && wasCounted && targetSnap.exists) {
       const configRef = db.doc("config/programState");
       await db.runTransaction(async (txn) => {
         const configSnap = await txn.get(configRef);
@@ -440,7 +450,7 @@ export const assignUserType = onCall(async (request) => {
     throw new HttpsError("unauthenticated", "Sign in required.");
   }
 
-  if (!isAdminRole(await getCallerRole(callerUserId))) {
+  if (!canManageParticipants(await getCallerRole(callerUserId))) {
     throw new HttpsError("permission-denied", "Admins only.");
   }
 
@@ -481,6 +491,134 @@ export const assignUserType = onCall(async (request) => {
   });
 
   return { success: true };
+});
+
+// Mirrors getCurrentWeek in src/utils/programWeek.ts; keep the two in sync.
+function currentProgramWeek(startDate: unknown, numWeeks: number): number {
+  if (typeof startDate !== "string" || !startDate) return 1;
+  const MS_PER_WEEK = 1000 * 60 * 60 * 24 * 7;
+  const elapsed = Math.floor((Date.now() - new Date(startDate).getTime()) / MS_PER_WEEK);
+  if (!Number.isFinite(elapsed)) return 1;
+  return Math.min(Math.max(elapsed + 1, 1), numWeeks);
+}
+
+// Read-only list of the student participants at one campus, for sub-admins
+// (campus connectors). Returns only contact fields and a summary of each
+// student's activity (matched or not, which weeks they logged a call), so a
+// sub-admin never sees other participants' data. Log ratings and concerns are
+// deliberately left out.
+export const getCampusRoster = onCall(async (request) => {
+  const callerUserId = request.auth?.uid;
+  if (!callerUserId) {
+    throw new HttpsError("unauthenticated", "Sign in required.");
+  }
+
+  const db = admin.firestore();
+  const callerSnap = await db.collection(PARTICIPANTS).doc(callerUserId).get();
+  const callerData = callerSnap.data();
+  if (!isAdminRole(callerData?.role)) {
+    throw new HttpsError("permission-denied", "Admins only.");
+  }
+
+  // Sub-admins only ever see their own campus.
+  const requested = request.data?.university;
+  const campusSource =
+    isFullAdminRole(callerData?.role) && typeof requested === "string"
+      ? requested
+      : callerData?.university;
+  const university = typeof campusSource === "string" ? campusSource.trim() : "";
+  if (!university) {
+    return { university: null, matchesFinal: false, currentWeek: 0, roster: [] };
+  }
+
+  const program = (await db.doc("config/programState").get()).data() ?? {};
+  const matchesFinal = program.matches_final === true;
+  // 0 until the program starts, so no weeks count as due before then.
+  const currentWeek =
+    program.started === true
+      ? currentProgramWeek(program.startDate, Math.max(1, Number(program.numWeeks) || 20))
+      : 0;
+
+  const campusKey = university.toLowerCase();
+  const asText = (value: unknown) => (typeof value === "string" ? value.trim() : "");
+
+  // School and user_type aren't stored normalized, so they're matched in code;
+  // logs, matches and the waitlist are then read only for these students.
+  const registeredSnap = await db
+    .collection(PARTICIPANTS)
+    .where("type", "==", "Participant")
+    .get();
+  const students = registeredSnap.docs.filter((d) => {
+    const data = d.data();
+    return (
+      asText(data.user_type).toLowerCase() === "student" &&
+      asText(data.school).toLowerCase() === campusKey
+    );
+  });
+  const ids = students.map((d) => d.id);
+
+  // Firestore "in" queries take at most 30 values.
+  const chunks: string[][] = [];
+  for (let i = 0; i < ids.length; i += 30) chunks.push(ids.slice(i, i + 30));
+  const queryChunks = (collection: string, field: string) =>
+    Promise.all(
+      chunks.map((chunk) => db.collection(collection).where(field, "in", chunk).get()),
+    ).then((snaps) => snaps.flatMap((snap) => snap.docs));
+
+  const [waitlistDocs, matchDocs, logDocs] = await Promise.all([
+    ids.length > 0
+      ? db.getAll(...ids.map((id) => db.collection("waitlist").doc(id)))
+      : Promise.resolve([]),
+    // Students only learn their match once matches are final, so the roster
+    // follows the same rule.
+    matchesFinal
+      ? Promise.all([
+        queryChunks("matches", "participant1_id"),
+        queryChunks("matches", "participant2_id"),
+      ]).then(([a, b]) => [...a, ...b])
+      : Promise.resolve([]),
+    currentWeek > 0 ? queryChunks("logs", "uid") : Promise.resolve([]),
+  ]);
+  const waitlisted = new Set(waitlistDocs.filter((d) => d.exists).map((d) => d.id));
+
+  const matchedIds = new Set<string>();
+  matchDocs.forEach((d) => {
+    const { participant1_id, participant2_id } = d.data();
+    if (typeof participant1_id === "string") matchedIds.add(participant1_id);
+    if (typeof participant2_id === "string") matchedIds.add(participant2_id);
+  });
+
+  const loggedWeeks = new Map<string, Set<number>>();
+  logDocs.forEach((d) => {
+    const { uid, week } = d.data();
+    if (typeof uid !== "string" || typeof week !== "number") return;
+    if (week < 1 || week > currentWeek) return;
+    if (!loggedWeeks.has(uid)) loggedWeeks.set(uid, new Set());
+    loggedWeeks.get(uid)?.add(week);
+  });
+
+  const roster = students
+    .map((d) => {
+      const data = d.data();
+      const email = asText(data.email);
+      const fullName = [asText(data.firstName), asText(data.lastName)]
+        .filter(Boolean)
+        .join(" ");
+      const weeks = loggedWeeks.get(d.id);
+      return {
+        id: d.id,
+        name: asText(data.displayName) || fullName || email,
+        email,
+        phoneNumber: asText(data.phoneNumber),
+        waitlisted: waitlisted.has(d.id),
+        matched: matchedIds.has(d.id),
+        weeksLogged: weeks ? weeks.size : 0,
+        lastLoggedWeek: weeks && weeks.size > 0 ? Math.max(...weeks) : null,
+      };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  return { university, matchesFinal, currentWeek, roster };
 });
 
 // Clears every participant vector from Pinecone. Called by End Program so the

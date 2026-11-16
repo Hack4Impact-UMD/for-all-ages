@@ -6,6 +6,12 @@ import styles from "../Registration.module.css";
 // Guard: setOptions must only be called once per page load
 let mapsOptionsInitialized = false;
 
+function getCountriesWithUSFirst() {
+  const all = Country.getAllCountries();
+  const us = all.find((c) => c.isoCode === "US");
+  return us ? [us, ...all.filter((c) => c.isoCode !== "US")] : all;
+}
+
 export default function AddressInput({
   namePrefix,
   required,
@@ -23,7 +29,7 @@ export default function AddressInput({
   const [suggestions, setSuggestions] = useState<google.maps.places.AutocompleteSuggestion[]>([]);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
 
-  const allCountriesRef = useRef(Country.getAllCountries());
+  const allCountriesRef = useRef(getCountriesWithUSFirst());
   const placesLibRef = useRef<google.maps.PlacesLibrary | null>(null);
   const sessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | null>(null);
 

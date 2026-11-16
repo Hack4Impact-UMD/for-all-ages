@@ -27,7 +27,7 @@ import {
   where,
 } from "firebase/firestore";
 import { commitInChunks, type BatchOp } from "../../utils/firestoreBatch";
-import { isAdminRole } from "../../utils/roles";
+import { isAdminRole, isSubadminRole } from "../../utils/roles";
 import {
   finalizeMatches,
   startProgram,
@@ -102,7 +102,9 @@ const PARTICIPANT_EXPORT_FIELDS = [
   "dateOfBirth",
   "pronouns",
   "heardAbout",
-  "university", // only set for Subadmin accounts; participants' school comes from FormResponse (see form_* columns)
+  "university", // only set for Subadmin accounts: the campus they manage
+  "school", // a registrant's school answer, copied from FormResponse
+  "participantOptIn",
   "preferenceScores",
   "status",
   "role",
@@ -754,13 +756,23 @@ const PreProgram = () => {
         const ops: BatchOp[] = snap.docs.map((d) => {
           // Admin and sub-admin profiles also live in "participants"; keep them
           // so admins aren't locked out of the app after the reset. A
-          // participant promoted to sub-admin drops their cohort placement,
-          // since their vector is cleared below.
+          // sub-admin who participated drops their cohort placement (their
+          // vector is cleared below) and goes back to type "Admin", so they
+          // re-register next cohort if they're opted in.
           if (colName === "participants" && isAdminProfile(d.data())) {
+            const data = d.data();
+            // A sub-admin who took part this cohort stays opted in, so they're
+            // asked to register again. This also covers sub-admins promoted
+            // before participantOptIn existed.
+            const participatedAsSubadmin =
+              data.type === "Participant" &&
+              isSubadminRole(typeof data.role === "string" ? data.role : null);
             return (batch) =>
               batch.update(d.ref, {
+                type: "Admin",
                 user_type: deleteField(),
                 capacityDecision: deleteField(),
+                ...(participatedAsSubadmin && { participantOptIn: true }),
               });
           }
           return (batch) => batch.delete(d.ref);

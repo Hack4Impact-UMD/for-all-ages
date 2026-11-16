@@ -128,6 +128,37 @@ export async function clearMatchingIndex() {
   return result.data;
 }
 
+export interface CampusRosterEntry {
+  id: string;
+  name: string;
+  email: string;
+  phoneNumber: string;
+  waitlisted: boolean;
+  /** Only meaningful once matches are final. */
+  matched: boolean;
+  /** Program weeks, up to the current one, with a call log from this student. */
+  weeksLogged: number;
+  lastLoggedWeek: number | null;
+}
+
+export interface CampusRosterResult {
+  university: string | null;
+  matchesFinal: boolean;
+  /** 0 until the program starts. */
+  currentWeek: number;
+  roster: CampusRosterEntry[];
+}
+
+// Sub-admins get their own campus; full admins may pass one.
+export async function getCampusRoster(university?: string) {
+  const callable = httpsCallable<{ university?: string }, CampusRosterResult>(
+    functions,
+    "getCampusRoster",
+  );
+  const result = await callable(university ? { university } : {});
+  return result.data;
+}
+
 export async function getUser(uid: string) {
   const data = await getUserOrNull(uid);
 
