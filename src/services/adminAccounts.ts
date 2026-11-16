@@ -1,7 +1,15 @@
 import { initializeApp, deleteApp } from "firebase/app";
 import type { FirebaseApp } from "firebase/app";
 import { createUserWithEmailAndPassword, getAuth, sendPasswordResetEmail, signOut } from "firebase/auth";
-import { doc, serverTimestamp, setDoc, deleteField } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  increment,
+  runTransaction,
+  serverTimestamp,
+  setDoc,
+  deleteField,
+} from "firebase/firestore";
 import { auth, db } from "../firebase";
 import type { Role, InviteAdminParams } from "../types";
 
@@ -148,8 +156,16 @@ export async function assignAdminRoleToExistingUser(params: {
     updatedAt: serverTimestamp(),
     status: "Active",
   };
-  if (params.role === "Subadmin" && params.participantOptIn !== undefined) {
-    payload.participantOptIn = params.participantOptIn;
+  const docRef = doc(db, "participants", params.participantId);
+  if (params.role === "Subadmin") {
+    // Someone already registered this cohort is a participant, so keep them
+    // opted in (as promoteParticipantToSubadmin does) whatever the form said.
+    const alreadyRegistered = (await getDoc(docRef)).data()?.type === "Participant";
+    if (alreadyRegistered) {
+      payload.participantOptIn = true;
+    } else if (params.participantOptIn !== undefined) {
+      payload.participantOptIn = params.participantOptIn;
+    }
   }
 
   if (displayName) {
@@ -158,7 +174,6 @@ export async function assignAdminRoleToExistingUser(params: {
   if (params.firstName) payload.firstName = params.firstName;
   if (params.lastName) payload.lastName = params.lastName;
 
-  const docRef = doc(db, "participants", params.participantId);
   await setDoc(docRef, payload, { merge: true });
 }
 
@@ -169,9 +184,43 @@ export async function setSubadminParticipantOptIn(
   enabled: boolean,
 ): Promise<void> {
   const docRef = doc(db, "participants", participantId);
-  await setDoc(
-    docRef,
-    { participantOptIn: enabled, updatedAt: serverTimestamp() },
-    { merge: true },
-  );
+  if (enabled) {
+    await setDoc(
+      docRef,
+      { participantOptIn: true, updatedAt: serverTimestamp() },
+      { merge: true },
+    );
+    return;
+  }
+
+  // A sub-admin can be part-way through registering: the capacity check ran
+  // (and may have counted them or put them on the waitlist) but the submit
+  // failed before it finished. Opting them out then has to give that spot
+  // back, or currentParticipants stays one too high.
+  const programStateRef = doc(db, "config", "programState");
+  const waitlistRef = doc(db, "waitlist", participantId);
+  await runTransaction(db, async (transaction) => {
+    const snap = await transaction.get(docRef);
+    const data = snap.data();
+    if (data?.type === "Participant") {
+      throw new Error("This sub-admin has already registered.");
+    }
+    if (data?.capacityDecision === "counted") {
+      const programSnap = await transaction.get(programStateRef);
+      if ((programSnap.data()?.currentParticipants ?? 0) > 0) {
+        transaction.update(programStateRef, { currentParticipants: increment(-1) });
+      }
+    } else if (data?.capacityDecision === "waitlisted") {
+      transaction.delete(waitlistRef);
+    }
+    transaction.set(
+      docRef,
+      {
+        participantOptIn: false,
+        capacityDecision: deleteField(),
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    );
+  });
 }

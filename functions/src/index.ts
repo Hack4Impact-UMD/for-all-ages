@@ -491,7 +491,7 @@ export const assignUserType = onCall(async (request) => {
   return { success: true };
 });
 
-// Mirrors getCurrentWeek in src/utils/programWeek.ts.
+// Mirrors getCurrentWeek in src/utils/programWeek.ts; keep the two in sync.
 function currentProgramWeek(startDate: unknown, numWeeks: number): number {
   if (typeof startDate !== "string" || !startDate) return 1;
   const MS_PER_WEEK = 1000 * 60 * 60 * 24 * 7;
@@ -538,25 +538,56 @@ export const getCampusRoster = onCall(async (request) => {
       : 0;
 
   const campusKey = university.toLowerCase();
-  const [participantsSnap, waitlistSnap, matchesSnap, logsSnap] = await Promise.all([
-    db.collection(PARTICIPANTS).get(),
-    db.collection("waitlist").get(),
+  const asText = (value: unknown) => (typeof value === "string" ? value.trim() : "");
+
+  // School and user_type aren't stored normalized, so they're matched in code;
+  // logs, matches and the waitlist are then read only for these students.
+  const registeredSnap = await db
+    .collection(PARTICIPANTS)
+    .where("type", "==", "Participant")
+    .get();
+  const students = registeredSnap.docs.filter((d) => {
+    const data = d.data();
+    return (
+      asText(data.user_type).toLowerCase() === "student" &&
+      asText(data.school).toLowerCase() === campusKey
+    );
+  });
+  const ids = students.map((d) => d.id);
+
+  // Firestore "in" queries take at most 30 values.
+  const chunks: string[][] = [];
+  for (let i = 0; i < ids.length; i += 30) chunks.push(ids.slice(i, i + 30));
+  const queryChunks = (collection: string, field: string) =>
+    Promise.all(
+      chunks.map((chunk) => db.collection(collection).where(field, "in", chunk).get()),
+    ).then((snaps) => snaps.flatMap((snap) => snap.docs));
+
+  const [waitlistDocs, matchDocs, logDocs] = await Promise.all([
+    ids.length > 0
+      ? db.getAll(...ids.map((id) => db.collection("waitlist").doc(id)))
+      : Promise.resolve([]),
     // Students only learn their match once matches are final, so the roster
     // follows the same rule.
-    matchesFinal ? db.collection("matches").get() : null,
-    currentWeek > 0 ? db.collection("logs").get() : null,
+    matchesFinal
+      ? Promise.all([
+        queryChunks("matches", "participant1_id"),
+        queryChunks("matches", "participant2_id"),
+      ]).then(([a, b]) => [...a, ...b])
+      : Promise.resolve([]),
+    currentWeek > 0 ? queryChunks("logs", "uid") : Promise.resolve([]),
   ]);
-  const waitlisted = new Set(waitlistSnap.docs.map((d) => d.id));
+  const waitlisted = new Set(waitlistDocs.filter((d) => d.exists).map((d) => d.id));
 
   const matchedIds = new Set<string>();
-  matchesSnap?.forEach((d) => {
+  matchDocs.forEach((d) => {
     const { participant1_id, participant2_id } = d.data();
     if (typeof participant1_id === "string") matchedIds.add(participant1_id);
     if (typeof participant2_id === "string") matchedIds.add(participant2_id);
   });
 
   const loggedWeeks = new Map<string, Set<number>>();
-  logsSnap?.forEach((d) => {
+  logDocs.forEach((d) => {
     const { uid, week } = d.data();
     if (typeof uid !== "string" || typeof week !== "number") return;
     if (week < 1 || week > currentWeek) return;
@@ -564,17 +595,7 @@ export const getCampusRoster = onCall(async (request) => {
     loggedWeeks.get(uid)?.add(week);
   });
 
-  const asText = (value: unknown) => (typeof value === "string" ? value.trim() : "");
-
-  const roster = participantsSnap.docs
-    .filter((d) => {
-      const data = d.data();
-      return (
-        data.type === "Participant" &&
-        asText(data.user_type).toLowerCase() === "student" &&
-        asText(data.school).toLowerCase() === campusKey
-      );
-    })
+  const roster = students
     .map((d) => {
       const data = d.data();
       const email = asText(data.email);

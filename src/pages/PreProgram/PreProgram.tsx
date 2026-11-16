@@ -27,7 +27,7 @@ import {
   where,
 } from "firebase/firestore";
 import { commitInChunks, type BatchOp } from "../../utils/firestoreBatch";
-import { isAdminRole } from "../../utils/roles";
+import { isAdminRole, isSubadminRole } from "../../utils/roles";
 import {
   finalizeMatches,
   startProgram,
@@ -760,11 +760,19 @@ const PreProgram = () => {
           // vector is cleared below) and goes back to type "Admin", so they
           // re-register next cohort if they're opted in.
           if (colName === "participants" && isAdminProfile(d.data())) {
+            const data = d.data();
+            // A sub-admin who took part this cohort stays opted in, so they're
+            // asked to register again. This also covers sub-admins promoted
+            // before participantOptIn existed.
+            const participatedAsSubadmin =
+              data.type === "Participant" &&
+              isSubadminRole(typeof data.role === "string" ? data.role : null);
             return (batch) =>
               batch.update(d.ref, {
                 type: "Admin",
                 user_type: deleteField(),
                 capacityDecision: deleteField(),
+                ...(participatedAsSubadmin && { participantOptIn: true }),
               });
           }
           return (batch) => batch.delete(d.ref);

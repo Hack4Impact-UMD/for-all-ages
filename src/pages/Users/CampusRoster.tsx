@@ -3,6 +3,7 @@ import layoutStyles from "../Dashboard/Dashboard.module.css";
 import styles from "./AdminCreator.module.css";
 import { getCampusRoster, type CampusRosterEntry } from "../../firebase";
 import { formatPhone } from "../../utils/phone";
+import { bccMailto } from "../../utils/mailto";
 import { useAuth } from "../../auth/AuthProvider";
 import Button from "../../components/Button";
 
@@ -53,12 +54,10 @@ export default function CampusRoster() {
   const handleContactAll = () => {
     if (typeof window === "undefined") return;
 
-    const bccList = roster
-      .map((student) => student.email)
-      .filter(Boolean)
-      .join(",");
-    const ownEmail = user?.email ?? "";
-    window.location.href = `mailto:${ownEmail}?bcc=${bccList}`;
+    window.location.href = bccMailto(
+      user?.email ?? "",
+      roster.map((student) => student.email),
+    );
   };
 
   const noCampus = !loading && !error && !university;

@@ -27,6 +27,7 @@ import type {
 import ParticipantInfoPopup from "../Dashboard/components/ParticipantInfoPopup/ParticipantInfoPopup";
 import { formatPhone } from "../../utils/phone";
 import { useAuth } from "../../auth/AuthProvider";
+import { bccMailto } from "../../utils/mailto";
 import AddUserModal from "./AddUserModal";
 import Button from "../../components/Button";
 import { getUniversityOptions } from "../Registration/helpers";
@@ -262,11 +263,10 @@ export default function AdminDashboard() {
       return r === "Participant" || r === "Subadmin";
     });
 
-    const emailList = list.map((u) => u.email).filter(Boolean);
-    const bccList = emailList.join(",");
-    const adminEmail = user?.email ?? "";
-    const mailto = `mailto:${adminEmail}?bcc=${bccList}`;
-    window.location.href = mailto;
+    window.location.href = bccMailto(
+      user?.email ?? "",
+      list.map((u) => u.email),
+    );
   };
 
   const handleDeleteUser = useCallback(async (admin: AdminRecord) => {

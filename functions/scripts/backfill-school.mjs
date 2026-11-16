@@ -58,6 +58,7 @@ async function main() {
   let noAnswer = 0;
   let noParticipant = 0;
 
+  const answers = [];
   for (const responseDoc of responses.docs) {
     const questions = responseDoc.get("questions");
     const entry = Array.isArray(questions)
@@ -67,30 +68,39 @@ async function main() {
       typeof entry?.answer === "string" && entry.answer.trim()
         ? entry.answer.trim()
         : null;
-    if (!school) {
+    if (school) {
+      answers.push({ id: responseDoc.id, school });
+    } else {
       noAnswer += 1;
-      continue;
     }
-
-    const participantRef = db.collection("participants").doc(responseDoc.id);
-    const participantSnap = await participantRef.get();
-    if (!participantSnap.exists) {
-      noParticipant += 1;
-      continue;
-    }
-
-    const current = participantSnap.get("school") ?? null;
-    if (current === school) {
-      unchanged += 1;
-      continue;
-    }
-
-    console.log(`${responseDoc.id}: ${JSON.stringify(current)} -> ${JSON.stringify(school)}`);
-    if (write) {
-      await participantRef.set({ school }, { merge: true });
-    }
-    changed += 1;
   }
+
+  // Read participants in batches and write through a BulkWriter rather than
+  // one round trip per response.
+  const writer = write ? db.bulkWriter() : null;
+  const BATCH = 300;
+  for (let i = 0; i < answers.length; i += BATCH) {
+    const batch = answers.slice(i, i + BATCH);
+    const snaps = await db.getAll(
+      ...batch.map(({ id }) => db.collection("participants").doc(id)),
+    );
+    snaps.forEach((participantSnap, index) => {
+      const { id, school } = batch[index];
+      if (!participantSnap.exists) {
+        noParticipant += 1;
+        return;
+      }
+      const current = participantSnap.get("school") ?? null;
+      if (current === school) {
+        unchanged += 1;
+        return;
+      }
+      console.log(`${id}: ${JSON.stringify(current)} -> ${JSON.stringify(school)}`);
+      writer?.set(participantSnap.ref, { school }, { merge: true });
+      changed += 1;
+    });
+  }
+  await writer?.close();
 
   console.log("");
   console.log(`FormResponse docs:        ${responses.size}`);

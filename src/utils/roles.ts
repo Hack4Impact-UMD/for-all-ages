@@ -18,11 +18,6 @@ export function isSubadminRole(role?: string | null) {
 }
 
 // Whether sub-admins may delete and place participants. Flip this together
-// with the server copy in functions/src/roles.ts; setting both to true
-// restores the old behaviour (sub-admins get the full Users page).
+// with the server copy in functions/src/roles.ts, which enforces it; setting
+// both to true restores the old behaviour (sub-admins get the full Users page).
 export const SUBADMIN_CAN_MANAGE_PARTICIPANTS = false;
-
-export function canManageParticipants(role?: string | null) {
-  if (role?.toLowerCase() === "admin") return true;
-  return SUBADMIN_CAN_MANAGE_PARTICIPANTS && isSubadminRole(role);
-}
