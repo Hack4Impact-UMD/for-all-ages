@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   collection,
   getDocs,
@@ -10,12 +10,9 @@ import {
 import { FaTrash } from "react-icons/fa";
 import layoutStyles from "../Dashboard/Dashboard.module.css";
 import styles from "./AdminCreator.module.css";
-import { assignUserType, db, deleteUser } from "../../firebase";
-import {
-  promoteParticipantToSubadmin,
-  demoteSubadminToParticipant,
-  setSubadminParticipantOptIn,
-} from "../../services/adminAccounts";
+import { assignUserType, changeUserRole, db, deleteUser } from "../../firebase";
+import { FirebaseError } from "firebase/app";
+import { setSubadminParticipantOptIn } from "../../services/adminAccounts";
 import type {
   Role,
   ParticipantDoc,
@@ -50,6 +47,22 @@ function formatAddress(address?: RawAddress | null): string | null {
   return segments.length ? segments.join(", ") : null;
 }
 
+type AssignableRole = Role | "Participant";
+
+const ROLE_LABELS: Record<AssignableRole, string> = {
+  Admin: "Admin",
+  Subadmin: "Sub-admin",
+  Participant: "Participant",
+};
+
+// The function's own messages are written for admins; show them as they are.
+const SHOWN_FUNCTION_ERRORS = new Set([
+  "functions/invalid-argument",
+  "functions/failed-precondition",
+  "functions/permission-denied",
+  "functions/not-found",
+]);
+
 function normaliseRole(role?: string | null): Role | "Participant" {
   if (!role) return "Participant";
   const value = role.replace(/\s+/g, "").toLowerCase();
@@ -74,7 +87,7 @@ function composeDisplayName(doc: ParticipantDoc): string {
 }
 
 export default function AdminDashboard() {
-  const { user, isSubadmin } = useAuth();
+  const { user, isSubadmin, programState } = useAuth();
   const [admins, setAdmins] = useState<AdminRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -86,14 +99,17 @@ export default function AdminDashboard() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [placingId, setPlacingId] = useState<string | null>(null);
   const [optInId, setOptInId] = useState<string | null>(null);
-  const [promoteTarget, setPromoteTarget] = useState<AdminRecord | null>(null);
-  const [demoteTarget, setDemoteTarget] = useState<AdminRecord | null>(null);
+  const [roleTarget, setRoleTarget] = useState<{
+    admin: AdminRecord;
+    newRole: AssignableRole;
+  } | null>(null);
+  // Roles just changed, kept disabled until the snapshot shows the new value.
+  const [pendingRoles, setPendingRoles] = useState<Record<string, AssignableRole>>({});
   const [selectedUser, setSelectedUser] = useState<AdminRecord | null>(null);
   const [formResponses, setFormResponses] = useState<FormResponse | null>(null);
   const [formLoading, setFormLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [waitlistedIds, setWaitlistedIds] = useState<Set<string>>(new Set());
-  const [universityList, setUniversityList] = useState<string[]>([]);
 
   const handleModalClose = useCallback(() => {
     setIsModalOpen(false);
@@ -104,15 +120,16 @@ export default function AdminDashboard() {
     setIsModalOpen(false);
   }, []);
 
-  const handlePromoteSuccess = useCallback((message: string) => {
-    setBanner({ type: "success", message });
-    setPromoteTarget(null);
-  }, []);
-
-  const handleDemoteSuccess = useCallback((message: string) => {
-    setBanner({ type: "success", message });
-    setDemoteTarget(null);
-  }, []);
+  const handleRoleChangeSuccess = useCallback(
+    (message: string, id: string, role: AssignableRole, changed: boolean) => {
+      setBanner({ type: "success", message });
+      setRoleTarget(null);
+      // Nothing was written when the role already matched, so no snapshot is
+      // coming to confirm it.
+      if (changed) setPendingRoles((prev) => ({ ...prev, [id]: role }));
+    },
+    [],
+  );
 
   const dismissBanner = useCallback(() => {
     setBanner(null);
@@ -141,6 +158,7 @@ export default function AdminDashboard() {
               registered: data.type === "Participant",
               participantOptIn: data.participantOptIn === true,
               userUid: data.userUid ?? null,
+              hasAuthAccount: data.hasAuthAccount,
             };
           });
 
@@ -182,6 +200,21 @@ export default function AdminDashboard() {
 
     return () => unsubscribe();
   }, []);
+
+  // Clear a pending role once the snapshot has caught up with it. Also runs
+  // when a role becomes pending, since the snapshot may have arrived first.
+  useEffect(() => {
+    setPendingRoles((prev) => {
+      const ids = Object.keys(prev);
+      if (ids.length === 0) return prev;
+      const next = { ...prev };
+      for (const id of ids) {
+        const current = admins.find((a) => a.id === id);
+        if (!current || current.role === prev[id]) delete next[id];
+      }
+      return Object.keys(next).length === ids.length ? prev : next;
+    });
+  }, [admins, pendingRoles]);
 
   // Recomputes only when admins or searchTerm change
   const filteredAdmins = useMemo(() => {
@@ -477,11 +510,6 @@ export default function AdminDashboard() {
                     </th>
                     <th
                       scope="col"
-                      className={styles.colPromote}
-                      aria-label="Promote user"
-                    />
-                    <th
-                      scope="col"
                       className={styles.colDelete}
                       aria-label="Delete user"
                     />
@@ -490,19 +518,19 @@ export default function AdminDashboard() {
                 <tbody>
                   {loading ? (
                     <tr className={styles.stateRow}>
-                      <td colSpan={8} className={styles.stateCell}>
+                      <td colSpan={7} className={styles.stateCell}>
                         Loading admin accounts…
                       </td>
                     </tr>
                   ) : error ? (
                     <tr className={styles.stateRow}>
-                      <td colSpan={8} className={styles.stateCell}>
+                      <td colSpan={7} className={styles.stateCell}>
                         {error}
                       </td>
                     </tr>
                   ) : filteredAdmins.length === 0 ? (
                     <tr className={styles.stateRow}>
-                      <td colSpan={8} className={styles.stateCell}>
+                      <td colSpan={7} className={styles.stateCell}>
                         No admins match your search.
                       </td>
                     </tr>
@@ -533,11 +561,57 @@ export default function AdminDashboard() {
                           </div>
                         </td>
                         <td data-label="Role" className={styles.colRole}>
-                          {admin.role === "Admin"
-                            ? "Admin"
-                            : admin.role === "Subadmin"
-                              ? "Sub-admin"
-                              : "Participant"}
+                          {!isSubadmin &&
+                          admin.id !== user?.uid &&
+                          !waitlistedIds.has(admin.id) ? (
+                            <>
+                              <select
+                                className={`${styles.selectInput} ${styles.roleSelect}`}
+                                value={admin.role}
+                                disabled={pendingRoles[admin.id] !== undefined}
+                                onChange={(e) =>
+                                  setRoleTarget({
+                                    admin,
+                                    newRole: e.target.value as AssignableRole,
+                                  })
+                                }
+                                aria-label={`Change role for ${admin.name}`}
+                              >
+                                <option
+                                  value="Admin"
+                                  disabled={
+                                    admin.role === "Admin" ||
+                                    admin.hasAuthAccount === false
+                                  }
+                                >
+                                  Admin
+                                </option>
+                                <option
+                                  value="Subadmin"
+                                  disabled={
+                                    admin.role === "Subadmin" ||
+                                    admin.hasAuthAccount === false
+                                  }
+                                >
+                                  Sub-admin
+                                </option>
+                                <option
+                                  value="Participant"
+                                  disabled={admin.role === "Participant"}
+                                >
+                                  Participant
+                                </option>
+                              </select>
+                              {pendingRoles[admin.id] !== undefined ? (
+                                <div className={styles.roleNote}>Updating…</div>
+                              ) : null}
+                            </>
+                          ) : (
+                            <>
+                              {ROLE_LABELS[admin.role]}
+                              {admin.id === user?.uid ? " (you)" : ""}
+                            </>
+                          )}
                         </td>
                         <td data-label="Email" className={styles.colEmail}>
                           {admin.email ? (
@@ -614,48 +688,6 @@ export default function AdminDashboard() {
                           )}
                         </td>
                         <td
-                          data-label="Promote"
-                          className={`${styles.deleteCell} ${styles.colPromote}`}
-                        >
-                          {/* Conditionally render the promote or demote
-                          button based on the role of the user */}
-                          {!isSubadmin &&
-                          (admin.role === "Participant" ||
-                            admin.role === "Subadmin") &&
-                          !waitlistedIds.has(admin.id) ? (
-                            admin.role === "Participant" ? (
-                              <Button
-                                type="Outline"
-                                // when clicked, this button will fetch the list of
-                                // university options from firestore and forward it as a prop to the promote modal
-                                onClick={async () => {
-                                  const universityOptions =
-                                    await getUniversityOptions();
-                                  setUniversityList(universityOptions);
-                                  setPromoteTarget(admin);
-                                }}
-                                aria-label={`Promote ${admin.name} to Sub-admin`}
-                                text={"Promote"}
-                                height={30}
-                                width={80}
-                                fontSize={12}
-                              ></Button>
-                            ) : (
-                              <Button
-                                type="Outline"
-                                onClick={() => setDemoteTarget(admin)}
-                                aria-label={`Demote ${admin.name} to Participant`}
-                                text={"Demote"}
-                                height={30}
-                                width={80}
-                                fontSize={12}
-                              ></Button>
-                            )
-                          ) : (
-                            <span>—</span>
-                          )}
-                        </td>
-                        <td
                           data-label="Delete"
                           className={`${styles.deleteCell} ${styles.colDelete}`}
                         >
@@ -691,20 +723,13 @@ export default function AdminDashboard() {
           />
         ) : null}
 
-        {promoteTarget ? (
-          <PromoteModal
-            participant={promoteTarget}
-            universities={universityList}
-            onClose={() => setPromoteTarget(null)}
-            onSuccess={handlePromoteSuccess}
-          />
-        ) : null}
-
-        {demoteTarget ? (
-          <DemoteModal
-            participant={demoteTarget}
-            onClose={() => setDemoteTarget(null)}
-            onSuccess={handleDemoteSuccess}
+        {roleTarget ? (
+          <ChangeRoleModal
+            participant={roleTarget.admin}
+            newRole={roleTarget.newRole}
+            signupsClosed={programState?.matches_final === true}
+            onClose={() => setRoleTarget(null)}
+            onSuccess={handleRoleChangeSuccess}
           />
         ) : null}
 
@@ -722,24 +747,63 @@ export default function AdminDashboard() {
   );
 }
 
-type PromoteModalProps = {
+type ChangeRoleModalProps = {
   participant: AdminRecord;
-  universities: string[];
+  newRole: AssignableRole;
+  signupsClosed: boolean;
   onClose: () => void;
-  onSuccess: (message: string) => void;
+  onSuccess: (
+    message: string,
+    id: string,
+    role: AssignableRole,
+    changed: boolean,
+  ) => void;
 };
 
-function PromoteModal({
+// Warnings that apply to this particular change; the server does the real
+// enforcement (see changeUserRole in functions/src/index.ts).
+function roleChangeWarnings(
+  participant: AdminRecord,
+  newRole: AssignableRole,
+  signupsClosed: boolean,
+): string[] {
+  const warnings: string[] = [];
+  const registered = participant.registered === true;
+  if (newRole === "Admin" && registered) {
+    warnings.push(
+      "They remain eligible for matching, but will no longer have access to the participant dashboard.",
+    );
+  }
+  if (newRole === "Admin" && participant.role === "Subadmin" && !registered) {
+    warnings.push(
+      "If they started registering, their unused participant spot will be released.",
+    );
+  }
+  if (newRole === "Participant") {
+    warnings.push("They will lose admin access.");
+    if (!registered) {
+      warnings.push(
+        signupsClosed
+          ? "They will need to register to participate, and cannot complete registration until signups reopen."
+          : "They will need to register to participate.",
+      );
+    }
+  }
+  return warnings;
+}
+
+function ChangeRoleModal({
   participant,
-  universities,
+  newRole,
+  signupsClosed,
   onClose,
   onSuccess,
-}: PromoteModalProps) {
-  const [universityOptions, setUniversityOptions] = useState(universities);
+}: ChangeRoleModalProps) {
+  const needsUniversity = newRole === "Subadmin";
+  const [universityOptions, setUniversityOptions] = useState<string[]>([]);
   const [university, setUniversity] = useState(participant.university ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const skipErrorSetOnNoSchoolsRef = useRef(false);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -753,60 +817,68 @@ function PromoteModal({
   }, [onClose]);
 
   useEffect(() => {
-    if(skipErrorSetOnNoSchoolsRef.current) { 
-      skipErrorSetOnNoSchoolsRef.current = false;
-      return;
-    }
-    if (universityOptions.length === 0) {
-      setError(
-        "Must have at least one college option before adding a Sub-admin.",
-      );
-    }
-  }, [universityOptions]);
-
-  useEffect(() => {
-    if (university && university != "") {
-      setError(null);
-    }
-  }, [university]);
+    if (!needsUniversity) return;
+    let cancelled = false;
+    getUniversityOptions().then((options) => {
+      if (cancelled) return;
+      setUniversityOptions(options);
+      if (options.length === 0) {
+        setError(
+          "Must have at least one college option before adding a Sub-admin.",
+        );
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [needsUniversity]);
 
   const handleConfirm = async () => {
-    if (!university.trim()) {
-      setError("Please enter a university name.");
+    if (needsUniversity && !university.trim()) {
+      setError("Please select a university.");
       return;
     }
     setSubmitting(true);
-    // edge case handling - after submitting request to promote or demote, get the
-    // live list of universities from firestore to check that the selected one is still on the list
-    const liveUniversityOptions = await getUniversityOptions();
-    if (!liveUniversityOptions.includes(university)) {
-      if (liveUniversityOptions.length > 0) {
-        setError(
-          "The college you selected is no longer supported. Please select a new option.",
-        );
-      } else {
-        skipErrorSetOnNoSchoolsRef.current = true;
-        setError("The college you selected is no longer supported.\nMust have at least one college option before adding a Sub-admin.");
-      }
-      setUniversity("");
-      setUniversityOptions(liveUniversityOptions);
-      setSubmitting(false);
-      return;
-    }
     setError(null);
     try {
-      await promoteParticipantToSubadmin({
-        participantId: participant.id,
-        university: university.trim(),
-      });
-      onSuccess(`${participant.name} has been promoted to Sub-admin.`);
+      if (needsUniversity) {
+        // The list may have changed since this opened; the server checks too.
+        const live = await getUniversityOptions();
+        if (!live.includes(university)) {
+          setUniversityOptions(live);
+          setUniversity("");
+          setError(
+            live.length > 0
+              ? "The college you selected is no longer supported. Please select a new option."
+              : "The college you selected is no longer supported.\nMust have at least one college option before adding a Sub-admin.",
+          );
+          return;
+        }
+      }
+      const result = (await changeUserRole(
+        participant.id,
+        newRole,
+        needsUniversity ? university.trim() : undefined,
+      )) as { changed?: boolean } | undefined;
+      onSuccess(
+        `${participant.name} is now ${ROLE_LABELS[newRole] === "Admin" ? "an Admin" : `a ${ROLE_LABELS[newRole]}`}.`,
+        participant.id,
+        newRole,
+        result?.changed !== false,
+      );
     } catch (err) {
-      console.error("Failed to promote participant", err);
-      setError("Could not promote this participant. Please try again.");
+      console.error("Failed to change role", err);
+      setError(
+        err instanceof FirebaseError && SHOWN_FUNCTION_ERRORS.has(err.code)
+          ? err.message
+          : "Could not change this role. Please try again.",
+      );
     } finally {
       setSubmitting(false);
     }
   };
+
+  const warnings = roleChangeWarnings(participant, newRole, signupsClosed);
 
   return (
     <div
@@ -820,49 +892,48 @@ function PromoteModal({
         className={styles.modalCard}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="promote-modal-title"
+        aria-labelledby="change-role-modal-title"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <header className={styles.modalHeader}>
-          <h2 id="promote-modal-title" className={styles.modalTitle}>
-            Promote to Sub-admin
+          <h2 id="change-role-modal-title" className={styles.modalTitle}>
+            Change role
           </h2>
         </header>
 
         <div className={styles.modalForm}>
           <p style={{ marginBottom: "1rem" }}>
-            <strong>{participant.name}</strong> will be promoted to Sub-admin.
-            They will keep their participant role and remain in the matching
-            process.
+            <strong>{participant.name}</strong> will change from{" "}
+            {ROLE_LABELS[participant.role]} to {ROLE_LABELS[newRole]}. Their
+            participant data, registration and matches are kept.
           </p>
 
-          {/* <div className={styles.field}>
-            <label htmlFor="promote-university">University Name</label>
-            <input
-              id="promote-university"
-              type="text"
-              className={styles.textInput}
+          {warnings.length > 0 ? (
+            <ul className={styles.warningList}>
+              {warnings.map((warning) => (
+                <li key={warning}>{warning}</li>
+              ))}
+            </ul>
+          ) : null}
+
+          {needsUniversity ? (
+            <select
+              name="Uni"
               value={university}
-              onChange={(e) => {
-                setUniversity(e.target.value);
+              onChange={(event) => {
+                setUniversity(event.target.value);
                 setError(null);
               }}
-              placeholder="University name"
-              autoFocus
-            />
-          </div> */}
-          <select
-            name="Uni"
-            value={university}
-            onChange={(event) => setUniversity(event.target.value)}
-          >
-            <option value="">Select an option</option>
-            {universityOptions.map((uni) => (
-              <option key={uni} value={uni}>
-                {uni}
-              </option>
-            ))}
-          </select>
+              aria-label="University"
+            >
+              <option value="">Select an option</option>
+              {universityOptions.map((uni) => (
+                <option key={uni} value={uni}>
+                  {uni}
+                </option>
+              ))}
+            </select>
+          ) : null}
 
           {error ? <div className={styles.errorMessage}>{error}</div> : null}
 
@@ -879,97 +950,9 @@ function PromoteModal({
               type="button"
               className={styles.submitButton}
               onClick={handleConfirm}
-              disabled={submitting || !university.trim()}
+              disabled={submitting || (needsUniversity && !university.trim())}
             >
-              {submitting ? "Promoting…" : "Confirm"}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-type DemoteModalProps = {
-  participant: AdminRecord;
-  onClose: () => void;
-  onSuccess: (message: string) => void;
-};
-
-function DemoteModal({ participant, onClose, onSuccess }: DemoteModalProps) {
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
-
-  const handleConfirm = async () => {
-    setSubmitting(true);
-    setError(null);
-    try {
-      await demoteSubadminToParticipant(participant.id);
-      onSuccess(`${participant.name} has been demoted to Participant.`);
-    } catch (err) {
-      console.error("Failed to demote Sub-admin", err);
-      setError("Could not demote this Sub-admin. Please try again.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <div
-      className={styles.modalBackdrop}
-      role="presentation"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div
-        className={styles.modalCard}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="demote-modal-title"
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <header className={styles.modalHeader}>
-          <h2 id="demote-modal-title" className={styles.modalTitle}>
-            Demote to Participant
-          </h2>
-        </header>
-
-        <div className={styles.modalForm}>
-          <p style={{ marginBottom: "1rem" }}>
-            <strong>{participant.name}</strong> will be demoted to Participant.
-            They will remain in the matching process.
-          </p>
-
-          {error ? <div className={styles.errorMessage}>{error}</div> : null}
-
-          <div className={styles.modalActions}>
-            <button
-              type="button"
-              className={styles.cancelButton}
-              onClick={onClose}
-              disabled={submitting}
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              className={styles.submitButton}
-              onClick={handleConfirm}
-              disabled={submitting}
-            >
-              {submitting ? "Demoting…" : "Confirm"}
+              {submitting ? "Updating…" : "Confirm"}
             </button>
           </div>
         </div>

@@ -122,6 +122,16 @@ export async function assignUserType(
   return result.data;
 }
 
+export async function changeUserRole(
+  targetUserId: string,
+  newRole: "Admin" | "Subadmin" | "Participant",
+  university?: string,
+) {
+  const callable = httpsCallable(functions, "changeUserRole");
+  const result = await callable({ targetUserId, newRole, university });
+  return result.data;
+}
+
 export async function clearMatchingIndex() {
   const callable = httpsCallable(functions, "clearMatchingIndex");
   const result = await callable();

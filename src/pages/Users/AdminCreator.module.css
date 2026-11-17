@@ -241,7 +241,7 @@
   width: 14%;
 }
 .colRole {
-  width: 10%;
+  width: 20%;
 }
 .colEmail {
   width: 20%;
@@ -259,9 +259,23 @@
   width: 5%;
   text-align: center;
 }
-.colPromote {
-  width: 10%;
-  text-align: center;
+.roleSelect {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.roleNote {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.warningList {
+  margin: 0 0 1rem;
+  padding-left: 1.1rem;
+  font-size: 0.9rem;
+  color: #92400e;
 }
 
 .table thead th {

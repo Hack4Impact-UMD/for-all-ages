@@ -15,10 +15,10 @@ import type { Role, InviteAdminParams } from "../types";
 
 export type AdminRole = Role;
 
-// Invariant: role changes write only `role`, `university` and
-// `participantOptIn`. Never write `type`, `user_type` or `school` here; those
-// record whether and how someone registered as a participant, which is
-// independent of their role.
+// Invariant: role changes (here and in the changeUserRole function) write only
+// `role`, `university` and `participantOptIn`. Never write `type`, `user_type`
+// or `school` here; those record whether and how someone registered as a
+// participant, which is independent of their role.
 
 type SecondaryAuthBundle = {
   app: FirebaseApp;
@@ -96,48 +96,6 @@ export async function inviteAdminAccount(params: InviteAdminParams) {
   }
 }
 
-/**
- * Promotes an existing participant to Subadmin while preserving all of their
- * participant data (user_type, matches, etc.) so they keep participating normally.
- * They are already a participant, so they are opted in and can re-register
- * next cohort.
- */
-export async function promoteParticipantToSubadmin(params: {
-  participantId: string;
-  university?: string | null;
-}): Promise<void> {
-  const docRef = doc(db, "participants", params.participantId);
-  await setDoc(
-    docRef,
-    {
-      role: "Subadmin" as Role,
-      university: params.university?.trim() || null,
-      participantOptIn: true,
-      updatedAt: serverTimestamp(),
-    },
-    { merge: true } // merge: true ensures all existing participant fields are kept
-  );
-}
-
-/**
- * Demotes an existing sub-admin to participant while preserving all
- * of their data (user_type, matches, etc) so they keep participating normally.
- * Only the role field is changed - nothing else is touched.
- *  */ 
-export async function demoteSubadminToParticipant(subadminId: string): Promise<void>{
-  const docRef = doc(db, "participants", subadminId);
-  await setDoc(
-    docRef,
-    {
-      role: "Participant" as Role,
-      university: deleteField(),
-      participantOptIn: deleteField(),
-      updatedAt: serverTimestamp(),
-    },
-    { merge: true } // merge: true ensures all existing participant fields are kept
-  );
-}
-
 export async function assignAdminRoleToExistingUser(params: {
   participantId: string;
   firstName?: string;
@@ -159,7 +117,7 @@ export async function assignAdminRoleToExistingUser(params: {
   const docRef = doc(db, "participants", params.participantId);
   if (params.role === "Subadmin") {
     // Someone already registered this cohort is a participant, so keep them
-    // opted in (as promoteParticipantToSubadmin does) whatever the form said.
+    // opted in, like a promoted participant, whatever the form said.
     const alreadyRegistered = (await getDoc(docRef)).data()?.type === "Participant";
     if (alreadyRegistered) {
       payload.participantOptIn = true;
