@@ -531,13 +531,17 @@ const PreProgram = () => {
       const res = await matchAll({ excludeIds });
       const converted = await convertMatches(res.result.matches);
 
+      if (converted.length === 0) {
+        throw new Error("No valid matches were returned.");
+      }
+
       await storeMatches(converted, docsToReplace);
       // Reload so the table shows kept manual matches alongside the new ones.
       await loadMatches();
     } catch (err) {
       console.error("Error creating matches:", err);
       setBanner({
-        message: "Failed to create matches. Please try again.",
+        message: err instanceof Error && err.message.trim() ? err.message : "Failed to create matches. Please try again.",
         type: "error",
       });
     } finally {

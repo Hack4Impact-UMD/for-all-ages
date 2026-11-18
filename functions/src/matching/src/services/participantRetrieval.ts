@@ -1,7 +1,7 @@
 /**
  * Service for retrieving participant data from Pinecone
  */
-import * as admin from 'firebase-admin';
+import { getFirestore } from 'firebase-admin/firestore';
 import { getPineconeClient, getIndexName } from '../config/pinecone.config.js';
 import { logger } from '../utils/logger.js';
 import { isValidEmbedding } from '../utils/similarity.js';
@@ -29,7 +29,7 @@ function normalizeStoredUserType(userType: unknown): 'Student' | 'Adult' | 'unkn
  */
 async function getWaitlistedIds(): Promise<Set<string>> {
   try {
-    const db = admin.firestore();
+    const db = getFirestore();
     const waitlistSnap = await db.collection('waitlist').get();
     const waitlistedIds = new Set<string>();
     
@@ -75,14 +75,13 @@ export async function fetchAllParticipants(): Promise<{
       return { students: [], seniors: [], excluded: [] };
     }
     
-    // Fetch all vectors using listPaginated
     const allParticipants: ParticipantWithEmbedding[] = [];
     const excluded: Array<{ id: string; reason: string }> = [];
     
-    // Query with a dummy vector to get all results
-    // We'll use namespace iteration if available, otherwise query approach
+    // Query with a nonzero dummy vector for cosine similarity
+    // Results are capped by Pinecone's query count and response size limits
     const queryResults = await index.query({
-      vector: new Array(1024).fill(0),
+      vector: [1, ...new Array(1023).fill(0)],
       topK: 10000, // Max allowed
       includeMetadata: true,
       includeValues: true,

@@ -110,17 +110,25 @@ export const matchAll = onRequest(async (req, res) => {
     return;
   }
 
-  // Fetch the dynamically constructed config with the creator's min/max ranges
-  const config = await getDynamicMatchingConfig();
-  const service = new MatchingService(config as MatchingConfig);
-  const excludeIds: string[] = Array.isArray(req.body?.excludeIds)
-    ? req.body.excludeIds.filter((id: unknown) => typeof id === "string")
-    : [];
-  const result = await service.runMatching(excludeIds);
+  try {
+    // Fetch the dynamically constructed config with the creator's min/max ranges
+    const config = await getDynamicMatchingConfig();
+    const service = new MatchingService(config as MatchingConfig);
+    const excludeIds: string[] = Array.isArray(req.body?.excludeIds)
+      ? req.body.excludeIds.filter((id: unknown) => typeof id === "string")
+      : [];
+    const result = await service.runMatching(excludeIds);
 
-  res.status(200).json({
-    result: result,
-  });
+    res.status(200).json({
+      result: result,
+    });
+  } catch (err) {
+    console.error("Error creating matches:", err);
+    const message = err instanceof Error && (err.message === "No participants found for matching" || err.message === "No similarity scores calculated")
+      ? err.message
+      : "Failed to create matches. Please try again.";
+    res.status(500).json({ error: message });
+  }
 });
 
 export const upsertUser = onRequest(async (req, res) => {

@@ -59,7 +59,8 @@ export async function matchAll(body: any = {}) {
   });
 
   if (!res.ok) {
-    throw new Error(`HTTP error! Status: ${res.status}`);
+    const body = await res.json().catch(() => null);
+    throw new Error(typeof body?.error === "string" && body.error.trim() ? body.error : `HTTP error! Status: ${res.status}`);
   }
 
   return res.json();
