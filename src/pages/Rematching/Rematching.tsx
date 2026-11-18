@@ -544,7 +544,15 @@ export default function Rematching() {
           );
         }
         waitlistSnaps.forEach((s) => {
-          if (s.exists()) transaction.delete(s.ref);
+          if (!s.exists()) return;
+          transaction.delete(s.ref);
+          // deleteUser reads capacityDecision to decide whether to decrement
+          // currentParticipants, so record that they now count.
+          transaction.set(
+            doc(db, "participants", s.id),
+            { capacityDecision: "counted" },
+            { merge: true },
+          );
         });
       });
       setSelectedStudent(null);
