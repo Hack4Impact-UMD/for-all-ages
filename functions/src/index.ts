@@ -4,7 +4,7 @@ import busboy from "busboy";
 import { onRequest, onCall, HttpsError } from "firebase-functions/v2/https";
 
 import { MatchingConfig } from "./types";
-import { MatchingService } from "./matching/src/services/matchingService";
+import { MatchingInputError, MatchingService } from "./matching/src/services/matchingService";
 
 import { upsertFreeResponse } from "./matching/src/services/upsertUser.js";
 import computeMatchScoreService from "./matching/src/services/calculateMatchScore.js";
@@ -116,17 +116,26 @@ export const matchAll = onRequest(async (req, res) => {
     return;
   }
 
-  // Fetch the dynamically constructed config with the creator's min/max ranges
-  const config = await getDynamicMatchingConfig();
-  const service = new MatchingService(config as MatchingConfig);
-  const excludeIds: string[] = Array.isArray(req.body?.excludeIds)
-    ? req.body.excludeIds.filter((id: unknown) => typeof id === "string")
-    : [];
-  const result = await service.runMatching(excludeIds);
+  try {
+    // Fetch the dynamically constructed config with the creator's min/max ranges
+    const config = await getDynamicMatchingConfig();
+    const service = new MatchingService(config as MatchingConfig);
+    const excludeIds: string[] = Array.isArray(req.body?.excludeIds)
+      ? req.body.excludeIds.filter((id: unknown) => typeof id === "string")
+      : [];
+    const result = await service.runMatching(excludeIds);
 
-  res.status(200).json({
-    result: result,
-  });
+    res.status(200).json({
+      result: result,
+    });
+  } catch (err) {
+    console.error("Error creating matches:", err);
+    if (err instanceof MatchingInputError) {
+      res.status(409).json({ error: err.message });
+    } else {
+      res.status(500).json({ error: "Failed to create matches. Please try again." });
+    }
+  }
 });
 
 export const upsertUser = onRequest(async (req, res) => {
