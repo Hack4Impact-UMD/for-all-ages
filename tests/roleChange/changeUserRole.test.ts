@@ -129,6 +129,25 @@ describe("changeUserRole authorization and validation", () => {
     h.store["config/registrationForm"] = { sections: [] };
     expect(await code(call({ targetUserId: "p1", newRole: "Subadmin", university: "UMD" }))).toBe("invalid-argument");
   });
+  it("compares universities normalized and stores the option as listed", async () => {
+    h.store["config/registrationForm"] = {
+      sections: [{ questions: [{ lockedKey: "school", options: ["Univ.  of Maryland"] }] }],
+    };
+    await call({ targetUserId: "p1", newRole: "Subadmin", university: "  Univ. of   Maryland " });
+    expect(h.store["participants/p1"].university).toBe("Univ.  of Maryland");
+  });
+  it("only accepts participantOptIn for a Subadmin, as a boolean", async () => {
+    expect(await code(call({ targetUserId: "p1", newRole: "Admin", participantOptIn: true }))).toBe("invalid-argument");
+    expect(await code(call({ targetUserId: "inv1", newRole: "Subadmin", university: "UMD", participantOptIn: "yes" }))).toBe("invalid-argument");
+    await call({ targetUserId: "inv1", newRole: "Subadmin", university: "UMD", participantOptIn: true });
+    expect(h.store["participants/inv1"].participantOptIn).toBe(true);
+  });
+  it("treats \"Sub Admin\" on the caller and target as the sub-admin role", async () => {
+    h.store["participants/admin1"].role = "A dmin";
+    h.store["participants/sub1"].role = "Sub Admin";
+    await expect(call({ targetUserId: "sub1", newRole: "Subadmin", university: "UMD" })).resolves.toMatchObject({ changed: false });
+    expect(await code(call({ targetUserId: "inv1", newRole: "Participant" }, "sub1"))).toBe("permission-denied");
+  });
   it("rejects a missing target and a waitlisted target", async () => {
     h.authUsers.add("ghost2");
     expect(await code(call({ targetUserId: "ghost2", newRole: "Admin" }))).toBe("not-found");
@@ -221,6 +240,33 @@ describe("changeUserRole writes", () => {
     h.store["participants/sub1"].capacityDecision = "waitlisted";
     await call({ targetUserId: "sub1", newRole: "Admin" });
     expect(h.store["participants/sub1"].capacityDecision).toBeUndefined();
+    expect(h.store["config/programState"].currentParticipants).toBe(5);
+  });
+
+  it("unregistered Participant -> Admin releases a counted slot (the reviewer's case)", async () => {
+    h.store["participants/p1"] = { role: "Participant", capacityDecision: "counted" };
+    await call({ targetUserId: "p1", newRole: "Admin" });
+    expect(h.store["participants/p1"]).toEqual({ role: "Admin", updatedAt: "TS" });
+    expect(h.store["config/programState"].currentParticipants).toBe(4);
+  });
+
+  it("unregistered Participant with a stale waitlisted decision -> Admin clears it, count untouched", async () => {
+    h.store["participants/p1"] = { role: "Participant", capacityDecision: "waitlisted" };
+    await call({ targetUserId: "p1", newRole: "Admin" });
+    expect(h.store["participants/p1"].capacityDecision).toBeUndefined();
+    expect(h.store["config/programState"].currentParticipants).toBe(5);
+  });
+
+  it("unregistered Participant with an actual waitlist entry is refused and nothing changes", async () => {
+    h.store["participants/wait1"] = { role: "Participant", capacityDecision: "waitlisted" };
+    expect(await code(call({ targetUserId: "wait1", newRole: "Admin" }))).toBe("failed-precondition");
+    expect(h.store["participants/wait1"].capacityDecision).toBe("waitlisted");
+    expect(h.store["waitlist/wait1"]).toBeTruthy();
+  });
+
+  it("registered Participant -> Admin keeps the decision and the count", async () => {
+    await call({ targetUserId: "p1", newRole: "Admin" });
+    expect(h.store["participants/p1"].capacityDecision).toBe("counted");
     expect(h.store["config/programState"].currentParticipants).toBe(5);
   });
 

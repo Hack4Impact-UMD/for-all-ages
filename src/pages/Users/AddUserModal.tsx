@@ -6,7 +6,7 @@ import { FirebaseError } from "firebase/app";
 import { getDocs, query, collection, where } from "firebase/firestore";
 import { db } from "../../firebase";
 import { inviteAdminAccount, assignAdminRoleToExistingUser } from "../../services/adminAccounts";
-import { friendlyAuthError } from "../../utils/firebaseErrors";
+import { friendlyAuthError, roleChangeError } from "../../utils/firebaseErrors";
 import styles from "./AdminCreator.module.css";
 import { emailRegex } from "../../regex";
 import { getUniversityOptions } from "../Registration/helpers";
@@ -248,10 +248,8 @@ export default function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps
     setError(null);
 
     try {
-      await assignAdminRoleToExistingUser({
+      const result = await assignAdminRoleToExistingUser({
         participantId: existingAccountPrompt.participantId,
-        firstName: form.firstName.trim() || undefined,
-        lastName: form.lastName.trim() || undefined,
         role: form.role as Role,
         university:
           form.role === "Subadmin" ? form.university.trim() : undefined,
@@ -260,16 +258,21 @@ export default function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps
       });
 
       const roleLabel = form.role === "Subadmin" ? "Sub-admin" : "Admin";
-      const displayName =
-        `${form.firstName.trim()} ${form.lastName.trim()}`.replace(/\s+/g, " ");
-      const successMessage = `Updated ${
-        displayName || existingAccountPrompt.email
-      } to ${roleLabel}.`;
-      onSuccess(successMessage);
+      const who = existingAccountPrompt.email;
+      onSuccess(
+        result.changed
+          ? `Updated ${who} to ${roleLabel}.`
+          : `${who} is already ${form.role === "Subadmin" ? "a" : "an"} ${roleLabel}.`,
+      );
       setExistingAccountPrompt(null);
     } catch (promotionError) {
       console.error("Failed to update existing account", promotionError);
-      setError("We couldn't update the existing account. Please try again.");
+      setError(
+        roleChangeError(
+          promotionError,
+          "We couldn't update the existing account. Please try again.",
+        ),
+      );
     } finally {
       setSubmitting(false);
     }
@@ -377,34 +380,39 @@ export default function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps
             </div>
           ) : (
             <>
-              <div className={styles.field}>
-                <label htmlFor="admin-first-name">First Name</label>
-                <input
-                  ref={firstInputRef}
-                  id="admin-first-name"
-                  name="firstName"
-                  type="text"
-                  className={styles.textInput}
-                  value={form.firstName}
-                  onChange={handleInputChange}
-                  placeholder="First name"
-                  required
-                />
-              </div>
+              {/* An existing account keeps its own profile, so the names aren't used. */}
+              {existingAccountPrompt ? null : (
+                <>
+                  <div className={styles.field}>
+                    <label htmlFor="admin-first-name">First Name</label>
+                    <input
+                      ref={firstInputRef}
+                      id="admin-first-name"
+                      name="firstName"
+                      type="text"
+                      className={styles.textInput}
+                      value={form.firstName}
+                      onChange={handleInputChange}
+                      placeholder="First name"
+                      required
+                    />
+                  </div>
 
-              <div className={styles.field}>
-                <label htmlFor="admin-last-name">Last Name</label>
-                <input
-                  id="admin-last-name"
-                  name="lastName"
-                  type="text"
-                  className={styles.textInput}
-                  value={form.lastName}
-                  onChange={handleInputChange}
-                  placeholder="Last name"
-                  required
-                />
-              </div>
+                  <div className={styles.field}>
+                    <label htmlFor="admin-last-name">Last Name</label>
+                    <input
+                      id="admin-last-name"
+                      name="lastName"
+                      type="text"
+                      className={styles.textInput}
+                      value={form.lastName}
+                      onChange={handleInputChange}
+                      placeholder="Last name"
+                      required
+                    />
+                  </div>
+                </>
+              )}
 
               <div className={styles.field}>
                 <label htmlFor="admin-email">Email</label>

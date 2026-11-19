@@ -1,5 +1,11 @@
 import { normalizeRole } from "./roles";
 
+// Trimmed with internal whitespace collapsed. src/utils/university.ts is the
+// client copy; keep the two identical.
+export function normalizeUniversityName(name: unknown): string {
+  return typeof name === "string" ? name.replace(/\s+/g, " ").trim() : "";
+}
+
 export type AssignableRole = "Admin" | "Subadmin" | "Participant";
 
 export const ASSIGNABLE_ROLES: readonly AssignableRole[] = [
@@ -34,6 +40,8 @@ export type RoleChangePlan = {
 export function planRoleChange(params: {
   to: AssignableRole;
   university?: string;
+  /** Only used for a Subadmin who isn't already taking part. */
+  participantOptIn?: boolean;
   target: Record<string, unknown>;
 }): RoleChangePlan {
   const { to, target } = params;
@@ -44,19 +52,22 @@ export function planRoleChange(params: {
     return {
       role: to,
       university: params.university ?? null,
-      // A participant keeps taking part when promoted; an admin only does once
-      // they've registered.
-      participantOptIn: from === "Participant" || registered,
+      // A participant keeps taking part when promoted, and so does anyone who
+      // has registered; otherwise it's the admin's choice (default: no).
+      participantOptIn:
+        from === "Participant" || registered || params.participantOptIn === true,
       clearCapacityDecision: false,
       releaseCountedSlot: false,
     };
   }
 
-  // A sub-admin who started registering and never finished may still hold a
-  // spot (or a waitlist decision). As an Admin they won't finish, so release it,
-  // as opting them out of participating does. As a Participant they will, and
-  // registration reuses the existing decision.
-  const unfinished = from === "Subadmin" && to === "Admin" && !registered;
+  // Anyone who started registering and never finished (a Participant or a
+  // Subadmin) may still hold a spot or a waitlist decision, because the
+  // capacity check runs before the rest of the submit. As an Admin they won't
+  // finish, so release it, as opting a sub-admin out of participating does.
+  // As a Participant or Subadmin they may, and registration reuses the
+  // existing decision.
+  const unfinished = to === "Admin" && !registered;
   const decision = target.capacityDecision;
   return {
     role: to,

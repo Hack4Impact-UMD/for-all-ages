@@ -26,6 +26,7 @@ import { computeAge, isPlausibleAge, userTypeForAge } from "./age";
 import {
   ASSIGNABLE_ROLES,
   currentAssignableRole,
+  normalizeUniversityName,
   planRoleChange,
   type AssignableRole,
 } from "./roleChange";
@@ -527,6 +528,7 @@ export const changeUserRole = onCall(async (request) => {
   const rawTarget = request.data?.targetUserId;
   const newRole = request.data?.newRole as AssignableRole;
   const rawUniversity = request.data?.university;
+  const rawOptIn = request.data?.participantOptIn;
   if (typeof rawTarget !== "string" || rawTarget.trim() === "" || rawTarget.includes("/")) {
     throw new HttpsError("invalid-argument", "Missing required field: targetUserId.");
   }
@@ -534,13 +536,24 @@ export const changeUserRole = onCall(async (request) => {
     throw new HttpsError("invalid-argument", "newRole must be Admin, Subadmin or Participant.");
   }
   let university: string | undefined;
+  let participantOptIn: boolean | undefined;
   if (newRole === "Subadmin") {
-    university = typeof rawUniversity === "string" ? rawUniversity.trim() : "";
+    university = normalizeUniversityName(rawUniversity);
     if (!university) {
       throw new HttpsError("invalid-argument", "A university is required for a Sub-admin.");
     }
-  } else if (rawUniversity !== undefined && rawUniversity !== null) {
-    throw new HttpsError("invalid-argument", "university only applies to a Sub-admin.");
+    if (rawOptIn !== undefined && rawOptIn !== null && typeof rawOptIn !== "boolean") {
+      throw new HttpsError("invalid-argument", "participantOptIn must be true or false.");
+    }
+    participantOptIn = rawOptIn ?? undefined;
+  } else if (
+    (rawUniversity !== undefined && rawUniversity !== null) ||
+    (rawOptIn !== undefined && rawOptIn !== null)
+  ) {
+    throw new HttpsError(
+      "invalid-argument",
+      "university and participantOptIn only apply to a Sub-admin.",
+    );
   }
 
   const targetUserId = rawTarget.trim();
@@ -556,13 +569,16 @@ export const changeUserRole = onCall(async (request) => {
   }
 
   if (university) {
+    // Compare normalized, but store the option exactly as the form lists it.
     const options = await getUniversityOptions();
-    if (!options.includes(university)) {
+    const match = options.find((o) => normalizeUniversityName(o) === university);
+    if (match === undefined) {
       throw new HttpsError(
         "invalid-argument",
         "That university isn't one of the current options.",
       );
     }
+    university = match;
   }
 
   // Manual-entry participants have no login, so they can't be made an admin.
@@ -626,7 +642,7 @@ export const changeUserRole = onCall(async (request) => {
       );
     }
 
-    const plan = planRoleChange({ to: newRole, university, target });
+    const plan = planRoleChange({ to: newRole, university, participantOptIn, target });
 
     // Transaction reads must all come before the writes.
     let currentParticipants = 0;

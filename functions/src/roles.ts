@@ -2,10 +2,10 @@ import * as admin from "firebase-admin";
 
 // Role names are stored inconsistently ("Admin", "Subadmin", "sub-admin"),
 // so always compare through these helpers. src/utils/roles.ts is the client
-// copy.
+// copy; keep normalizeRole identical in both.
 
 export function normalizeRole(role: unknown): string {
-  return typeof role === "string" ? role.trim().toLowerCase() : "";
+  return typeof role === "string" ? role.replace(/\s+/g, "").toLowerCase() : "";
 }
 
 export function isAdminRole(role: unknown): boolean {

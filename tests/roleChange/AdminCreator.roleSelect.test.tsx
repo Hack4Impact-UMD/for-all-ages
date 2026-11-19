@@ -7,6 +7,7 @@ const h = vi.hoisted(() => ({
   listeners: {} as Record<string, (snap: any) => void>,
   auth: { user: { uid: "me", email: "me@x.org" }, isSubadmin: false, programState: null as any },
   changeUserRole: null as any,
+  getUniversityOptions: vi.fn(),
 }));
 
 const snapOf = (rows: Array<{ id: string; data: Record<string, unknown> }>) => ({
@@ -39,7 +40,7 @@ vi.mock("../../src/firebase", () => ({
 }));
 vi.mock("../../src/auth/AuthProvider", () => ({ useAuth: () => h.auth }));
 vi.mock("../../src/pages/Registration/helpers", () => ({
-  getUniversityOptions: async () => ["UMD", "Towson"],
+  getUniversityOptions: () => h.getUniversityOptions(),
 }));
 
 import AdminCreator from "../../src/pages/Users/AdminCreator";
@@ -59,7 +60,15 @@ const emit = (rows = ROWS) =>
     h.listeners.waitlist({ docs: [{ id: "wait" }] });
   });
 
-const roleSelect = (name: string) => screen.getByLabelText(`Change role for ${name}`) as HTMLSelectElement;
+const editButton = (name: string) => screen.getByLabelText(`Change role for ${name}`) as HTMLButtonElement;
+
+// Opens the edit dialog for `name` and picks the new role in its dropdown.
+async function pick(name: string, role: string) {
+  fireEvent.click(editButton(name));
+  const dialog = await screen.findByRole("dialog");
+  fireEvent.change(within(dialog).getByLabelText("New role"), { target: { value: role } });
+  return dialog;
+}
 
 async function setup() {
   render(
@@ -73,14 +82,16 @@ async function setup() {
 beforeEach(() => {
   h.auth = { user: { uid: "me", email: "me@x.org" }, isSubadmin: false, programState: null };
   h.changeUserRole = vi.fn().mockResolvedValue({ success: true });
+  h.getUniversityOptions = vi.fn().mockResolvedValue(["UMD", "Towson"]);
 });
 afterEach(cleanup);
 
 describe("Manage Users role select", () => {
-  it("shows a select for other users, but plain text for your own and waitlisted rows", async () => {
+  it("shows an edit button for other users, but none for your own and waitlisted rows", async () => {
     await setup();
-    expect(roleSelect("Other Admin").value).toBe("Admin");
-    expect(roleSelect("Registered Rita").value).toBe("Participant");
+    expect(editButton("Other Admin")).toBeTruthy();
+    expect(editButton("Registered Rita")).toBeTruthy();
+    expect(screen.queryByRole("combobox", { name: /Change role/ })).toBeNull();
     expect(screen.queryByLabelText("Change role for Me Admin")).toBeNull();
     expect(screen.getByText(/Admin \(you\)/)).toBeTruthy();
     expect(screen.queryByLabelText("Change role for Waitlisted Walt")).toBeNull();
@@ -92,13 +103,27 @@ describe("Manage Users role select", () => {
     expect(screen.queryAllByLabelText(/Change role for/)).toHaveLength(0);
   });
 
-  it("disables the current role, and Admin/Subadmin for manual-entry users", async () => {
+  it("offers every role but the current one, and no edit button for manual-entry users", async () => {
     await setup();
-    const opts = (name: string) =>
-      Object.fromEntries(Array.from(roleSelect(name).options).map((o) => [o.value, o.disabled]));
-    expect(opts("Other Admin")).toEqual({ Admin: true, Subadmin: false, Participant: false });
-    expect(opts("Manual Mary")).toEqual({ Admin: true, Subadmin: true, Participant: true });
-    expect(opts("Registered Rita")).toEqual({ Admin: false, Subadmin: false, Participant: true });
+    const opts = async (name: string) => {
+      fireEvent.click(editButton(name));
+      const dialog = await screen.findByRole("dialog");
+      const values = Array.from((within(dialog).getByLabelText("New role") as HTMLSelectElement).options)
+        .map((o) => o.value)
+        .filter(Boolean);
+      fireEvent.click(within(dialog).getByText("Cancel"));
+      return values;
+    };
+    expect(await opts("Other Admin")).toEqual(["Subadmin", "Participant"]);
+    expect(await opts("Registered Rita")).toEqual(["Admin", "Subadmin"]);
+    expect(screen.queryByLabelText("Change role for Manual Mary")).toBeNull();
+  });
+
+  it("uses a plain dropdown: no role-select class and no shadow styling", async () => {
+    await setup();
+    fireEvent.click(editButton("Other Admin"));
+    const select = within(await screen.findByRole("dialog")).getByLabelText("New role");
+    expect(select.className).toBe("");
   });
 
   it("no longer renders Promote or Demote buttons", async () => {
@@ -109,7 +134,7 @@ describe("Manage Users role select", () => {
 
   it("Admin -> Participant: warns and calls the function without a university", async () => {
     await setup();
-    fireEvent.change(roleSelect("Other Admin"), { target: { value: "Participant" } });
+    await pick("Other Admin", "Participant");
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText(/lose admin access/)).toBeTruthy();
     expect(within(dialog).getByText(/need to register to participate\./)).toBeTruthy();
@@ -122,19 +147,40 @@ describe("Manage Users role select", () => {
   it("adds the signups-closed warning when registration is closed", async () => {
     h.auth.programState = { matches_final: true };
     await setup();
-    fireEvent.change(roleSelect("Other Admin"), { target: { value: "Participant" } });
+    await pick("Other Admin", "Participant");
     expect(await screen.findByText(/cannot complete registration until signups reopen/)).toBeTruthy();
+  });
+
+  it.each([
+    [{ matches_final: false, accepting_registrations: true }, false],
+    [{ matches_final: true, accepting_registrations: true }, true],
+    [{ matches_final: false, accepting_registrations: false }, true],
+    [{ matches_final: false }, true],
+  ])("signups-closed warning for %j is %s", async (programState, warned) => {
+    h.auth.programState = programState;
+    await setup();
+    await pick("Other Admin", "Participant");
+    const dialog = await screen.findByRole("dialog");
+    expect(!!within(dialog).queryByText(/cannot complete registration until signups reopen/)).toBe(warned);
+  });
+
+  it("warns that an unfinished registration's spot is released for any unregistered non-admin", async () => {
+    await setup();
+    const unregisteredParticipant = ROWS.map((r) => (r.id === "adm" ? { ...r, data: { role: "Participant", displayName: "Other Admin" } } : r));
+    await emit(unregisteredParticipant);
+    await pick("Other Admin", "Admin");
+    expect(await screen.findByText(/unused participant spot will be released/)).toBeTruthy();
   });
 
   it("registered Participant -> Admin warns about matching and the dashboard", async () => {
     await setup();
-    fireEvent.change(roleSelect("Registered Rita"), { target: { value: "Admin" } });
+    await pick("Registered Rita", "Admin");
     expect(await screen.findByText(/remain eligible for matching, but will no longer have access to the participant dashboard/)).toBeTruthy();
   });
 
   it("-> Subadmin requires a university and sends it", async () => {
     await setup();
-    fireEvent.change(roleSelect("Registered Rita"), { target: { value: "Subadmin" } });
+    await pick("Registered Rita", "Subadmin");
     const dialog = await screen.findByRole("dialog");
     const confirm = within(dialog).getByText("Confirm") as HTMLButtonElement;
     expect(confirm.disabled).toBe(true);
@@ -145,20 +191,19 @@ describe("Manage Users role select", () => {
     await waitFor(() => expect(h.changeUserRole).toHaveBeenCalledWith("reg", "Subadmin", "Towson"));
   });
 
-  it("Cancel closes the modal, calls nothing, and leaves the select on the live role", async () => {
+  it("Cancel closes the modal, calls nothing, and leaves the role unchanged", async () => {
     await setup();
-    fireEvent.change(roleSelect("Other Admin"), { target: { value: "Participant" } });
+    await pick("Other Admin", "Participant");
     fireEvent.click(await screen.findByText("Cancel"));
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(h.changeUserRole).not.toHaveBeenCalled();
-    expect(roleSelect("Other Admin").value).toBe("Admin");
   });
 
   it("shows the function's message inline on a known error, and keeps the modal open", async () => {
     const { FirebaseError } = await import("firebase/app");
     h.changeUserRole = vi.fn().mockRejectedValue(new FirebaseError("functions/failed-precondition", "Waitlisted users can't have their role changed."));
     await setup();
-    fireEvent.change(roleSelect("Other Admin"), { target: { value: "Participant" } });
+    await pick("Other Admin", "Participant");
     fireEvent.click(await screen.findByText("Confirm"));
     expect(await screen.findByText("Waitlisted users can't have their role changed.")).toBeTruthy();
     expect(screen.getByRole("dialog")).toBeTruthy();
@@ -168,21 +213,95 @@ describe("Manage Users role select", () => {
     h.changeUserRole = vi.fn().mockRejectedValue(new Error("boom"));
     vi.spyOn(console, "error").mockImplementation(() => {});
     await setup();
-    fireEvent.change(roleSelect("Other Admin"), { target: { value: "Participant" } });
+    await pick("Other Admin", "Participant");
     fireEvent.click(await screen.findByText("Confirm"));
     expect(await screen.findByText("Could not change this role. Please try again.")).toBeTruthy();
   });
 
   it("keeps the select disabled as 'Updating…' until the snapshot shows the new role", async () => {
     await setup();
-    fireEvent.change(roleSelect("Other Admin"), { target: { value: "Participant" } });
+    await pick("Other Admin", "Participant");
     fireEvent.click(await screen.findByText("Confirm"));
-    await waitFor(() => expect(roleSelect("Other Admin").disabled).toBe(true));
+    await waitFor(() => expect(editButton("Other Admin").disabled).toBe(true));
     expect(screen.getByText("Updating…")).toBeTruthy();
     await emit(ROWS.map((r) => (r.id === "adm" ? { ...r, data: { ...r.data, role: "Participant" } } : r)));
-    await waitFor(() => expect(roleSelect("Other Admin").disabled).toBe(false));
-    expect(roleSelect("Other Admin").value).toBe("Participant");
+    await waitFor(() => expect(editButton("Other Admin").disabled).toBe(false));
     expect(screen.queryByText("Updating…")).toBeNull();
+  });
+});
+
+describe("Manage Users role dialog and university", () => {
+  it("sends a normalized university and does not re-fetch the options on confirm", async () => {
+    h.getUniversityOptions = vi.fn().mockResolvedValue(["Univ.  of   Maryland"]);
+    await setup();
+    const dialog = await pick("Registered Rita", "Subadmin");
+    await waitFor(() => expect(within(dialog).getByText("Univ. of Maryland")).toBeTruthy());
+    fireEvent.change(within(dialog).getByLabelText("University"), { target: { value: "Univ.  of   Maryland" } });
+    h.getUniversityOptions.mockClear();
+    fireEvent.click(within(dialog).getByText("Confirm"));
+    await waitFor(() => expect(h.changeUserRole).toHaveBeenCalledWith("reg", "Subadmin", "Univ. of Maryland"));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(h.getUniversityOptions).not.toHaveBeenCalled();
+  });
+
+  const failWithUniversityError = async () => {
+    const { FirebaseError } = await import("firebase/app");
+    h.changeUserRole = vi.fn().mockRejectedValue(new FirebaseError("functions/invalid-argument", "That university isn't one of the current options."));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    await setup();
+    const dialog = await pick("Registered Rita", "Subadmin");
+    await waitFor(() => expect(within(dialog).getByText("Towson")).toBeTruthy());
+    const uni = within(dialog).getByLabelText("University") as HTMLSelectElement;
+    fireEvent.change(uni, { target: { value: "Towson" } });
+    h.getUniversityOptions.mockClear();
+    return { dialog, uni };
+  };
+
+  it("on the server's university error, refreshes options and drops a selection that is really gone", async () => {
+    const { dialog, uni } = await failWithUniversityError();
+    h.getUniversityOptions = vi.fn().mockResolvedValue(["UMD"]);
+    fireEvent.click(within(dialog).getByText("Confirm"));
+    expect(await within(dialog).findByText("That university isn't one of the current options.")).toBeTruthy();
+    await waitFor(() => expect(uni.value).toBe(""));
+    expect(within(dialog).queryByText("Towson")).toBeNull();
+  });
+
+  it("keeps the options and selection when the refresh comes back empty", async () => {
+    const { dialog, uni } = await failWithUniversityError();
+    h.getUniversityOptions = vi.fn().mockResolvedValue([]);
+    fireEvent.click(within(dialog).getByText("Confirm"));
+    expect(await within(dialog).findByText("That university isn't one of the current options.")).toBeTruthy();
+    await waitFor(() => expect(h.getUniversityOptions).toHaveBeenCalled());
+    expect(uni.value).toBe("Towson");
+    expect(within(dialog).getByText("UMD")).toBeTruthy();
+  });
+
+  it("keeps the selection when the refreshed list still contains it", async () => {
+    const { dialog, uni } = await failWithUniversityError();
+    h.getUniversityOptions = vi.fn().mockResolvedValue(["UMD", "Towson", "Goucher"]);
+    fireEvent.click(within(dialog).getByText("Confirm"));
+    await waitFor(() => expect(within(dialog).getByText("Goucher")).toBeTruthy());
+    expect(uni.value).toBe("Towson");
+  });
+
+  it("does not touch the options for other errors (permission-denied, unexpected)", async () => {
+    const { FirebaseError } = await import("firebase/app");
+    for (const err of [new FirebaseError("functions/permission-denied", "Admins only."), new Error("boom")]) {
+      cleanup();
+      h.changeUserRole = vi.fn().mockRejectedValue(err);
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      await setup();
+      const dialog = await pick("Registered Rita", "Subadmin");
+      await waitFor(() => expect(within(dialog).getByText("Towson")).toBeTruthy());
+      const uni = within(dialog).getByLabelText("University") as HTMLSelectElement;
+      fireEvent.change(uni, { target: { value: "Towson" } });
+      h.getUniversityOptions.mockClear();
+      fireEvent.click(within(dialog).getByText("Confirm"));
+      await waitFor(() => expect(h.changeUserRole).toHaveBeenCalled());
+      await waitFor(() => expect((within(dialog).getByText("Confirm") as HTMLButtonElement).disabled).toBe(false));
+      expect(h.getUniversityOptions).not.toHaveBeenCalled();
+      expect(uni.value).toBe("Towson");
+    }
   });
 });
 
@@ -191,7 +310,7 @@ describe("Manage Users pending role lifecycle", () => {
     rows.map((r) => (r.id === "adm" ? { ...r, data: { ...r.data, role: "Participant" } } : r));
 
   async function confirmAdminToParticipant() {
-    fireEvent.change(roleSelect("Other Admin"), { target: { value: "Participant" } });
+    await pick("Other Admin", "Participant");
     fireEvent.click(await screen.findByText("Confirm"));
   }
 
@@ -204,9 +323,8 @@ describe("Manage Users pending role lifecycle", () => {
     await emit(asParticipant());
     await act(async () => resolveCall({ success: true, changed: true, role: "Participant" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    await waitFor(() => expect(roleSelect("Other Admin").disabled).toBe(false));
+    await waitFor(() => expect(editButton("Other Admin").disabled).toBe(false));
     expect(screen.queryByText("Updating…")).toBeNull();
-    expect(roleSelect("Other Admin").value).toBe("Participant");
   });
 
   it("stays disabled after the callable resolves until the snapshot confirms", async () => {
@@ -214,9 +332,9 @@ describe("Manage Users pending role lifecycle", () => {
     await setup();
     await confirmAdminToParticipant();
     await waitFor(() => expect(screen.getByText("Updating…")).toBeTruthy());
-    expect(roleSelect("Other Admin").disabled).toBe(true);
+    expect(editButton("Other Admin").disabled).toBe(true);
     await emit(asParticipant());
-    await waitFor(() => expect(roleSelect("Other Admin").disabled).toBe(false));
+    await waitFor(() => expect(editButton("Other Admin").disabled).toBe(false));
     expect(screen.queryByText("Updating…")).toBeNull();
   });
 
@@ -226,7 +344,7 @@ describe("Manage Users pending role lifecycle", () => {
     await confirmAdminToParticipant();
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(screen.queryByText("Updating…")).toBeNull();
-    expect(roleSelect("Other Admin").disabled).toBe(false);
+    expect(editButton("Other Admin").disabled).toBe(false);
   });
 
   it("never goes pending when the callable rejects", async () => {
@@ -236,6 +354,35 @@ describe("Manage Users pending role lifecycle", () => {
     await confirmAdminToParticipant();
     expect(await screen.findByText("Could not change this role. Please try again.")).toBeTruthy();
     expect(screen.queryByText("Updating…")).toBeNull();
-    expect(roleSelect("Other Admin").disabled).toBe(false);
+    expect(editButton("Other Admin").disabled).toBe(false);
+  });
+
+  it("does not stay disabled when another admin sets a third role before ours shows up", async () => {
+    h.changeUserRole = vi.fn().mockResolvedValue({ success: true, changed: true });
+    await setup();
+    await confirmAdminToParticipant();
+    await waitFor(() => expect(editButton("Other Admin").disabled).toBe(true));
+    await emit(ROWS.map((r) => (r.id === "adm" ? { ...r, data: { ...r.data, role: "Subadmin" } } : r)));
+    await waitFor(() => expect(editButton("Other Admin").disabled).toBe(false));
+    expect(screen.queryByText("Updating…")).toBeNull();
+  });
+
+  it("stays pending through a premature snapshot that still shows the old role", async () => {
+    h.changeUserRole = vi.fn().mockResolvedValue({ success: true, changed: true });
+    await setup();
+    await confirmAdminToParticipant();
+    await waitFor(() => expect(editButton("Other Admin").disabled).toBe(true));
+    await emit(ROWS.map((r) => (r.id === "adm" ? { ...r, data: { ...r.data, phoneNumber: "5551234567" } } : r)));
+    expect(editButton("Other Admin").disabled).toBe(true);
+    expect(screen.getByText("Updating…")).toBeTruthy();
+  });
+
+  it("clears when the user disappears", async () => {
+    h.changeUserRole = vi.fn().mockResolvedValue({ success: true, changed: true });
+    await setup();
+    await confirmAdminToParticipant();
+    await waitFor(() => expect(screen.getByText("Updating…")).toBeTruthy());
+    await emit(ROWS.filter((r) => r.id !== "adm"));
+    expect(screen.queryByText("Updating…")).toBeNull();
   });
 });

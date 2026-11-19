@@ -241,7 +241,7 @@
   width: 14%;
 }
 .colRole {
-  width: 20%;
+  width: 12%;
 }
 .colEmail {
   width: 20%;
@@ -256,15 +256,9 @@
   width: 10%;
 }
 .colDelete {
-  width: 5%;
+  width: 8%;
   text-align: center;
 }
-.roleSelect {
-  width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-}
-
 .roleNote {
   margin-top: 0.25rem;
   font-size: 0.75rem;
@@ -625,6 +619,13 @@
   vertical-align: middle;
 }
 
+.rowActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.editButton,
 .deleteButton {
   display: inline-flex;
   align-items: center;
@@ -638,6 +639,20 @@
   transition:
     background 0.15s ease,
     color 0.15s ease;
+}
+
+.editButton {
+  color: #127bbe;
+}
+
+.editButton:hover:not(:disabled) {
+  background: rgba(18, 123, 190, 0.12);
+  color: #0f5f94;
+}
+
+.editButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .deleteButton:hover:not(:disabled) {

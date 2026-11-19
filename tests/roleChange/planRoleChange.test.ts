@@ -7,7 +7,7 @@ vi.mock("firebase-admin", () => {
   return { ...mod, default: mod };
 });
 
-import { currentAssignableRole, planRoleChange } from "../../functions/src/roleChange";
+import { currentAssignableRole, normalizeUniversityName, planRoleChange } from "../../functions/src/roleChange";
 
 const plan = (to: any, target: Record<string, unknown>, university?: string) =>
   planRoleChange({ to, target, university });
@@ -19,6 +19,9 @@ describe("currentAssignableRole", () => {
     expect(currentAssignableRole("sub-admin")).toBe("Subadmin");
     expect(currentAssignableRole(" Subadmin ")).toBe("Subadmin");
     expect(currentAssignableRole("Participant")).toBe("Participant");
+    expect(currentAssignableRole("Sub Admin")).toBe("Subadmin");
+    expect(currentAssignableRole("  sub  admin ")).toBe("Subadmin");
+    expect(currentAssignableRole("A d m i n")).toBe("Admin");
     expect(currentAssignableRole(undefined)).toBe("Participant");
   });
 });
@@ -41,12 +44,40 @@ describe("planRoleChange", () => {
   it.each([
     ["Admin", "Participant"],
     ["Subadmin", "Participant"],
-    ["Participant", "Admin"],
   ])("%s -> %s deletes university and participantOptIn", (from, to) => {
     expect(plan(to, { role: from, type: "Admin", capacityDecision: "counted" })).toEqual({
       role: to, university: null, participantOptIn: null,
       clearCapacityDecision: false, releaseCountedSlot: false,
     });
+  });
+
+  describe("unregistered Participant -> Admin capacity clean-up", () => {
+    it("counted: clears the decision and releases the slot", () => {
+      expect(plan("Admin", { role: "Participant", capacityDecision: "counted" })).toMatchObject({
+        clearCapacityDecision: true, releaseCountedSlot: true,
+      });
+    });
+    it("waitlisted: clears the decision only", () => {
+      expect(plan("Admin", { role: "Participant", capacityDecision: "waitlisted" })).toMatchObject({
+        clearCapacityDecision: true, releaseCountedSlot: false,
+      });
+    });
+    it("registered: keeps the decision and the count", () => {
+      expect(plan("Admin", { role: "Participant", type: "Participant", capacityDecision: "counted" })).toMatchObject({
+        clearCapacityDecision: false, releaseCountedSlot: false,
+      });
+    });
+    it("Participant -> Subadmin never releases (registration can still finish)", () => {
+      expect(plan("Subadmin", { role: "Participant", capacityDecision: "counted" }, "UMD")).toMatchObject({
+        clearCapacityDecision: false, releaseCountedSlot: false,
+      });
+    });
+  });
+
+  it("Admin -> Subadmin honours participantOptIn only when not already participating", () => {
+    expect(plan("Subadmin", { role: "Admin" }, "UMD").participantOptIn).toBe(false);
+    expect(planRoleChange({ to: "Subadmin", university: "UMD", participantOptIn: true, target: { role: "Admin" } }).participantOptIn).toBe(true);
+    expect(planRoleChange({ to: "Subadmin", university: "UMD", participantOptIn: false, target: { role: "Admin", type: "Participant" } }).participantOptIn).toBe(true);
   });
 
   describe("Subadmin -> Admin capacity clean-up", () => {
@@ -77,5 +108,12 @@ describe("planRoleChange", () => {
     for (const forbidden of ["type", "user_type", "school", "status"]) {
       expect(keys).not.toContain(forbidden);
     }
+  });
+});
+
+describe("normalizeUniversityName", () => {
+  it("trims and collapses internal whitespace", () => {
+    expect(normalizeUniversityName("  Univ.  of   Maryland ")).toBe("Univ. of Maryland");
+    expect(normalizeUniversityName(undefined)).toBe("");
   });
 });

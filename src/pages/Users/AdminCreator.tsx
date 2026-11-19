@@ -7,11 +7,10 @@ import {
   where,
   type Unsubscribe,
 } from "firebase/firestore";
-import { FaTrash } from "react-icons/fa";
+import { FaPen, FaTrash } from "react-icons/fa";
 import layoutStyles from "../Dashboard/Dashboard.module.css";
 import styles from "./AdminCreator.module.css";
 import { assignUserType, changeUserRole, db, deleteUser } from "../../firebase";
-import { FirebaseError } from "firebase/app";
 import { setSubadminParticipantOptIn } from "../../services/adminAccounts";
 import type {
   Role,
@@ -28,6 +27,11 @@ import { bccMailto } from "../../utils/mailto";
 import AddUserModal from "./AddUserModal";
 import Button from "../../components/Button";
 import { getUniversityOptions } from "../Registration/helpers";
+import { toAssignableRole, type AssignableRole } from "../../utils/roles";
+import { roleChangeError } from "../../utils/firebaseErrors";
+import { FirebaseError } from "firebase/app";
+import { signupsClosed } from "../../utils/programState";
+import { normalizeUniversityName } from "../../utils/university";
 
 type RoleFilter = "All" | Role | "Participant";
 type GroupFilter = "All" | "Student" | "Adult";
@@ -47,28 +51,23 @@ function formatAddress(address?: RawAddress | null): string | null {
   return segments.length ? segments.join(", ") : null;
 }
 
-type AssignableRole = Role | "Participant";
-
 const ROLE_LABELS: Record<AssignableRole, string> = {
   Admin: "Admin",
   Subadmin: "Sub-admin",
   Participant: "Participant",
 };
 
-// The function's own messages are written for admins; show them as they are.
-const SHOWN_FUNCTION_ERRORS = new Set([
-  "functions/invalid-argument",
-  "functions/failed-precondition",
-  "functions/permission-denied",
-  "functions/not-found",
-]);
+const isInvalidArgument = (err: unknown) =>
+  err instanceof FirebaseError && err.code === "functions/invalid-argument";
 
-function normaliseRole(role?: string | null): Role | "Participant" {
-  if (!role) return "Participant";
-  const value = role.replace(/\s+/g, "").toLowerCase();
-  if (value === "admin") return "Admin";
-  if (value === "subadmin" || value === "sub-admin") return "Subadmin";
-  return "Participant";
+// The roles this user can be moved to: not the one they have, and no admin
+// roles for manual-entry users, who have no login.
+function assignableRoleOptions(admin: AdminRecord): AssignableRole[] {
+  return (["Admin", "Subadmin", "Participant"] as const).filter(
+    (role) =>
+      role !== admin.role &&
+      !(role !== "Participant" && admin.hasAuthAccount === false),
+  );
 }
 
 function normaliseUserType(user_type?: string | null): string | null {
@@ -99,12 +98,12 @@ export default function AdminDashboard() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [placingId, setPlacingId] = useState<string | null>(null);
   const [optInId, setOptInId] = useState<string | null>(null);
-  const [roleTarget, setRoleTarget] = useState<{
-    admin: AdminRecord;
-    newRole: AssignableRole;
-  } | null>(null);
-  // Roles just changed, kept disabled until the snapshot shows the new value.
-  const [pendingRoles, setPendingRoles] = useState<Record<string, AssignableRole>>({});
+  const [roleTarget, setRoleTarget] = useState<AdminRecord | null>(null);
+  // Roles just changed, kept disabled until the snapshot moves off `from`
+  // (to our new role, or to whatever another admin set meanwhile).
+  const [pendingRoles, setPendingRoles] = useState<
+    Record<string, { role: AssignableRole; from: AssignableRole }>
+  >({});
   const [selectedUser, setSelectedUser] = useState<AdminRecord | null>(null);
   const [formResponses, setFormResponses] = useState<FormResponse | null>(null);
   const [formLoading, setFormLoading] = useState(false);
@@ -121,12 +120,18 @@ export default function AdminDashboard() {
   }, []);
 
   const handleRoleChangeSuccess = useCallback(
-    (message: string, id: string, role: AssignableRole, changed: boolean) => {
+    (
+      message: string,
+      id: string,
+      role: AssignableRole,
+      from: AssignableRole,
+      changed: boolean,
+    ) => {
       setBanner({ type: "success", message });
       setRoleTarget(null);
       // Nothing was written when the role already matched, so no snapshot is
       // coming to confirm it.
-      if (changed) setPendingRoles((prev) => ({ ...prev, [id]: role }));
+      if (changed) setPendingRoles((prev) => ({ ...prev, [id]: { role, from } }));
     },
     [],
   );
@@ -149,7 +154,7 @@ export default function AdminDashboard() {
             return {
               id: docSnap.id,
               name: composeDisplayName(data),
-              role: normaliseRole(data.role),
+              role: toAssignableRole(data.role),
               email: (data.email ?? "").trim(),
               phoneNumber: data.phoneNumber ?? null,
               address: formatAddress(data.address ?? null),
@@ -201,8 +206,10 @@ export default function AdminDashboard() {
     return () => unsubscribe();
   }, []);
 
-  // Clear a pending role once the snapshot has caught up with it. Also runs
-  // when a role becomes pending, since the snapshot may have arrived first.
+  // Clear a pending role once the snapshot shows anything but the old role: our
+  // new one, or another admin's change that landed first. A snapshot that
+  // still shows the old role is a premature update, so it stays pending. Also
+  // runs when a role becomes pending, since the snapshot may have arrived first.
   useEffect(() => {
     setPendingRoles((prev) => {
       const ids = Object.keys(prev);
@@ -210,7 +217,7 @@ export default function AdminDashboard() {
       const next = { ...prev };
       for (const id of ids) {
         const current = admins.find((a) => a.id === id);
-        if (!current || current.role === prev[id]) delete next[id];
+        if (!current || current.role !== prev[id].from) delete next[id];
       }
       return Object.keys(next).length === ids.length ? prev : next;
     });
@@ -223,7 +230,7 @@ export default function AdminDashboard() {
     let list = admins;
     if (roleFilter !== "All") {
       list = list.filter((user) => {
-        const r = normaliseRole(user.role);
+        const r = toAssignableRole(user.role);
         return r === roleFilter;
       });
     }
@@ -292,7 +299,7 @@ export default function AdminDashboard() {
     if (typeof window === "undefined") return;
 
     const list = admins.filter((u) => {
-      const r = normaliseRole(u.role);
+      const r = toAssignableRole(u.role);
       return r === "Participant" || r === "Subadmin";
     });
 
@@ -301,6 +308,15 @@ export default function AdminDashboard() {
       list.map((u) => u.email),
     );
   };
+
+  // Sub-admins never change roles, and the server refuses your own role and
+  // waitlisted users. Manual-entry users can't become admins, so with their
+  // current role already taken there's nothing left to pick.
+  const canEditRole = (admin: AdminRecord) =>
+    !isSubadmin &&
+    admin.id !== user?.uid &&
+    !waitlistedIds.has(admin.id) &&
+    assignableRoleOptions(admin).length > 0;
 
   const handleDeleteUser = useCallback(async (admin: AdminRecord) => {
     const confirmed = window.confirm(
@@ -561,57 +577,11 @@ export default function AdminDashboard() {
                           </div>
                         </td>
                         <td data-label="Role" className={styles.colRole}>
-                          {!isSubadmin &&
-                          admin.id !== user?.uid &&
-                          !waitlistedIds.has(admin.id) ? (
-                            <>
-                              <select
-                                className={`${styles.selectInput} ${styles.roleSelect}`}
-                                value={admin.role}
-                                disabled={pendingRoles[admin.id] !== undefined}
-                                onChange={(e) =>
-                                  setRoleTarget({
-                                    admin,
-                                    newRole: e.target.value as AssignableRole,
-                                  })
-                                }
-                                aria-label={`Change role for ${admin.name}`}
-                              >
-                                <option
-                                  value="Admin"
-                                  disabled={
-                                    admin.role === "Admin" ||
-                                    admin.hasAuthAccount === false
-                                  }
-                                >
-                                  Admin
-                                </option>
-                                <option
-                                  value="Subadmin"
-                                  disabled={
-                                    admin.role === "Subadmin" ||
-                                    admin.hasAuthAccount === false
-                                  }
-                                >
-                                  Sub-admin
-                                </option>
-                                <option
-                                  value="Participant"
-                                  disabled={admin.role === "Participant"}
-                                >
-                                  Participant
-                                </option>
-                              </select>
-                              {pendingRoles[admin.id] !== undefined ? (
-                                <div className={styles.roleNote}>Updating…</div>
-                              ) : null}
-                            </>
-                          ) : (
-                            <>
-                              {ROLE_LABELS[admin.role]}
-                              {admin.id === user?.uid ? " (you)" : ""}
-                            </>
-                          )}
+                          {ROLE_LABELS[admin.role]}
+                          {admin.id === user?.uid ? " (you)" : ""}
+                          {pendingRoles[admin.id] !== undefined ? (
+                            <div className={styles.roleNote}>Updating…</div>
+                          ) : null}
                         </td>
                         <td data-label="Email" className={styles.colEmail}>
                           {admin.email ? (
@@ -695,16 +665,30 @@ export default function AdminDashboard() {
                           {isSubadmin && admin.role !== "Participant" ? (
                             <span>—</span>
                           ) : (
-                            <button
-                              type="button"
-                              className={styles.deleteButton}
-                              onClick={() => handleDeleteUser(admin)}
-                              disabled={deletingId === admin.id}
-                              aria-label={`Delete ${admin.name}`}
-                              title="Delete user"
-                            >
-                              <FaTrash aria-hidden />
-                            </button>
+                            <div className={styles.rowActions}>
+                              {canEditRole(admin) ? (
+                                <button
+                                  type="button"
+                                  className={styles.editButton}
+                                  onClick={() => setRoleTarget(admin)}
+                                  disabled={pendingRoles[admin.id] !== undefined}
+                                  aria-label={`Change role for ${admin.name}`}
+                                  title="Change role"
+                                >
+                                  <FaPen aria-hidden />
+                                </button>
+                              ) : null}
+                              <button
+                                type="button"
+                                className={styles.deleteButton}
+                                onClick={() => handleDeleteUser(admin)}
+                                disabled={deletingId === admin.id}
+                                aria-label={`Delete ${admin.name}`}
+                                title="Delete user"
+                              >
+                                <FaTrash aria-hidden />
+                              </button>
+                            </div>
                           )}
                         </td>
                       </tr>
@@ -725,9 +709,8 @@ export default function AdminDashboard() {
 
         {roleTarget ? (
           <ChangeRoleModal
-            participant={roleTarget.admin}
-            newRole={roleTarget.newRole}
-            signupsClosed={programState?.matches_final === true}
+            participant={roleTarget}
+            signupsClosed={signupsClosed(programState)}
             onClose={() => setRoleTarget(null)}
             onSuccess={handleRoleChangeSuccess}
           />
@@ -749,13 +732,13 @@ export default function AdminDashboard() {
 
 type ChangeRoleModalProps = {
   participant: AdminRecord;
-  newRole: AssignableRole;
   signupsClosed: boolean;
   onClose: () => void;
   onSuccess: (
     message: string,
     id: string,
     role: AssignableRole,
+    from: AssignableRole,
     changed: boolean,
   ) => void;
 };
@@ -774,7 +757,7 @@ function roleChangeWarnings(
       "They remain eligible for matching, but will no longer have access to the participant dashboard.",
     );
   }
-  if (newRole === "Admin" && participant.role === "Subadmin" && !registered) {
+  if (newRole === "Admin" && !registered) {
     warnings.push(
       "If they started registering, their unused participant spot will be released.",
     );
@@ -794,11 +777,11 @@ function roleChangeWarnings(
 
 function ChangeRoleModal({
   participant,
-  newRole,
   signupsClosed,
   onClose,
   onSuccess,
 }: ChangeRoleModalProps) {
+  const [newRole, setNewRole] = useState<AssignableRole | "">("");
   const needsUniversity = newRole === "Subadmin";
   const [universityOptions, setUniversityOptions] = useState<string[]>([]);
   const [university, setUniversity] = useState(participant.university ?? "");
@@ -834,6 +817,7 @@ function ChangeRoleModal({
   }, [needsUniversity]);
 
   const handleConfirm = async () => {
+    if (!newRole) return;
     if (needsUniversity && !university.trim()) {
       setError("Please select a university.");
       return;
@@ -841,44 +825,44 @@ function ChangeRoleModal({
     setSubmitting(true);
     setError(null);
     try {
-      if (needsUniversity) {
-        // The list may have changed since this opened; the server checks too.
-        const live = await getUniversityOptions();
-        if (!live.includes(university)) {
-          setUniversityOptions(live);
-          setUniversity("");
-          setError(
-            live.length > 0
-              ? "The college you selected is no longer supported. Please select a new option."
-              : "The college you selected is no longer supported.\nMust have at least one college option before adding a Sub-admin.",
-          );
-          return;
-        }
-      }
-      const result = (await changeUserRole(
+      // The server checks the university against the current options.
+      const result = await changeUserRole(
         participant.id,
         newRole,
-        needsUniversity ? university.trim() : undefined,
-      )) as { changed?: boolean } | undefined;
+        needsUniversity ? normalizeUniversityName(university) : undefined,
+      );
       onSuccess(
-        `${participant.name} is now ${ROLE_LABELS[newRole] === "Admin" ? "an Admin" : `a ${ROLE_LABELS[newRole]}`}.`,
+        `${participant.name} is now ${newRole === "Admin" ? "an Admin" : `a ${ROLE_LABELS[newRole]}`}.`,
         participant.id,
         newRole,
+        participant.role,
         result?.changed !== false,
       );
     } catch (err) {
       console.error("Failed to change role", err);
       setError(
-        err instanceof FirebaseError && SHOWN_FUNCTION_ERRORS.has(err.code)
-          ? err.message
-          : "Could not change this role. Please try again.",
+        roleChangeError(err, "Could not change this role. Please try again."),
       );
+      if (needsUniversity && isInvalidArgument(err)) {
+        // The list may have changed since this opened. Only a successful,
+        // non-empty fetch can replace the options or invalidate the selection.
+        const live = await getUniversityOptions();
+        if (live.length > 0) {
+          setUniversityOptions(live);
+          const wanted = normalizeUniversityName(university);
+          if (!live.some((o) => normalizeUniversityName(o) === wanted)) {
+            setUniversity("");
+          }
+        }
+      }
     } finally {
       setSubmitting(false);
     }
   };
 
-  const warnings = roleChangeWarnings(participant, newRole, signupsClosed);
+  const warnings = newRole
+    ? roleChangeWarnings(participant, newRole, signupsClosed)
+    : [];
 
   return (
     <div
@@ -903,10 +887,26 @@ function ChangeRoleModal({
 
         <div className={styles.modalForm}>
           <p style={{ marginBottom: "1rem" }}>
-            <strong>{participant.name}</strong> will change from{" "}
-            {ROLE_LABELS[participant.role]} to {ROLE_LABELS[newRole]}. Their
-            participant data, registration and matches are kept.
+            <strong>{participant.name}</strong> is currently{" "}
+            {ROLE_LABELS[participant.role]}. Their participant data,
+            registration and matches are kept when their role changes.
           </p>
+
+          <select
+            value={newRole}
+            onChange={(event) => {
+              setNewRole(event.target.value as AssignableRole | "");
+              setError(null);
+            }}
+            aria-label="New role"
+          >
+            <option value="">Select a role</option>
+            {assignableRoleOptions(participant).map((role) => (
+              <option key={role} value={role}>
+                {ROLE_LABELS[role]}
+              </option>
+            ))}
+          </select>
 
           {warnings.length > 0 ? (
             <ul className={styles.warningList}>
@@ -950,7 +950,7 @@ function ChangeRoleModal({
               type="button"
               className={styles.submitButton}
               onClick={handleConfirm}
-              disabled={submitting || (needsUniversity && !university.trim())}
+              disabled={submitting || !newRole || (needsUniversity && !university.trim())}
             >
               {submitting ? "Updating…" : "Confirm"}
             </button>

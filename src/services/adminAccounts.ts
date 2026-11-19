@@ -3,14 +3,13 @@ import type { FirebaseApp } from "firebase/app";
 import { createUserWithEmailAndPassword, getAuth, sendPasswordResetEmail, signOut } from "firebase/auth";
 import {
   doc,
-  getDoc,
   increment,
   runTransaction,
   serverTimestamp,
   setDoc,
   deleteField,
 } from "firebase/firestore";
-import { auth, db } from "../firebase";
+import { auth, changeUserRole, db } from "../firebase";
 import type { Role, InviteAdminParams } from "../types";
 
 export type AdminRole = Role;
@@ -96,43 +95,23 @@ export async function inviteAdminAccount(params: InviteAdminParams) {
   }
 }
 
+// Goes through the changeUserRole function so an existing account gets the
+// same checks as the Users page: full admins only, no changing your own role,
+// no waitlisted users, and capacity released when an unfinished registration
+// is promoted to Admin. The name and status fields the old direct write set
+// are left alone; the account already has a profile.
 export async function assignAdminRoleToExistingUser(params: {
   participantId: string;
-  firstName?: string;
-  lastName?: string;
   role: AdminRole;
   university?: string | null;
   participantOptIn?: boolean;
 }) {
-  const displayName = `${params.firstName ?? ""} ${params.lastName ?? ""}`
-    .replace(/\s+/g, " ")
-    .trim();
-
-  const payload: Record<string, unknown> = {
-    role: params.role,
-    university: params.role === "Subadmin" ? params.university ?? null : null,
-    updatedAt: serverTimestamp(),
-    status: "Active",
-  };
-  const docRef = doc(db, "participants", params.participantId);
-  if (params.role === "Subadmin") {
-    // Someone already registered this cohort is a participant, so keep them
-    // opted in, like a promoted participant, whatever the form said.
-    const alreadyRegistered = (await getDoc(docRef)).data()?.type === "Participant";
-    if (alreadyRegistered) {
-      payload.participantOptIn = true;
-    } else if (params.participantOptIn !== undefined) {
-      payload.participantOptIn = params.participantOptIn;
-    }
-  }
-
-  if (displayName) {
-    payload.displayName = displayName;
-  }
-  if (params.firstName) payload.firstName = params.firstName;
-  if (params.lastName) payload.lastName = params.lastName;
-
-  await setDoc(docRef, payload, { merge: true });
+  return changeUserRole(
+    params.participantId,
+    params.role,
+    params.role === "Subadmin" ? params.university?.trim() || undefined : undefined,
+    params.role === "Subadmin" ? params.participantOptIn : undefined,
+  );
 }
 
 // Lets a sub-admin who isn't registered yet go through the registration form
