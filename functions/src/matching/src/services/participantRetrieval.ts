@@ -79,7 +79,7 @@ export async function fetchAllParticipants(): Promise<{
     const excluded: Array<{ id: string; reason: string }> = [];
     
     // Query with a nonzero dummy vector for cosine similarity
-    // Results are capped by Pinecone's query count and response size limits
+    // Queries fail if results exceed Pinecone's 4MB limit
     const queryResults = await index.query({
       vector: [1, ...new Array(1023).fill(0)],
       topK: 10000, // Max allowed

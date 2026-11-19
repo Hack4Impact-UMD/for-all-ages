@@ -4,7 +4,7 @@ import busboy from "busboy";
 import { onRequest, onCall, HttpsError } from "firebase-functions/v2/https";
 
 import { MatchingConfig } from "./types";
-import { MatchingService } from "./matching/src/services/matchingService";
+import { MatchingInputError, MatchingService } from "./matching/src/services/matchingService";
 
 import { upsertFreeResponse } from "./matching/src/services/upsertUser.js";
 import computeMatchScoreService from "./matching/src/services/calculateMatchScore.js";
@@ -130,10 +130,11 @@ export const matchAll = onRequest(async (req, res) => {
     });
   } catch (err) {
     console.error("Error creating matches:", err);
-    const message = err instanceof Error && (err.message === "No participants found for matching" || err.message === "No similarity scores calculated")
-      ? err.message
-      : "Failed to create matches. Please try again.";
-    res.status(500).json({ error: message });
+    if (err instanceof MatchingInputError) {
+      res.status(409).json({ error: err.message });
+    } else {
+      res.status(500).json({ error: "Failed to create matches. Please try again." });
+    }
   }
 });
 

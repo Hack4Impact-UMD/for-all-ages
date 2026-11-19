@@ -534,7 +534,7 @@ const PreProgram = () => {
       const converted = await convertMatches(res.result.matches);
 
       if (converted.length === 0) {
-        throw new Error("No valid matches were returned.");
+        throw new Error("Matching returned no pairs with existing participant records.");
       }
 
       await storeMatches(converted, docsToReplace);
