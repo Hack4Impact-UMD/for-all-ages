@@ -23,6 +23,13 @@ import {
   normalizeRole,
 } from "./roles";
 import { computeAge, isPlausibleAge, userTypeForAge } from "./age";
+import {
+  ASSIGNABLE_ROLES,
+  currentAssignableRole,
+  normalizeUniversityName,
+  planRoleChange,
+  type AssignableRole,
+} from "./roleChange";
 
 import { Readable } from "stream";
 
@@ -498,6 +505,184 @@ export const assignUserType = onCall(async (request) => {
   });
 
   return { success: true };
+});
+
+// The campuses a sub-admin can be assigned to: the options of the locked
+// "school" question. Mirrors getUniversityOptions in the client.
+async function getUniversityOptions(): Promise<string[]> {
+  const snap = await admin.firestore().doc("config/registrationForm").get();
+  const sections: Array<{ questions?: Array<{ lockedKey?: string; options?: unknown }> }> =
+    snap.data()?.sections ?? [];
+  for (const section of sections) {
+    for (const question of section.questions ?? []) {
+      if (question.lockedKey === "school") {
+        return Array.isArray(question.options)
+          ? question.options.filter((o): o is string => typeof o === "string")
+          : [];
+      }
+    }
+  }
+  return [];
+}
+
+// Lets a full admin move an existing user between Admin, Subadmin and
+// Participant without recreating their account. Participant data, matches and
+// the type / user_type / school fields are left alone (see planRoleChange).
+export const changeUserRole = onCall(async (request) => {
+  const callerUserId = request.auth?.uid;
+  if (!callerUserId) {
+    throw new HttpsError("unauthenticated", "Sign in required.");
+  }
+
+  const rawTarget = request.data?.targetUserId;
+  const newRole = request.data?.newRole as AssignableRole;
+  const rawUniversity = request.data?.university;
+  const rawOptIn = request.data?.participantOptIn;
+  if (typeof rawTarget !== "string" || rawTarget.trim() === "" || rawTarget.includes("/")) {
+    throw new HttpsError("invalid-argument", "Missing required field: targetUserId.");
+  }
+  if (!ASSIGNABLE_ROLES.includes(newRole)) {
+    throw new HttpsError("invalid-argument", "newRole must be Admin, Subadmin or Participant.");
+  }
+  let university: string | undefined;
+  let participantOptIn: boolean | undefined;
+  if (newRole === "Subadmin") {
+    university = normalizeUniversityName(rawUniversity);
+    if (!university) {
+      throw new HttpsError("invalid-argument", "A university is required for a Sub-admin.");
+    }
+    if (rawOptIn !== undefined && rawOptIn !== null && typeof rawOptIn !== "boolean") {
+      throw new HttpsError("invalid-argument", "participantOptIn must be true or false.");
+    }
+    participantOptIn = rawOptIn ?? undefined;
+  } else if (
+    (rawUniversity !== undefined && rawUniversity !== null) ||
+    (rawOptIn !== undefined && rawOptIn !== null)
+  ) {
+    throw new HttpsError(
+      "invalid-argument",
+      "university and participantOptIn only apply to a Sub-admin.",
+    );
+  }
+
+  const targetUserId = rawTarget.trim();
+  if (callerUserId === targetUserId) {
+    throw new HttpsError("invalid-argument", "Cannot change your own role.");
+  }
+
+  // Only full admins, whatever SUBADMIN_CAN_MANAGE_PARTICIPANTS says. Checked
+  // here to avoid the lookups below for anyone else, and again in the
+  // transaction.
+  if (!isFullAdminRole(await getCallerRole(callerUserId))) {
+    throw new HttpsError("permission-denied", "Admins only.");
+  }
+
+  if (university) {
+    // Compare normalized, but store the option exactly as the form lists it.
+    const options = await getUniversityOptions();
+    const match = options.find((o) => normalizeUniversityName(o) === university);
+    if (match === undefined) {
+      throw new HttpsError(
+        "invalid-argument",
+        "That university isn't one of the current options.",
+      );
+    }
+    university = match;
+  }
+
+  // Manual-entry participants have no login, so they can't be made an admin.
+  // The Auth user is the source of truth; the flags on the doc are checked too.
+  if (newRole !== "Participant") {
+    try {
+      await admin.auth().getUser(targetUserId);
+    } catch (err: unknown) {
+      if ((err as { code?: string }).code === "auth/user-not-found") {
+        throw new HttpsError(
+          "failed-precondition",
+          "This person doesn't have a login account, so they can't be an admin.",
+        );
+      }
+      console.error("Error changeUserRole (auth lookup):", err);
+      throw new HttpsError("internal", "Could not verify the account. Please try again.");
+    }
+  }
+
+  const db = admin.firestore();
+  const callerRef = db.collection(PARTICIPANTS).doc(callerUserId);
+  const targetRef = db.collection(PARTICIPANTS).doc(targetUserId);
+  const waitlistRef = db.collection("waitlist").doc(targetUserId);
+  const programStateRef = db.doc("config/programState");
+  const { FieldValue } = admin.firestore;
+
+  const result = await db.runTransaction(async (txn) => {
+    const [callerSnap, targetSnap, waitlistSnap] = await Promise.all([
+      txn.get(callerRef),
+      txn.get(targetRef),
+      txn.get(waitlistRef),
+    ]);
+
+    // Re-checked here so two admins demoting each other at once can't leave
+    // the app with no admin: the second transaction sees the changed role.
+    if (!callerSnap.exists || !isFullAdminRole(callerSnap.data()?.role)) {
+      throw new HttpsError("permission-denied", "Admins only.");
+    }
+    if (!targetSnap.exists) {
+      throw new HttpsError("not-found", "User not found.");
+    }
+    if (waitlistSnap.exists) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Waitlisted users can't have their role changed.",
+      );
+    }
+
+    const target = targetSnap.data() ?? {};
+    const from = currentAssignableRole(target.role);
+    if (from === newRole) {
+      return { changed: false, from };
+    }
+    if (
+      newRole !== "Participant" &&
+      (target.isManualEntry === true || target.hasAuthAccount === false)
+    ) {
+      throw new HttpsError(
+        "failed-precondition",
+        "This person doesn't have a login account, so they can't be an admin.",
+      );
+    }
+
+    const plan = planRoleChange({ to: newRole, university, participantOptIn, target });
+
+    // Transaction reads must all come before the writes.
+    let currentParticipants = 0;
+    if (plan.releaseCountedSlot) {
+      const programSnap = await txn.get(programStateRef);
+      currentParticipants = (programSnap.data()?.currentParticipants ?? 0) as number;
+    }
+
+    const update: Record<string, unknown> = {
+      role: plan.role,
+      university: plan.university ?? FieldValue.delete(),
+      participantOptIn: plan.participantOptIn ?? FieldValue.delete(),
+      updatedAt: FieldValue.serverTimestamp(),
+    };
+    if (plan.clearCapacityDecision) {
+      update.capacityDecision = FieldValue.delete();
+    }
+    txn.set(targetRef, update, { merge: true });
+
+    if (plan.releaseCountedSlot && currentParticipants > 0) {
+      txn.update(programStateRef, { currentParticipants: FieldValue.increment(-1) });
+    }
+    return { changed: true, from };
+  });
+
+  if (result.changed) {
+    console.info(
+      `changeUserRole: ${callerUserId} changed ${targetUserId} from ${result.from} to ${newRole}`,
+    );
+  }
+  return { success: true, changed: result.changed, role: newRole };
 });
 
 // Mirrors getCurrentWeek in src/utils/programWeek.ts; keep the two in sync.

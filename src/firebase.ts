@@ -3,6 +3,7 @@ import { getAnalytics, isSupported as isAnalyticsSupported } from "firebase/anal
 import { getAuth } from "firebase/auth";
 import { doc, getDoc, getFirestore } from "firebase/firestore";
 import { getFunctions, httpsCallable } from "firebase/functions";
+import type { AssignableRole } from "./utils/roles";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -121,6 +122,17 @@ export async function assignUserType(
   const callable = httpsCallable(functions, "assignUserType");
   const result = await callable({ targetUserId, userType });
   return result.data;
+}
+
+export async function changeUserRole(
+  targetUserId: string,
+  newRole: AssignableRole,
+  university?: string,
+  participantOptIn?: boolean,
+) {
+  const callable = httpsCallable(functions, "changeUserRole");
+  const result = await callable({ targetUserId, newRole, university, participantOptIn });
+  return result.data as { success: boolean; changed: boolean; role: AssignableRole };
 }
 
 export async function clearMatchingIndex() {

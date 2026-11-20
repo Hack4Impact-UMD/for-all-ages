@@ -23,3 +23,16 @@ export const friendlyAuthError = (error: unknown) => {
 };
 
 
+
+// changeUserRole's own messages are written for admins; show them as they are.
+const SHOWN_FUNCTION_ERRORS = new Set([
+  "functions/invalid-argument",
+  "functions/failed-precondition",
+  "functions/permission-denied",
+  "functions/not-found",
+]);
+
+export const roleChangeError = (error: unknown, fallback: string) =>
+  error instanceof FirebaseError && SHOWN_FUNCTION_ERRORS.has(error.code)
+    ? error.message
+    : fallback;
