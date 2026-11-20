@@ -41,6 +41,7 @@ vi.mock("firebase-admin", () => {
         get: async (ref: any) => ({ exists: ref.path in h.store, data: () => h.store[ref.path] }),
         set: (ref: any, data: any, opts: any) => staged.push(() => apply(ref.path, data, !!opts?.merge)),
         update: (ref: any, data: any) => staged.push(() => apply(ref.path, data, true)),
+        delete: (ref: any) => staged.push(() => { delete h.store[ref.path]; }),
       };
       const out = await fn(t);
       staged.forEach((s) => s());
@@ -73,7 +74,7 @@ vi.mock("../../functions/src/matching/src/services/deleteUser.js", () => ({
 }));
 vi.mock("../../functions/src/matching/src/services/matchingService", () => ({ MatchingService: class {} }));
 
-import { changeUserRole } from "../../functions/src/index";
+import { changeUserRole, setSubadminParticipantOptIn } from "../../functions/src/index";
 
 const call = (data: any, uid: string | null = "admin1") =>
   (changeUserRole as any)({ auth: uid ? { uid } : undefined, data });
@@ -275,5 +276,83 @@ describe("changeUserRole writes", () => {
     await call({ targetUserId: "sub1", newRole: "Admin" });
     expect(h.store["participants/sub1"].capacityDecision).toBe("counted");
     expect(h.store["config/programState"].currentParticipants).toBe(5);
+  });
+});
+
+describe("changeUserRole on someone who is already a Sub-admin", () => {
+  it("moves them to a new college", async () => {
+    await expect(call({ targetUserId: "sub1", newRole: "Subadmin", university: "Towson" }))
+      .resolves.toEqual({ success: true, changed: true, role: "Subadmin" });
+    expect(h.store["participants/sub1"]).toMatchObject({ role: "Subadmin", university: "Towson", participantOptIn: true });
+    expect(h.store["config/programState"].currentParticipants).toBe(5);
+  });
+
+  it("is a no-op when the college and opt-in already match", async () => {
+    const before = JSON.stringify(h.store);
+    await expect(call({ targetUserId: "sub1", newRole: "Subadmin", university: "UMD", participantOptIn: true }))
+      .resolves.toMatchObject({ changed: false });
+    expect(JSON.stringify(h.store)).toBe(before);
+  });
+
+  it("opting an unregistered one out releases their counted slot", async () => {
+    await call({ targetUserId: "sub1", newRole: "Subadmin", university: "UMD", participantOptIn: false });
+    expect(h.store["participants/sub1"].participantOptIn).toBe(false);
+    expect(h.store["participants/sub1"].capacityDecision).toBeUndefined();
+    expect(h.store["config/programState"].currentParticipants).toBe(4);
+  });
+
+  it("opting a waitlisted one out takes them off the waitlist, like the opt-out button", async () => {
+    h.store["participants/sub1"].capacityDecision = "waitlisted";
+    h.store["waitlist/sub1"] = { uid: "sub1" };
+    await call({ targetUserId: "sub1", newRole: "Subadmin", university: "UMD", participantOptIn: false });
+    expect(h.store["waitlist/sub1"]).toBeUndefined();
+    expect(h.store["config/programState"].currentParticipants).toBe(5);
+  });
+
+  it("keeps a registered one opted in", async () => {
+    h.store["participants/sub1"].type = "Participant";
+    await call({ targetUserId: "sub1", newRole: "Subadmin", university: "Towson", participantOptIn: false });
+    expect(h.store["participants/sub1"]).toMatchObject({ university: "Towson", participantOptIn: true, capacityDecision: "counted" });
+    expect(h.store["config/programState"].currentParticipants).toBe(5);
+  });
+});
+
+describe("setSubadminParticipantOptIn", () => {
+  const optIn = (data: any, uid: string | null = "admin1") =>
+    (setSubadminParticipantOptIn as any)({ auth: uid ? { uid } : undefined, data });
+
+  it("is for full admins only", async () => {
+    expect(await code(optIn({ targetUserId: "sub1", enabled: false }, null))).toBe("unauthenticated");
+    expect(await code(optIn({ targetUserId: "subadmin2", enabled: false }, "sub1"))).toBe("permission-denied");
+  });
+  it("validates input and only acts on Sub-admins", async () => {
+    expect(await code(optIn({ targetUserId: "a/b", enabled: true }))).toBe("invalid-argument");
+    expect(await code(optIn({ targetUserId: "sub1", enabled: "no" }))).toBe("invalid-argument");
+    expect(await code(optIn({ targetUserId: "nobody", enabled: true }))).toBe("not-found");
+    expect(await code(optIn({ targetUserId: "p1", enabled: true }))).toBe("failed-precondition");
+  });
+  it("opting in sets the flag only", async () => {
+    h.store["participants/sub1"].participantOptIn = false;
+    await optIn({ targetUserId: "sub1", enabled: true });
+    expect(h.store["participants/sub1"]).toMatchObject({ participantOptIn: true, capacityDecision: "counted" });
+    expect(h.store["config/programState"].currentParticipants).toBe(5);
+  });
+  it("opting out releases a counted slot", async () => {
+    await optIn({ targetUserId: "sub1", enabled: false });
+    expect(h.store["participants/sub1"].participantOptIn).toBe(false);
+    expect(h.store["participants/sub1"].capacityDecision).toBeUndefined();
+    expect(h.store["config/programState"].currentParticipants).toBe(4);
+  });
+  it("opting out deletes a waitlist entry", async () => {
+    h.store["participants/sub1"].capacityDecision = "waitlisted";
+    h.store["waitlist/sub1"] = { uid: "sub1" };
+    await optIn({ targetUserId: "sub1", enabled: false });
+    expect(h.store["waitlist/sub1"]).toBeUndefined();
+    expect(h.store["config/programState"].currentParticipants).toBe(5);
+  });
+  it("refuses to opt out a sub-admin who has registered", async () => {
+    h.store["participants/sub1"].type = "Participant";
+    expect(await code(optIn({ targetUserId: "sub1", enabled: false }))).toBe("failed-precondition");
+    expect(h.store["participants/sub1"].participantOptIn).toBe(true);
   });
 });

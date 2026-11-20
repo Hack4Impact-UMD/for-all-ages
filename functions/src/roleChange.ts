@@ -66,15 +66,68 @@ export function planRoleChange(params: {
   // capacity check runs before the rest of the submit. As an Admin they won't
   // finish, so release it, as opting a sub-admin out of participating does.
   // As a Participant or Subadmin they may, and registration reuses the
-  // existing decision.
-  const unfinished = to === "Admin" && !registered;
-  const decision = target.capacityDecision;
+  // existing decision. (A real waitlist entry is refused before this runs.)
+  const release = to === "Admin" && !registered ? planCapacityRelease(target) : null;
   return {
     role: to,
     university: null,
     participantOptIn: null,
-    clearCapacityDecision:
-      unfinished && (decision === "counted" || decision === "waitlisted"),
-    releaseCountedSlot: unfinished && decision === "counted",
+    clearCapacityDecision: release?.clearCapacityDecision ?? false,
+    releaseCountedSlot: release?.releaseCountedSlot ?? false,
   };
+}
+
+export type CapacityRelease = {
+  /** Delete the capacityDecision left by a registration that never finished. */
+  clearCapacityDecision: boolean;
+  /** That decision had counted them, so give the slot back to currentParticipants. */
+  releaseCountedSlot: boolean;
+  /** That decision had waitlisted them, so take them off the waitlist. */
+  deleteWaitlistEntry: boolean;
+};
+
+// What an unregistered user gives back when they stop taking part: the spot
+// or waitlist place their unfinished registration took. The one place this
+// rule lives; promotion to Admin and sub-admin opt-out both use it.
+export function planCapacityRelease(target: Record<string, unknown>): CapacityRelease {
+  const decision = target.capacityDecision;
+  return {
+    clearCapacityDecision: decision === "counted" || decision === "waitlisted",
+    releaseCountedSlot: decision === "counted",
+    deleteWaitlistEntry: decision === "waitlisted",
+  };
+}
+
+export type SubadminSettingsPlan = {
+  /** Only set when it differs from the stored value. */
+  university?: string;
+  /** Only set when it differs from the stored value. */
+  participantOptIn?: boolean;
+  /** Set when opting an unregistered sub-admin out. */
+  release: CapacityRelease | null;
+};
+
+// For someone who is already a Subadmin: the campus and opt-in changes asked
+// for, or null when nothing would change. Someone who has registered stays
+// opted in, as on promotion; `participantOptIn` undefined leaves it alone.
+export function planSubadminSettings(params: {
+  university: string;
+  participantOptIn?: boolean;
+  target: Record<string, unknown>;
+}): SubadminSettingsPlan | null {
+  const { target } = params;
+  const plan: SubadminSettingsPlan = { release: null };
+  if (target.university !== params.university) plan.university = params.university;
+
+  const registered = target.type === "Participant";
+  const current = target.participantOptIn === true;
+  const wanted = registered ? true : params.participantOptIn ?? current;
+  if (wanted !== current) {
+    plan.participantOptIn = wanted;
+    if (!wanted) plan.release = planCapacityRelease(target);
+  }
+
+  return plan.university === undefined && plan.participantOptIn === undefined
+    ? null
+    : plan;
 }

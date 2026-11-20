@@ -7,7 +7,13 @@ vi.mock("firebase-admin", () => {
   return { ...mod, default: mod };
 });
 
-import { currentAssignableRole, normalizeUniversityName, planRoleChange } from "../../functions/src/roleChange";
+import {
+  currentAssignableRole,
+  normalizeUniversityName,
+  planCapacityRelease,
+  planRoleChange,
+  planSubadminSettings,
+} from "../../functions/src/roleChange";
 
 const plan = (to: any, target: Record<string, unknown>, university?: string) =>
   planRoleChange({ to, target, university });
@@ -115,5 +121,39 @@ describe("normalizeUniversityName", () => {
   it("trims and collapses internal whitespace", () => {
     expect(normalizeUniversityName("  Univ.  of   Maryland ")).toBe("Univ. of Maryland");
     expect(normalizeUniversityName(undefined)).toBe("");
+  });
+});
+
+describe("planCapacityRelease", () => {
+  it("gives back whatever the unfinished registration took", () => {
+    expect(planCapacityRelease({ capacityDecision: "counted" })).toEqual({
+      clearCapacityDecision: true, releaseCountedSlot: true, deleteWaitlistEntry: false,
+    });
+    expect(planCapacityRelease({ capacityDecision: "waitlisted" })).toEqual({
+      clearCapacityDecision: true, releaseCountedSlot: false, deleteWaitlistEntry: true,
+    });
+    expect(planCapacityRelease({})).toEqual({
+      clearCapacityDecision: false, releaseCountedSlot: false, deleteWaitlistEntry: false,
+    });
+  });
+});
+
+describe("planSubadminSettings", () => {
+  const sub = { role: "Subadmin", university: "UMD", participantOptIn: true, capacityDecision: "counted" };
+  it("returns null when nothing differs", () => {
+    expect(planSubadminSettings({ university: "UMD", target: sub })).toBeNull();
+    expect(planSubadminSettings({ university: "UMD", participantOptIn: true, target: sub })).toBeNull();
+  });
+  it("changes the college without touching opt-in when it isn't given", () => {
+    expect(planSubadminSettings({ university: "Towson", target: sub })).toEqual({ university: "Towson", release: null });
+  });
+  it("opting out an unregistered sub-admin releases their spot", () => {
+    expect(planSubadminSettings({ university: "UMD", participantOptIn: false, target: sub })).toEqual({
+      participantOptIn: false,
+      release: { clearCapacityDecision: true, releaseCountedSlot: true, deleteWaitlistEntry: false },
+    });
+  });
+  it("keeps a registered sub-admin opted in", () => {
+    expect(planSubadminSettings({ university: "UMD", participantOptIn: false, target: { ...sub, type: "Participant" } })).toBeNull();
   });
 });

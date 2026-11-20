@@ -27,8 +27,11 @@ import {
   ASSIGNABLE_ROLES,
   currentAssignableRole,
   normalizeUniversityName,
+  planCapacityRelease,
   planRoleChange,
+  planSubadminSettings,
   type AssignableRole,
+  type CapacityRelease,
 } from "./roleChange";
 
 import { Readable } from "stream";
@@ -629,17 +632,35 @@ export const changeUserRole = onCall(async (request) => {
     if (!targetSnap.exists) {
       throw new HttpsError("not-found", "User not found.");
     }
+    const target = targetSnap.data() ?? {};
+    const from = currentAssignableRole(target.role);
+
+    // Already a Sub-admin (e.g. Add User with their email): apply the campus
+    // and opt-in asked for instead of ignoring them. Opting out goes through
+    // the same release as the opt-out button, waitlist entry included.
+    if (from === newRole && newRole === "Subadmin" && university) {
+      const settings = planSubadminSettings({ university, participantOptIn, target });
+      if (!settings) return { changed: false, from };
+      const release = settings.release;
+      await stageCapacityRelease(txn, release, { programStateRef, waitlistRef });
+      const update: Record<string, unknown> = { updatedAt: FieldValue.serverTimestamp() };
+      if (settings.university !== undefined) update.university = settings.university;
+      if (settings.participantOptIn !== undefined) {
+        update.participantOptIn = settings.participantOptIn;
+      }
+      if (release?.clearCapacityDecision) update.capacityDecision = FieldValue.delete();
+      txn.set(targetRef, update, { merge: true });
+      return { changed: true, from };
+    }
+    if (from === newRole) {
+      return { changed: false, from };
+    }
+
     if (waitlistSnap.exists) {
       throw new HttpsError(
         "failed-precondition",
         "Waitlisted users can't have their role changed.",
       );
-    }
-
-    const target = targetSnap.data() ?? {};
-    const from = currentAssignableRole(target.role);
-    if (from === newRole) {
-      return { changed: false, from };
     }
     if (
       newRole !== "Participant" &&
@@ -653,12 +674,16 @@ export const changeUserRole = onCall(async (request) => {
 
     const plan = planRoleChange({ to: newRole, university, participantOptIn, target });
 
-    // Transaction reads must all come before the writes.
-    let currentParticipants = 0;
-    if (plan.releaseCountedSlot) {
-      const programSnap = await txn.get(programStateRef);
-      currentParticipants = (programSnap.data()?.currentParticipants ?? 0) as number;
-    }
+    // A real waitlist entry was refused above, so there's none to delete.
+    await stageCapacityRelease(
+      txn,
+      {
+        clearCapacityDecision: plan.clearCapacityDecision,
+        releaseCountedSlot: plan.releaseCountedSlot,
+        deleteWaitlistEntry: false,
+      },
+      { programStateRef, waitlistRef },
+    );
 
     const update: Record<string, unknown> = {
       role: plan.role,
@@ -670,19 +695,112 @@ export const changeUserRole = onCall(async (request) => {
       update.capacityDecision = FieldValue.delete();
     }
     txn.set(targetRef, update, { merge: true });
-
-    if (plan.releaseCountedSlot && currentParticipants > 0) {
-      txn.update(programStateRef, { currentParticipants: FieldValue.increment(-1) });
-    }
     return { changed: true, from };
   });
 
   if (result.changed) {
     console.info(
-      `changeUserRole: ${callerUserId} changed ${targetUserId} from ${result.from} to ${newRole}`,
+      result.from === newRole
+        ? `changeUserRole: ${callerUserId} updated sub-admin settings for ${targetUserId}`
+        : `changeUserRole: ${callerUserId} changed ${targetUserId} from ${result.from} to ${newRole}`,
     );
   }
   return { success: true, changed: result.changed, role: newRole };
+});
+
+// Gives back what an unfinished registration took (see planCapacityRelease).
+// Reads before it writes, so call it before any other write in the transaction.
+async function stageCapacityRelease(
+  txn: admin.firestore.Transaction,
+  release: CapacityRelease | null,
+  refs: {
+    programStateRef: admin.firestore.DocumentReference;
+    waitlistRef: admin.firestore.DocumentReference;
+  },
+): Promise<void> {
+  if (!release) return;
+  let currentParticipants = 0;
+  if (release.releaseCountedSlot) {
+    const programSnap = await txn.get(refs.programStateRef);
+    currentParticipants = (programSnap.data()?.currentParticipants ?? 0) as number;
+  }
+  if (release.releaseCountedSlot && currentParticipants > 0) {
+    txn.update(refs.programStateRef, {
+      currentParticipants: admin.firestore.FieldValue.increment(-1),
+    });
+  }
+  if (release.deleteWaitlistEntry) {
+    txn.delete(refs.waitlistRef);
+  }
+}
+
+// Lets a full admin invite a sub-admin who hasn't registered to take part, or
+// undo that. Opting out gives back any spot or waitlist place an unfinished
+// registration took, using the same rule as changeUserRole.
+export const setSubadminParticipantOptIn = onCall(async (request) => {
+  const callerUserId = request.auth?.uid;
+  if (!callerUserId) {
+    throw new HttpsError("unauthenticated", "Sign in required.");
+  }
+  const rawTarget = request.data?.targetUserId;
+  const enabled = request.data?.enabled;
+  if (typeof rawTarget !== "string" || rawTarget.trim() === "" || rawTarget.includes("/")) {
+    throw new HttpsError("invalid-argument", "Missing required field: targetUserId.");
+  }
+  if (typeof enabled !== "boolean") {
+    throw new HttpsError("invalid-argument", "enabled must be true or false.");
+  }
+  const targetUserId = rawTarget.trim();
+
+  const db = admin.firestore();
+  const callerRef = db.collection(PARTICIPANTS).doc(callerUserId);
+  const targetRef = db.collection(PARTICIPANTS).doc(targetUserId);
+  const waitlistRef = db.collection("waitlist").doc(targetUserId);
+  const programStateRef = db.doc("config/programState");
+  const { FieldValue } = admin.firestore;
+
+  await db.runTransaction(async (txn) => {
+    const [callerSnap, targetSnap] = await Promise.all([
+      txn.get(callerRef),
+      txn.get(targetRef),
+    ]);
+    if (!callerSnap.exists || !isFullAdminRole(callerSnap.data()?.role)) {
+      throw new HttpsError("permission-denied", "Admins only.");
+    }
+    if (!targetSnap.exists) {
+      throw new HttpsError("not-found", "User not found.");
+    }
+    const target = targetSnap.data() ?? {};
+    if (currentAssignableRole(target.role) !== "Subadmin") {
+      throw new HttpsError("failed-precondition", "This person isn't a Sub-admin.");
+    }
+
+    if (enabled) {
+      txn.set(
+        targetRef,
+        { participantOptIn: true, updatedAt: FieldValue.serverTimestamp() },
+        { merge: true },
+      );
+      return;
+    }
+
+    if (target.type === "Participant") {
+      throw new HttpsError("failed-precondition", "This sub-admin has already registered.");
+    }
+    const release = planCapacityRelease(target);
+    await stageCapacityRelease(txn, release, { programStateRef, waitlistRef });
+    txn.set(
+      targetRef,
+      {
+        participantOptIn: false,
+        capacityDecision: FieldValue.delete(),
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+  });
+
+  return { success: true };
 });
 
 // Mirrors getCurrentWeek in src/utils/programWeek.ts; keep the two in sync.

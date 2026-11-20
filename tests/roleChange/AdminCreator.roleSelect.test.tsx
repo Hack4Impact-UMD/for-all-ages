@@ -7,6 +7,7 @@ const h = vi.hoisted(() => ({
   listeners: {} as Record<string, (snap: any) => void>,
   auth: { user: { uid: "me", email: "me@x.org" }, isSubadmin: false, programState: null as any },
   changeUserRole: null as any,
+  setOptIn: vi.fn(),
   getUniversityOptions: vi.fn(),
 }));
 
@@ -37,6 +38,7 @@ vi.mock("../../src/firebase", () => ({
   assignUserType: vi.fn(),
   deleteUser: vi.fn(),
   changeUserRole: (...a: any[]) => h.changeUserRole(...a),
+  setSubadminParticipantOptIn: (...a: any[]) => h.setOptIn(...a),
 }));
 vi.mock("../../src/auth/AuthProvider", () => ({ useAuth: () => h.auth }));
 vi.mock("../../src/pages/Registration/helpers", () => ({
@@ -82,6 +84,7 @@ async function setup() {
 beforeEach(() => {
   h.auth = { user: { uid: "me", email: "me@x.org" }, isSubadmin: false, programState: null };
   h.changeUserRole = vi.fn().mockResolvedValue({ success: true });
+  h.setOptIn = vi.fn().mockResolvedValue(undefined);
   h.getUniversityOptions = vi.fn().mockResolvedValue(["UMD", "Towson"]);
 });
 afterEach(cleanup);
@@ -384,5 +387,24 @@ describe("Manage Users pending role lifecycle", () => {
     await waitFor(() => expect(screen.getByText("Updating…")).toBeTruthy());
     await emit(ROWS.filter((r) => r.id !== "adm"));
     expect(screen.queryByText("Updating…")).toBeNull();
+  });
+});
+
+describe("Sub-admin participation toggle", () => {
+  it("goes through the setSubadminParticipantOptIn callable", async () => {
+    await setup();
+    fireEvent.click(screen.getByText("Allow"));
+    await waitFor(() => expect(h.setOptIn).toHaveBeenCalledWith("sub", true));
+    expect(await screen.findByText("Sub Person can now register as a participant.")).toBeTruthy();
+  });
+
+  it("shows the function's own message when it refuses", async () => {
+    const { FirebaseError } = await import("firebase/app");
+    h.setOptIn = vi.fn().mockRejectedValue(
+      new FirebaseError("functions/failed-precondition", "This sub-admin has already registered."),
+    );
+    await setup();
+    fireEvent.click(screen.getByText("Allow"));
+    expect(await screen.findByText("This sub-admin has already registered.")).toBeTruthy();
   });
 });
