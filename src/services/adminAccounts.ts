@@ -1,14 +1,7 @@
 import { initializeApp, deleteApp } from "firebase/app";
 import type { FirebaseApp } from "firebase/app";
 import { createUserWithEmailAndPassword, getAuth, sendPasswordResetEmail, signOut } from "firebase/auth";
-import {
-  doc,
-  increment,
-  runTransaction,
-  serverTimestamp,
-  setDoc,
-  deleteField,
-} from "firebase/firestore";
+import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { auth, changeUserRole, db } from "../firebase";
 import type { Role, InviteAdminParams } from "../types";
 
@@ -98,7 +91,8 @@ export async function inviteAdminAccount(params: InviteAdminParams) {
 // Goes through the changeUserRole function so an existing account gets the
 // same checks as the Users page: full admins only, no changing your own role,
 // no waitlisted users, and capacity released when an unfinished registration
-// is promoted to Admin. The name and status fields the old direct write set
+// is promoted to Admin. For someone already a Sub-admin it updates their
+// college and opt-in instead. The name and status fields the old direct write set
 // are left alone; the account already has a profile.
 export async function assignAdminRoleToExistingUser(params: {
   participantId: string;
@@ -112,52 +106,4 @@ export async function assignAdminRoleToExistingUser(params: {
     params.role === "Subadmin" ? params.university?.trim() || undefined : undefined,
     params.role === "Subadmin" ? params.participantOptIn : undefined,
   );
-}
-
-// Lets a sub-admin who isn't registered yet go through the registration form
-// (or stops them from being asked to).
-export async function setSubadminParticipantOptIn(
-  participantId: string,
-  enabled: boolean,
-): Promise<void> {
-  const docRef = doc(db, "participants", participantId);
-  if (enabled) {
-    await setDoc(
-      docRef,
-      { participantOptIn: true, updatedAt: serverTimestamp() },
-      { merge: true },
-    );
-    return;
-  }
-
-  // A sub-admin can be part-way through registering: the capacity check ran
-  // (and may have counted them or put them on the waitlist) but the submit
-  // failed before it finished. Opting them out then has to give that spot
-  // back, or currentParticipants stays one too high.
-  const programStateRef = doc(db, "config", "programState");
-  const waitlistRef = doc(db, "waitlist", participantId);
-  await runTransaction(db, async (transaction) => {
-    const snap = await transaction.get(docRef);
-    const data = snap.data();
-    if (data?.type === "Participant") {
-      throw new Error("This sub-admin has already registered.");
-    }
-    if (data?.capacityDecision === "counted") {
-      const programSnap = await transaction.get(programStateRef);
-      if ((programSnap.data()?.currentParticipants ?? 0) > 0) {
-        transaction.update(programStateRef, { currentParticipants: increment(-1) });
-      }
-    } else if (data?.capacityDecision === "waitlisted") {
-      transaction.delete(waitlistRef);
-    }
-    transaction.set(
-      docRef,
-      {
-        participantOptIn: false,
-        capacityDecision: deleteField(),
-        updatedAt: serverTimestamp(),
-      },
-      { merge: true },
-    );
-  });
 }

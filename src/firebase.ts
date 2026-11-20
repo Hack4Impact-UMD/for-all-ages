@@ -135,6 +135,13 @@ export async function changeUserRole(
   return result.data as { success: boolean; changed: boolean; role: AssignableRole };
 }
 
+// Full admins only; opting out also gives back any spot or waitlist place an
+// unfinished registration took.
+export async function setSubadminParticipantOptIn(targetUserId: string, enabled: boolean) {
+  const callable = httpsCallable(functions, "setSubadminParticipantOptIn");
+  await callable({ targetUserId, enabled });
+}
+
 export async function clearMatchingIndex() {
   const callable = httpsCallable(functions, "clearMatchingIndex");
   const result = await callable();

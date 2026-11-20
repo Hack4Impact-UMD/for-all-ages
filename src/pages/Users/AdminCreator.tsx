@@ -10,8 +10,13 @@ import {
 import { FaPen, FaTrash } from "react-icons/fa";
 import layoutStyles from "../Dashboard/Dashboard.module.css";
 import styles from "./AdminCreator.module.css";
-import { assignUserType, changeUserRole, db, deleteUser } from "../../firebase";
-import { setSubadminParticipantOptIn } from "../../services/adminAccounts";
+import {
+  assignUserType,
+  changeUserRole,
+  db,
+  deleteUser,
+  setSubadminParticipantOptIn,
+} from "../../firebase";
 import type {
   Role,
   ParticipantDoc,
@@ -385,7 +390,7 @@ export default function AdminDashboard() {
         console.error("Failed to update participant opt-in", err);
         setBanner({
           type: "error",
-          message: "Could not update this sub-admin. Please try again.",
+          message: roleChangeError(err, "Could not update this sub-admin. Please try again."),
         });
       } finally {
         setOptInId(null);
