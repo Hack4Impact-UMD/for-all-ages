@@ -4,7 +4,7 @@ import busboy from "busboy";
 import { onRequest, onCall, HttpsError } from "firebase-functions/v2/https";
 
 import { MatchingConfig } from "./types";
-import { MatchingService } from "./matching/src/services/matchingService";
+import { MatchingInputError, MatchingService } from "./matching/src/services/matchingService";
 
 import { upsertFreeResponse } from "./matching/src/services/upsertUser.js";
 import computeMatchScoreService from "./matching/src/services/calculateMatchScore.js";
@@ -23,6 +23,16 @@ import {
   normalizeRole,
 } from "./roles";
 import { computeAge, isPlausibleAge, userTypeForAge } from "./age";
+import {
+  ASSIGNABLE_ROLES,
+  currentAssignableRole,
+  normalizeUniversityName,
+  planCapacityRelease,
+  planRoleChange,
+  planSubadminSettings,
+  type AssignableRole,
+  type CapacityRelease,
+} from "./roleChange";
 
 import { Readable } from "stream";
 
@@ -118,17 +128,26 @@ export const matchAll = onRequest(async (req, res) => {
     return;
   }
 
-  // Fetch the dynamically constructed config with the creator's min/max ranges
-  const config = await getDynamicMatchingConfig();
-  const service = new MatchingService(config as MatchingConfig);
-  const excludeIds: string[] = Array.isArray(req.body?.excludeIds)
-    ? req.body.excludeIds.filter((id: unknown) => typeof id === "string")
-    : [];
-  const result = await service.runMatching(excludeIds);
+  try {
+    // Fetch the dynamically constructed config with the creator's min/max ranges
+    const config = await getDynamicMatchingConfig();
+    const service = new MatchingService(config as MatchingConfig);
+    const excludeIds: string[] = Array.isArray(req.body?.excludeIds)
+      ? req.body.excludeIds.filter((id: unknown) => typeof id === "string")
+      : [];
+    const result = await service.runMatching(excludeIds);
 
-  res.status(200).json({
-    result: result,
-  });
+    res.status(200).json({
+      result: result,
+    });
+  } catch (err) {
+    console.error("Error creating matches:", err);
+    if (err instanceof MatchingInputError) {
+      res.status(409).json({ error: err.message });
+    } else {
+      res.status(500).json({ error: "Failed to create matches. Please try again." });
+    }
+  }
 });
 
 export const upsertUser = onRequest(async (req, res) => {
@@ -488,6 +507,299 @@ export const assignUserType = onCall(async (request) => {
   await targetRef.update({
     user_type: userType,
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  return { success: true };
+});
+
+// The campuses a sub-admin can be assigned to: the options of the locked
+// "school" question. Mirrors getUniversityOptions in the client.
+async function getUniversityOptions(): Promise<string[]> {
+  const snap = await admin.firestore().doc("config/registrationForm").get();
+  const sections: Array<{ questions?: Array<{ lockedKey?: string; options?: unknown }> }> =
+    snap.data()?.sections ?? [];
+  for (const section of sections) {
+    for (const question of section.questions ?? []) {
+      if (question.lockedKey === "school") {
+        return Array.isArray(question.options)
+          ? question.options.filter((o): o is string => typeof o === "string")
+          : [];
+      }
+    }
+  }
+  return [];
+}
+
+// Lets a full admin move an existing user between Admin, Subadmin and
+// Participant without recreating their account. Participant data, matches and
+// the type / user_type / school fields are left alone (see planRoleChange).
+export const changeUserRole = onCall(async (request) => {
+  const callerUserId = request.auth?.uid;
+  if (!callerUserId) {
+    throw new HttpsError("unauthenticated", "Sign in required.");
+  }
+
+  const rawTarget = request.data?.targetUserId;
+  const newRole = request.data?.newRole as AssignableRole;
+  const rawUniversity = request.data?.university;
+  const rawOptIn = request.data?.participantOptIn;
+  if (typeof rawTarget !== "string" || rawTarget.trim() === "" || rawTarget.includes("/")) {
+    throw new HttpsError("invalid-argument", "Missing required field: targetUserId.");
+  }
+  if (!ASSIGNABLE_ROLES.includes(newRole)) {
+    throw new HttpsError("invalid-argument", "newRole must be Admin, Subadmin or Participant.");
+  }
+  let university: string | undefined;
+  let participantOptIn: boolean | undefined;
+  if (newRole === "Subadmin") {
+    university = normalizeUniversityName(rawUniversity);
+    if (!university) {
+      throw new HttpsError("invalid-argument", "A university is required for a Sub-admin.");
+    }
+    if (rawOptIn !== undefined && rawOptIn !== null && typeof rawOptIn !== "boolean") {
+      throw new HttpsError("invalid-argument", "participantOptIn must be true or false.");
+    }
+    participantOptIn = rawOptIn ?? undefined;
+  } else if (
+    (rawUniversity !== undefined && rawUniversity !== null) ||
+    (rawOptIn !== undefined && rawOptIn !== null)
+  ) {
+    throw new HttpsError(
+      "invalid-argument",
+      "university and participantOptIn only apply to a Sub-admin.",
+    );
+  }
+
+  const targetUserId = rawTarget.trim();
+  if (callerUserId === targetUserId) {
+    throw new HttpsError("invalid-argument", "Cannot change your own role.");
+  }
+
+  // Only full admins, whatever SUBADMIN_CAN_MANAGE_PARTICIPANTS says. Checked
+  // here to avoid the lookups below for anyone else, and again in the
+  // transaction.
+  if (!isFullAdminRole(await getCallerRole(callerUserId))) {
+    throw new HttpsError("permission-denied", "Admins only.");
+  }
+
+  if (university) {
+    // Compare normalized, but store the option exactly as the form lists it.
+    const options = await getUniversityOptions();
+    const match = options.find((o) => normalizeUniversityName(o) === university);
+    if (match === undefined) {
+      throw new HttpsError(
+        "invalid-argument",
+        "That university isn't one of the current options.",
+      );
+    }
+    university = match;
+  }
+
+  // Manual-entry participants have no login, so they can't be made an admin.
+  // The Auth user is the source of truth; the flags on the doc are checked too.
+  if (newRole !== "Participant") {
+    try {
+      await admin.auth().getUser(targetUserId);
+    } catch (err: unknown) {
+      if ((err as { code?: string }).code === "auth/user-not-found") {
+        throw new HttpsError(
+          "failed-precondition",
+          "This person doesn't have a login account, so they can't be an admin.",
+        );
+      }
+      console.error("Error changeUserRole (auth lookup):", err);
+      throw new HttpsError("internal", "Could not verify the account. Please try again.");
+    }
+  }
+
+  const db = admin.firestore();
+  const callerRef = db.collection(PARTICIPANTS).doc(callerUserId);
+  const targetRef = db.collection(PARTICIPANTS).doc(targetUserId);
+  const waitlistRef = db.collection("waitlist").doc(targetUserId);
+  const programStateRef = db.doc("config/programState");
+  const { FieldValue } = admin.firestore;
+
+  const result = await db.runTransaction(async (txn) => {
+    const [callerSnap, targetSnap, waitlistSnap] = await Promise.all([
+      txn.get(callerRef),
+      txn.get(targetRef),
+      txn.get(waitlistRef),
+    ]);
+
+    // Re-checked here so two admins demoting each other at once can't leave
+    // the app with no admin: the second transaction sees the changed role.
+    if (!callerSnap.exists || !isFullAdminRole(callerSnap.data()?.role)) {
+      throw new HttpsError("permission-denied", "Admins only.");
+    }
+    if (!targetSnap.exists) {
+      throw new HttpsError("not-found", "User not found.");
+    }
+    const target = targetSnap.data() ?? {};
+    const from = currentAssignableRole(target.role);
+
+    // Already a Sub-admin (e.g. Add User with their email): apply the campus
+    // and opt-in asked for instead of ignoring them. Opting out goes through
+    // the same release as the opt-out button, waitlist entry included.
+    if (from === newRole && newRole === "Subadmin" && university) {
+      const settings = planSubadminSettings({ university, participantOptIn, target });
+      if (!settings) return { changed: false, from };
+      const release = settings.release;
+      await stageCapacityRelease(txn, release, { programStateRef, waitlistRef });
+      const update: Record<string, unknown> = { updatedAt: FieldValue.serverTimestamp() };
+      if (settings.university !== undefined) update.university = settings.university;
+      if (settings.participantOptIn !== undefined) {
+        update.participantOptIn = settings.participantOptIn;
+      }
+      if (release?.clearCapacityDecision) update.capacityDecision = FieldValue.delete();
+      txn.set(targetRef, update, { merge: true });
+      return { changed: true, from };
+    }
+    if (from === newRole) {
+      return { changed: false, from };
+    }
+
+    if (waitlistSnap.exists) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Waitlisted users can't have their role changed.",
+      );
+    }
+    if (
+      newRole !== "Participant" &&
+      (target.isManualEntry === true || target.hasAuthAccount === false)
+    ) {
+      throw new HttpsError(
+        "failed-precondition",
+        "This person doesn't have a login account, so they can't be an admin.",
+      );
+    }
+
+    const plan = planRoleChange({ to: newRole, university, participantOptIn, target });
+
+    // A real waitlist entry was refused above, so there's none to delete.
+    await stageCapacityRelease(
+      txn,
+      {
+        clearCapacityDecision: plan.clearCapacityDecision,
+        releaseCountedSlot: plan.releaseCountedSlot,
+        deleteWaitlistEntry: false,
+      },
+      { programStateRef, waitlistRef },
+    );
+
+    const update: Record<string, unknown> = {
+      role: plan.role,
+      university: plan.university ?? FieldValue.delete(),
+      participantOptIn: plan.participantOptIn ?? FieldValue.delete(),
+      updatedAt: FieldValue.serverTimestamp(),
+    };
+    if (plan.clearCapacityDecision) {
+      update.capacityDecision = FieldValue.delete();
+    }
+    txn.set(targetRef, update, { merge: true });
+    return { changed: true, from };
+  });
+
+  if (result.changed) {
+    console.info(
+      result.from === newRole
+        ? `changeUserRole: ${callerUserId} updated sub-admin settings for ${targetUserId}`
+        : `changeUserRole: ${callerUserId} changed ${targetUserId} from ${result.from} to ${newRole}`,
+    );
+  }
+  return { success: true, changed: result.changed, role: newRole };
+});
+
+// Gives back what an unfinished registration took (see planCapacityRelease).
+// Reads before it writes, so call it before any other write in the transaction.
+async function stageCapacityRelease(
+  txn: admin.firestore.Transaction,
+  release: CapacityRelease | null,
+  refs: {
+    programStateRef: admin.firestore.DocumentReference;
+    waitlistRef: admin.firestore.DocumentReference;
+  },
+): Promise<void> {
+  if (!release) return;
+  let currentParticipants = 0;
+  if (release.releaseCountedSlot) {
+    const programSnap = await txn.get(refs.programStateRef);
+    currentParticipants = (programSnap.data()?.currentParticipants ?? 0) as number;
+  }
+  if (release.releaseCountedSlot && currentParticipants > 0) {
+    txn.update(refs.programStateRef, {
+      currentParticipants: admin.firestore.FieldValue.increment(-1),
+    });
+  }
+  if (release.deleteWaitlistEntry) {
+    txn.delete(refs.waitlistRef);
+  }
+}
+
+// Lets a full admin invite a sub-admin who hasn't registered to take part, or
+// undo that. Opting out gives back any spot or waitlist place an unfinished
+// registration took, using the same rule as changeUserRole.
+export const setSubadminParticipantOptIn = onCall(async (request) => {
+  const callerUserId = request.auth?.uid;
+  if (!callerUserId) {
+    throw new HttpsError("unauthenticated", "Sign in required.");
+  }
+  const rawTarget = request.data?.targetUserId;
+  const enabled = request.data?.enabled;
+  if (typeof rawTarget !== "string" || rawTarget.trim() === "" || rawTarget.includes("/")) {
+    throw new HttpsError("invalid-argument", "Missing required field: targetUserId.");
+  }
+  if (typeof enabled !== "boolean") {
+    throw new HttpsError("invalid-argument", "enabled must be true or false.");
+  }
+  const targetUserId = rawTarget.trim();
+
+  const db = admin.firestore();
+  const callerRef = db.collection(PARTICIPANTS).doc(callerUserId);
+  const targetRef = db.collection(PARTICIPANTS).doc(targetUserId);
+  const waitlistRef = db.collection("waitlist").doc(targetUserId);
+  const programStateRef = db.doc("config/programState");
+  const { FieldValue } = admin.firestore;
+
+  await db.runTransaction(async (txn) => {
+    const [callerSnap, targetSnap] = await Promise.all([
+      txn.get(callerRef),
+      txn.get(targetRef),
+    ]);
+    if (!callerSnap.exists || !isFullAdminRole(callerSnap.data()?.role)) {
+      throw new HttpsError("permission-denied", "Admins only.");
+    }
+    if (!targetSnap.exists) {
+      throw new HttpsError("not-found", "User not found.");
+    }
+    const target = targetSnap.data() ?? {};
+    if (currentAssignableRole(target.role) !== "Subadmin") {
+      throw new HttpsError("failed-precondition", "This person isn't a Sub-admin.");
+    }
+
+    if (enabled) {
+      txn.set(
+        targetRef,
+        { participantOptIn: true, updatedAt: FieldValue.serverTimestamp() },
+        { merge: true },
+      );
+      return;
+    }
+
+    if (target.type === "Participant") {
+      throw new HttpsError("failed-precondition", "This sub-admin has already registered.");
+    }
+    const release = planCapacityRelease(target);
+    await stageCapacityRelease(txn, release, { programStateRef, waitlistRef });
+    txn.set(
+      targetRef,
+      {
+        participantOptIn: false,
+        capacityDecision: FieldValue.delete(),
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
   });
 
   return { success: true };

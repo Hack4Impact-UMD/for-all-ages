@@ -3,6 +3,7 @@ import { getAnalytics, isSupported as isAnalyticsSupported } from "firebase/anal
 import { getAuth } from "firebase/auth";
 import { doc, getDoc, getFirestore } from "firebase/firestore";
 import { getFunctions, httpsCallable } from "firebase/functions";
+import type { AssignableRole } from "./utils/roles";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -59,7 +60,8 @@ export async function matchAll(body: any = {}) {
   });
 
   if (!res.ok) {
-    throw new Error(`HTTP error! Status: ${res.status}`);
+    const errBody = await res.json().catch(() => null);
+    throw new Error(typeof errBody?.error === "string" && errBody.error.trim() ? errBody.error : `HTTP error! Status: ${res.status}`);
   }
 
   return res.json();
@@ -120,6 +122,24 @@ export async function assignUserType(
   const callable = httpsCallable(functions, "assignUserType");
   const result = await callable({ targetUserId, userType });
   return result.data;
+}
+
+export async function changeUserRole(
+  targetUserId: string,
+  newRole: AssignableRole,
+  university?: string,
+  participantOptIn?: boolean,
+) {
+  const callable = httpsCallable(functions, "changeUserRole");
+  const result = await callable({ targetUserId, newRole, university, participantOptIn });
+  return result.data as { success: boolean; changed: boolean; role: AssignableRole };
+}
+
+// Full admins only; opting out also gives back any spot or waitlist place an
+// unfinished registration took.
+export async function setSubadminParticipantOptIn(targetUserId: string, enabled: boolean) {
+  const callable = httpsCallable(functions, "setSubadminParticipantOptIn");
+  await callable({ targetUserId, enabled });
 }
 
 export async function clearMatchingIndex() {

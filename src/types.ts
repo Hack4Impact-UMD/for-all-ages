@@ -137,6 +137,8 @@ export interface AdminRecord {
   /** True once registration finished (participant doc has type "Participant"). */
   registered?: boolean;
   participantOptIn?: boolean;
+  /** UI hint only: false for manual-entry participants, who can't log in. The server checks Auth itself. */
+  hasAuthAccount?: boolean;
 }
 
 /** Banner message for success/error feedback */

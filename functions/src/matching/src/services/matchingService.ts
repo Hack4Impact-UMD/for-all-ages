@@ -6,6 +6,8 @@ import { enrichMatches, calculateStatistics } from './postProcessing.js';
 import type { MatchingConfig, MatchingResult } from '../types/matching.types.js';
 import { DEFAULT_MATCHING_CONFIG } from '../types/matching.types.js';
 
+export class MatchingInputError extends Error {}
+
 export class MatchingService {
   private config: MatchingConfig;
 
@@ -44,7 +46,7 @@ export class MatchingService {
       }
       
       if (students.length === 0 || seniors.length === 0) {
-        throw new Error('No participants found for matching');
+        throw new MatchingInputError('No participants found for matching');
       }
 
       logger.info(`  Retrieved: ${students.length} students, ${seniors.length} seniors`);
@@ -53,7 +55,7 @@ export class MatchingService {
       const scores = calculateAllPairwiseScores(students, seniors, this.config);
 
       if (scores.length === 0) {
-        throw new Error('No similarity scores calculated');
+        throw new MatchingInputError('No similarity scores calculated');
       }
 
       logger.info(`  Calculated ${scores.length} pairwise scores`);
