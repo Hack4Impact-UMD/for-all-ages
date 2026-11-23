@@ -8,8 +8,6 @@ import type { PartnerInfo, ParticipantDoc } from "../../types";
 import ProfilePicture from "../Profile/components/ProfilePicture/ProfilePicture";
 import styles from "./Waiting.module.css";
 
-const ADMIN_EMAIL = "info@forallages.org";
-
 function buildGreetingName(participant: ParticipantDoc | null, fallbackEmail?: string | null) {
   const candidate = participant?.displayName?.trim() || [participant?.firstName, participant?.lastName].filter(Boolean).join(" ").trim() || fallbackEmail?.split("@")[0] || "there";
 
@@ -28,14 +26,6 @@ export default function Waiting() {
   const [matchLoading, setMatchLoading] = useState(false);
 
   const greetingName = useMemo(() => buildGreetingName(participant, user?.displayName ?? user?.email ?? null), [participant, user?.displayName, user?.email]);
-
-  const handleMessageAdmins = () => {
-    if (typeof window === "undefined") return;
-    const subject = encodeURIComponent("Question about my program status");
-    const body = user?.email ? encodeURIComponent(`Hi Admin Team,\n\nThis is ${user.email}.`) : "";
-    const mailto = `mailto:${ADMIN_EMAIL}?subject=${subject}${body ? `&body=${body}` : ""}`;
-    window.location.href = mailto;
-  };
 
   const isLoading = loading || participantLoading || programStateLoading || waitlistLoading;
 
@@ -151,7 +141,7 @@ export default function Waiting() {
                   </section>
                 ) : (
                   <div className={styles.loadingMessage}>
-                    Match info unavailable. Please contact admins at <a href={`mailto:${ADMIN_EMAIL}`}>{ADMIN_EMAIL}</a>.
+                    Match info unavailable. Please use “Message Admins” for support.
                   </div>
                 )}
               </>
@@ -165,14 +155,6 @@ export default function Waiting() {
             </section>
           </>
         )}
-        <button type="button" className={styles.messageButton} onClick={handleMessageAdmins}>
-          <span className={styles.messageIcon} aria-hidden="true">
-            <svg viewBox="0 0 24 24" focusable="false" role="presentation">
-              <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v7A2.5 2.5 0 0 1 17.5 15H9.41l-4.2 3.36A.75.75 0 0 1 4 17.75z" fill="currentColor" />
-            </svg>
-          </span>
-          <span>Message Admins</span>
-        </button>
       </div>
     </div>
   );
