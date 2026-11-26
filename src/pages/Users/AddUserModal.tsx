@@ -1,6 +1,4 @@
-import { useNavigate } from "react-router-dom";
 import type { Role } from "../../types";
-import { useAuth } from "../../auth/AuthProvider";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { FirebaseError } from "firebase/app";
 import { getDocs, query, collection, where } from "firebase/firestore";
@@ -16,29 +14,23 @@ type AddAdminModalProps = {
   onSuccess: (message: string) => void;
 };
 
-type AddUserRole = Role | "Participant";
-
 // State for the AddAdminModal form
 type AddAdminFormState = {
   firstName: string;
   lastName: string;
   email: string;
-  role: AddUserRole;
+  role: Role;
   university: string;
-  participantName: string;
   participantOptIn: boolean;
 };
 
 export default function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps) {
-  const navigate = useNavigate();
-  const { programState, programStateLoading } = useAuth();
   const [form, setForm] = useState<AddAdminFormState>({
     firstName: "",
     lastName: "",
     email: "",
     role: "Admin",
     university: "",
-    participantName: "",
     participantOptIn: false,
   });
   const [error, setError] = useState<string | null>(null);
@@ -77,17 +69,6 @@ export default function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps
   }, [onClose]);
 
 
-  function isParticipantRegistrationClosed(
-    programState: { matches_final: boolean; started: boolean; currentParticipants: number; maxParticipants: number } | null,
-  ): boolean {
-    if (!programState) return false;
-    if (programState.matches_final && !programState.started) {
-      return true;
-    }
-    return programState.currentParticipants >= programState.maxParticipants;
-  }
-
-
   const dismissExistingPrompt = useCallback(() => {
     setExistingAccountPrompt(null);
   }, []);
@@ -96,14 +77,11 @@ export default function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps
     const { name, value } = event.target;
     setForm((prev) => {
       if (name === "role") {
-        const roleValue = (value as AddUserRole) ?? "Admin";
+        const roleValue = (value as Role) ?? "Admin";
         return {
           ...prev,
           role: roleValue,
-          university:
-            roleValue === "Admin" || roleValue === "Participant"
-              ? ""
-              : prev.university,
+          university: roleValue === "Admin" ? "" : prev.university,
         };
       }
       const nextState = {
@@ -124,24 +102,13 @@ export default function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps
 
   const trimmedEmail = form.email.trim();
   const emailValid = emailRegex.test(trimmedEmail);
-  const isParticipantRole = form.role === "Participant";
+  const allRequiredFilled =
+    form.firstName.trim().length > 0 &&
+    form.lastName.trim().length > 0 &&
+    trimmedEmail.length > 0 &&
+    (form.role !== "Subadmin" || form.university.trim().length > 0);
 
-  const participantCreationDisabled =
-    isParticipantRole &&
-    (programStateLoading || isParticipantRegistrationClosed(programState));
-
-  const allRequiredFilled = isParticipantRole
-    ? form.participantName.trim().length > 0
-    : form.firstName.trim().length > 0 &&
-      form.lastName.trim().length > 0 &&
-      trimmedEmail.length > 0 &&
-      (form.role !== "Subadmin" || form.university.trim().length > 0);
-
-  const canSubmit =
-    allRequiredFilled &&
-    (isParticipantRole || emailValid) &&
-    !participantCreationDisabled &&
-    !submitting;
+  const canSubmit = allRequiredFilled && emailValid && !submitting;
 
   const prepareExistingAccountPrompt = useCallback(async (email: string) => {
     try {
@@ -178,22 +145,6 @@ export default function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (form.role === "Participant") {
-      if (participantCreationDisabled) {
-        setError(programStateLoading ? "Checking program capacity…" : "Program is full.");
-        return;
-      }
-
-      const name = form.participantName.trim();
-      if (!name) {
-        setError("Please enter the participant's name.");
-        return;
-      }
-      navigate("/admin/add-participant", { state: { name } });
-      onSuccess("Opening the registration form for this participant.");
-      return;
-    }
-
     // Final validation before submission
     if (!canSubmit) {
       setError(
@@ -212,7 +163,7 @@ export default function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps
         firstName: form.firstName.trim(),
         lastName: form.lastName.trim(),
         email: trimmedEmail,
-        role: form.role as Role,
+        role: form.role,
         university:
           form.role === "Subadmin" ? form.university.trim() : undefined,
         participantOptIn: form.role === "Subadmin" && form.participantOptIn,
@@ -250,7 +201,7 @@ export default function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps
     try {
       const result = await assignAdminRoleToExistingUser({
         participantId: existingAccountPrompt.participantId,
-        role: form.role as Role,
+        role: form.role,
         university:
           form.role === "Subadmin" ? form.university.trim() : undefined,
         participantOptIn:
@@ -297,7 +248,7 @@ export default function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps
       >
         <header className={styles.modalHeader}>
           <h2 id="add-admin-title" className={styles.modalTitle}>
-            Add New User
+            Add New Admin
           </h2>
         </header>
 
@@ -334,152 +285,107 @@ export default function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps
                   <span className={styles.radioText}>Sub-admin</span>
                 </span>
               </label>
-
-              <label className={styles.radioOption}>
-                <input
-                  className={styles.radioInput}
-                  type="radio"
-                  name="role"
-                  value="Participant"
-                  checked={form.role === "Participant"}
-                  onChange={handleInputChange}
-                />
-                <span className={styles.radioContent}>
-                  <span className={styles.radioVisual} aria-hidden="true" />
-                  <span className={styles.radioText}>Participant</span>
-                </span>
-              </label>
             </div>
-            {form.role === "Participant" ? (
-              <p className={styles.fieldHint} style={{ color: "#475569", marginTop: "0.35rem" }}>
-                Manual entry (no login). You will complete their registration form next.
-              </p>
+          </div>
+
+          {/* An existing account keeps its own profile, so the names aren't used. */}
+          {existingAccountPrompt ? null : (
+            <>
+              <div className={styles.field}>
+                <label htmlFor="admin-first-name">First Name</label>
+                <input
+                  ref={firstInputRef}
+                  id="admin-first-name"
+                  name="firstName"
+                  type="text"
+                  className={styles.textInput}
+                  value={form.firstName}
+                  onChange={handleInputChange}
+                  placeholder="First name"
+                  required
+                />
+              </div>
+
+              <div className={styles.field}>
+                <label htmlFor="admin-last-name">Last Name</label>
+                <input
+                  id="admin-last-name"
+                  name="lastName"
+                  type="text"
+                  className={styles.textInput}
+                  value={form.lastName}
+                  onChange={handleInputChange}
+                  placeholder="Last name"
+                  required
+                />
+              </div>
+            </>
+          )}
+
+          <div className={styles.field}>
+            <label htmlFor="admin-email">Email</label>
+            <input
+              id="admin-email"
+              name="email"
+              type="email"
+              className={styles.textInput}
+              value={form.email}
+              onChange={handleInputChange}
+              placeholder="name@example.com"
+              required
+            />
+            {!emailValid && trimmedEmail.length > 0 ? (
+              <p className={styles.fieldHint}>Enter a valid email address.</p>
             ) : null}
           </div>
 
-          {isParticipantRole ? (
+          {form.role === "Subadmin" ? (
             <div className={styles.field}>
-              <label htmlFor="manual-participant-full-name">Participant name</label>
-              <input
-                ref={firstInputRef}
-                id="manual-participant-full-name"
-                name="participantName"
-                type="text"
+              <label htmlFor="admin-university">University Name</label>
+
+              <select
+                id="admin-university"
+                name="university"
                 className={styles.textInput}
-                value={form.participantName}
+                value={form.university}
                 onChange={handleInputChange}
-                placeholder="First and last name"
                 required
-                disabled={participantCreationDisabled}
-              />
-              {participantCreationDisabled ? (
-                <p className={styles.fieldHint}>
-                  {programStateLoading ? "Checking program capacity…" : "Program is full."}
-                </p>
-              ) : null}
+              >
+                <option value="" disabled>
+                  Select a university
+                </option>
+
+                {universityOptions.map((uni) => (
+                  <option key={uni} value={uni}>
+                    {uni}
+                  </option>
+                ))}
+              </select>
             </div>
-          ) : (
-            <>
-              {/* An existing account keeps its own profile, so the names aren't used. */}
-              {existingAccountPrompt ? null : (
-                <>
-                  <div className={styles.field}>
-                    <label htmlFor="admin-first-name">First Name</label>
-                    <input
-                      ref={firstInputRef}
-                      id="admin-first-name"
-                      name="firstName"
-                      type="text"
-                      className={styles.textInput}
-                      value={form.firstName}
-                      onChange={handleInputChange}
-                      placeholder="First name"
-                      required
-                    />
-                  </div>
+          ) : null}
 
-                  <div className={styles.field}>
-                    <label htmlFor="admin-last-name">Last Name</label>
-                    <input
-                      id="admin-last-name"
-                      name="lastName"
-                      type="text"
-                      className={styles.textInput}
-                      value={form.lastName}
-                      onChange={handleInputChange}
-                      placeholder="Last name"
-                      required
-                    />
-                  </div>
-                </>
-              )}
-
-              <div className={styles.field}>
-                <label htmlFor="admin-email">Email</label>
+          {form.role === "Subadmin" ? (
+            <div className={styles.field}>
+              <label className={styles.checkboxOption}>
                 <input
-                  id="admin-email"
-                  name="email"
-                  type="email"
-                  className={styles.textInput}
-                  value={form.email}
-                  onChange={handleInputChange}
-                  placeholder="name@example.com"
-                  required
+                  type="checkbox"
+                  name="participantOptIn"
+                  checked={form.participantOptIn}
+                  onChange={(event) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      participantOptIn: event.target.checked,
+                    }))
+                  }
                 />
-                {!emailValid && trimmedEmail.length > 0 ? (
-                  <p className={styles.fieldHint}>Enter a valid email address.</p>
-                ) : null}
-              </div>
-
-              {form.role === "Subadmin" ? (
-                <div className={styles.field}>
-                  <label htmlFor="admin-university">University Name</label>
-
-                  <select
-                    id="admin-university"
-                    name="university"
-                    className={styles.textInput}
-                    value={form.university}
-                    onChange={handleInputChange}
-                    required
-                  >
-                    <option value="" disabled>
-                      Select a university
-                    </option>
-
-                    {universityOptions.map((uni) => (
-                      <option key={uni} value={uni}>
-                        {uni}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ) : null}
-
-              {form.role === "Subadmin" ? (
-                <div className={styles.field}>
-                  <label className={styles.checkboxOption}>
-                    <input
-                      type="checkbox"
-                      name="participantOptIn"
-                      checked={form.participantOptIn}
-                      onChange={(event) =>
-                        setForm((prev) => ({
-                          ...prev,
-                          participantOptIn: event.target.checked,
-                        }))
-                      }
-                    />
-                    Also a participant
-                  </label>
-                  <p className={styles.fieldHint} style={{ color: "#475569" }}>
-                    They will fill out the registration form after signing in
-                    and be matched like any other student.
-                  </p>
-                </div>
-              ) : null}
-            </>
-          )}
+                Also a participant
+              </label>
+              <p className={styles.fieldHint} style={{ color: "#475569" }}>
+                They will fill out the registration form after signing in
+                and be matched like any other student.
+              </p>
+            </div>
+          ) : null}
 
           {error ? <div className={styles.errorMessage}>{error}</div> : null}
 
