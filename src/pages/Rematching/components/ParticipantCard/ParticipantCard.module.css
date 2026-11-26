@@ -50,3 +50,25 @@
 }
 
 
+
+/* Already this person's partner in an earlier cohort: shown, not selectable */
+.participantCard.pastPartner {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
+.participantCard.pastPartner:hover {
+    box-shadow: none;
+    transform: none;
+}
+
+.pastPartnerLabel {
+    display: inline-block;
+    margin: 0.2rem 0;
+    padding: 0.1rem 0.6rem;
+    border-radius: 9999px;
+    background: #fff3cd;
+    color: #664d03;
+    font-size: 0.75rem;
+    font-weight: 600;
+}

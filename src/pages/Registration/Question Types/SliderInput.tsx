@@ -6,15 +6,17 @@ export default function SliderInput({
   min,
   max,
   required,
+  defaultValue,
 }: {
   name: string;
   min: number;
   max: number;
   required: boolean;
+  defaultValue?: number;
 }) {
   const lo = min ?? 1;
   const hi = max ?? 5;
-  const [value, setValue] = useState<number | null>(null);
+  const [value, setValue] = useState<number | null>(defaultValue ?? null);
 
   return (
     <>

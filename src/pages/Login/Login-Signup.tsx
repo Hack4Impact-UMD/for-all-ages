@@ -87,8 +87,10 @@ function LoginSignup() {
 
   /**
    * Redirects authenticated & verified users away from this page
-   * If there’s a verified user but no participant doc → go to /registration
-   * If participant exists → go to the dashboard
+   * If there’s a verified user who hasn't registered for this cohort → go to
+   * /registration. That includes a past participant, whose doc End Program
+   * keeps but without type "Participant".
+   * If they're registered → go to the dashboard
    */
   useEffect(() => {
     if (authLoading || participantLoading) return;
@@ -98,6 +100,8 @@ function LoginSignup() {
       navigate("/registration", { replace: true });
     } else if (isAdmin) {
       navigate("/admin/dashboard", { replace: true });
+    } else if (participant.type !== "Participant") {
+      navigate("/registration", { replace: true });
     } else {
       navigate("/user/dashboard", { replace: true });
     }

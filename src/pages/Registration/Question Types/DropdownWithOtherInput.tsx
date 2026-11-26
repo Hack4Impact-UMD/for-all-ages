@@ -11,19 +11,24 @@ import styles from "../Registration.module.css";
  * - options: Array of dropdown options (will auto-append "Other" if not present)
  * - required: Whether the field is required
  * - className: CSS class to apply to the select element
+ * - defaultValue / defaultOther: initial selection and "Other" text (prefill)
  */
 export default function DropdownWithOtherInput({
   name,
   options,
   required,
   className,
+  defaultValue,
+  defaultOther,
 }: {
   name: string;
   options: string[];
   required: boolean;
   className?: string;
+  defaultValue?: string;
+  defaultOther?: string;
 }) {
-  const [selectedValue, setSelectedValue] = useState("");
+  const [selectedValue, setSelectedValue] = useState(defaultValue ?? "");
 
   // Ensure "Other" option exists exactly once (case-insensitive check)
   // If already present, use original options; otherwise append it.
@@ -65,6 +70,7 @@ export default function DropdownWithOtherInput({
           required={required}
           className={styles.otherFieldInput}
           placeholder="Please specify"
+          defaultValue={defaultOther}
         />
       )}
     </>

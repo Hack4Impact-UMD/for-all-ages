@@ -795,3 +795,15 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Past participant kept by End Program, not registered for this cohort */
+.returningBadge {
+  display: inline-block;
+  padding: 0.1rem 0.6rem;
+  border-radius: 9999px;
+  background: #fff3cd;
+  color: #664d03;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}

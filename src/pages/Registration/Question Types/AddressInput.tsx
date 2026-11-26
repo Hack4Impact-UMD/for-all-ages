@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Country, State } from "country-state-city";
 import { setOptions, importLibrary } from "@googlemaps/js-api-loader";
 import styles from "../Registration.module.css";
+import type { RawAddress } from "../../../types";
 
 // Guard: setOptions must only be called once per page load
 let mapsOptionsInitialized = false;
@@ -15,17 +16,23 @@ function getCountriesWithUSFirst() {
 export default function AddressInput({
   namePrefix,
   required,
+  defaultValue,
 }: {
   namePrefix: string;
   required: boolean;
+  defaultValue?: RawAddress;
 }) {
-  const [line1, setLine1] = useState("");
-  const [line2, setLine2] = useState("");
-  const [city, setCity] = useState("");
-  const [stateVal, setStateVal] = useState("");
-  const [postalCode, setPostalCode] = useState("");
-  const [countryName, setCountryName] = useState("");
-  const [countryCode, setCountryCode] = useState("");
+  const [line1, setLine1] = useState(defaultValue?.line1 ?? "");
+  const [line2, setLine2] = useState(defaultValue?.line2 ?? "");
+  const [city, setCity] = useState(defaultValue?.city ?? "");
+  const [stateVal, setStateVal] = useState(defaultValue?.state ?? "");
+  const [postalCode, setPostalCode] = useState(defaultValue?.postalCode ?? "");
+  const [countryName, setCountryName] = useState(defaultValue?.country ?? "");
+  const [countryCode, setCountryCode] = useState(
+    () =>
+      getCountriesWithUSFirst().find((c) => c.name === defaultValue?.country)
+        ?.isoCode ?? "",
+  );
   const [suggestions, setSuggestions] = useState<google.maps.places.AutocompleteSuggestion[]>([]);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
 

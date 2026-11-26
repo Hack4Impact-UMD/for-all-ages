@@ -5,12 +5,16 @@ import { formatPhone, stripPhone, isValidPhone } from "../../utils/phone";
 export default function PhoneNumberInput({
   name,
   required,
+  defaultValue,
 }: {
   name: string;
   required: boolean;
+  /** Saved 10-digit number; fills both fields so they already match. */
+  defaultValue?: string;
 }) {
-  const [phone, setPhone] = useState("");
-  const [confirmPhone, setConfirmPhone] = useState("");
+  const initial = defaultValue ? formatPhone(defaultValue) : "";
+  const [phone, setPhone] = useState(initial);
+  const [confirmPhone, setConfirmPhone] = useState(initial);
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setPhone(formatPhone(e.target.value));
