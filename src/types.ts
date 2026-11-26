@@ -52,6 +52,10 @@ export interface Participant {
     role?: Role | "Participant" | null
     hasAuthAccount?: boolean
     isManualEntry?: boolean
+    /** Uids of everyone this participant was paired with in earlier cohorts. */
+    pastPartners?: string[]
+    /** When End Program last moved this profile out of a cohort. */
+    lastCohortEndedAt?: Timestamp | null
     createdAt?: Timestamp | null
     updatedAt?: Timestamp | null
 }
@@ -68,6 +72,11 @@ export interface Questions {
   title: string;
   type: QuestionType;
   answer: string | number;
+  /** The question's options when it was answered (absent on older entries). */
+  options?: string[];
+  /** A Slider's range when it was answered (absent on older entries). */
+  min?: number;
+  max?: number;
 }
 
 /** FormResponse document - stores all non-basic questions */
@@ -89,6 +98,8 @@ export interface RematchingParticipant {
   preferenceScores?: PreferenceScores;
   pronouns?: string | null;
   matchableAnswers?: Record<string, string | number>;
+  /** Uids this participant was paired with in earlier cohorts. */
+  pastPartners?: string[];
 }
 
 export interface SurveyResponse {
@@ -136,6 +147,11 @@ export interface AdminRecord {
   university?: string | null;
   /** True once registration finished (participant doc has type "Participant"). */
   registered?: boolean;
+  /**
+   * A past participant whose profile End Program kept and who hasn't
+   * registered for the current cohort yet.
+   */
+  returning?: boolean;
   participantOptIn?: boolean;
   /** UI hint only: false for manual-entry participants, who can't log in. The server checks Auth itself. */
   hasAuthAccount?: boolean;

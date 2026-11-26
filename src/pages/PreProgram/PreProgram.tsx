@@ -14,6 +14,7 @@ import {
   matchAll,
 } from "../../firebase";
 import {
+  arrayUnion,
   collection,
   deleteDoc,
   deleteField,
@@ -28,6 +29,11 @@ import {
 } from "firebase/firestore";
 import { commitInChunks, type BatchOp } from "../../utils/firestoreBatch";
 import { isAdminRole, isSubadminRole } from "../../utils/roles";
+import {
+  collectPastPartners,
+  isPastPair,
+  readPastPartners,
+} from "../../utils/pastPartners";
 import {
   finalizeMatches,
   startProgram,
@@ -57,6 +63,15 @@ const COLLECTIONS_TO_CLEAR = [
   "weeks",
   "waitlist",
 ];
+
+// Participants an admin entered by hand (no Auth account). They can never log
+// in to re-register, so End Program deletes them instead of keeping them.
+function isManualEntryProfile(data: {
+  isManualEntry?: unknown;
+  hasAuthAccount?: unknown;
+}): boolean {
+  return data.isManualEntry === true || data.hasAuthAccount === false;
+}
 
 // True for Admin/Subadmin accounts, including participants promoted to Subadmin.
 function isAdminProfile(data: { type?: unknown; role?: unknown }): boolean {
@@ -110,6 +125,10 @@ const PARTICIPANT_EXPORT_FIELDS = [
   "role",
   "hasAuthAccount",
   "isManualEntry",
+  // Past participants keep their profile after End Program. An empty "type"
+  // column marks one who hasn't registered for the current cohort.
+  "pastPartners",
+  "lastCohortEndedAt",
   "createdAt",
   "updatedAt",
 ] as const satisfies readonly (keyof Participant)[];
@@ -145,6 +164,16 @@ const PreProgram = () => {
   const [endProgramError, setEndProgramError] = useState<string | null>(null);
 
   const [settingsPopup, setSettingsPopup] = useState(false);
+
+  // Who each participant was paired with in earlier cohorts. Matching keeps
+  // past pairs apart; an admin can still approve one, with a warning.
+  const [pastPartnersById, setPastPartnersById] = useState<
+    Map<string, string[]>
+  >(new Map());
+  const isPastPairRow = (m: UI_Match) =>
+    !!m.participant1_id &&
+    !!m.participant2_id &&
+    isPastPair(m.participant1_id, m.participant2_id, pastPartnersById);
 
   const [statusFilterOpen, setStatusFilterOpen] = useState(false);
   const [selectedStatuses, setSelectedStatuses] = useState<MatchStatus[]>([]);
@@ -350,6 +379,13 @@ const PreProgram = () => {
     const waitlistedIds = new Set(waitlistSnap.docs.map((d) => d.id));
 
     const unmatchedRows: UI_Match[] = [];
+    const pastPartners = new Map<string, string[]>();
+
+    participantsSnap.forEach((pDoc) => {
+      const partners = readPastPartners(pDoc.data());
+      if (partners.length > 0) pastPartners.set(pDoc.id, partners);
+    });
+    setPastPartnersById(pastPartners);
 
     participantsSnap.forEach((pDoc) => {
       const data = pDoc.data() as {
@@ -364,7 +400,9 @@ const PreProgram = () => {
       if (waitlistedIds.has(id)) return;
       const displayName =
         data.displayName ?? data.name ?? data.fullName ?? "Unnamed participant";
-      // Registration stores lowercase "student" / "adult"; compare case-insensitively.
+      // Registration stores lowercase "student" / "adult"; compare
+      // case-insensitively. End Program deletes user_type, so a past
+      // participant who hasn't re-registered gets no row.
       const userType = String(data.user_type ?? data.userType ?? "")
         .trim()
         .toLowerCase();
@@ -407,7 +445,7 @@ const PreProgram = () => {
 
   const [banner, setBanner] = useState<{
     message: string;
-    type: "success" | "error";
+    type: "success" | "error" | "warning";
   } | null>(null);
 
   const getConfidenceCategory = (confidence?: number) => {
@@ -736,8 +774,11 @@ const PreProgram = () => {
       if (DEV_MODE) {
         // Simulate the operation without touching Firestore
         console.log(
-          "[DEV_MODE] End Program triggered. Would have cleared:",
-          COLLECTIONS_TO_CLEAR,
+          "[DEV_MODE] End Program triggered. Would have recorded pastPartners " +
+            "from approved matches, kept participant profiles (clearing type, " +
+            "user_type and capacityDecision), deleted manual-entry " +
+            "participants, and cleared:",
+          COLLECTIONS_TO_CLEAR.filter((c) => c !== "participants"),
         );
         console.log("[DEV_MODE] Would have reset config/programState to:", {
           matches_final: false,
@@ -752,12 +793,38 @@ const PreProgram = () => {
         return;
       }
 
-      // Delete all docs in each collection (Firestore has no "delete
-      // collection" API), chunked under the 500-op batch limit. Every step is
-      // safe to repeat, so if anything fails the admin can just retry.
+      // Every step below is safe to repeat (arrayUnion, deleteField and
+      // deletes are idempotent), so if anything fails the admin can just
+      // retry. Order matters: past partners are read from "matches", so they
+      // are recorded before that collection is cleared.
+
+      // 1. Record this cohort's approved pairs on both participants so
+      // matching never pairs them again. A participant whose doc is gone
+      // (deleted account) is skipped: update() would throw, and a merge would
+      // recreate a doc for a deleted user.
+      const matchesSnap = await getDocs(collection(db, "matches"));
+      const pastPartners = collectPastPartners(
+        matchesSnap.docs.map((d) => d.data()),
+      );
+      const participantsBefore = await getDocs(collection(db, "participants"));
+      const existingIds = new Set(participantsBefore.docs.map((d) => d.id));
+      const pastPartnerOps: BatchOp[] = [];
+      for (const [uid, partners] of pastPartners) {
+        if (!existingIds.has(uid)) continue;
+        pastPartnerOps.push((batch) =>
+          batch.update(doc(db, "participants", uid), {
+            pastPartners: arrayUnion(...partners),
+          }),
+        );
+      }
+      await commitInChunks(db, pastPartnerOps);
+
+      // 2. Clear each collection (Firestore has no "delete collection" API),
+      // chunked under the 500-op batch limit. Participant profiles are kept
+      // but drop out of the cohort; see below.
       for (const colName of COLLECTIONS_TO_CLEAR) {
         const snap = await getDocs(collection(db, colName));
-        const ops: BatchOp[] = snap.docs.map((d) => {
+        const ops = snap.docs.map((d): BatchOp | null => {
           // Admin and sub-admin profiles also live in "participants"; keep them
           // so admins aren't locked out of the app after the reset. A
           // sub-admin who participated drops their cohort placement (their
@@ -779,17 +846,46 @@ const PreProgram = () => {
                 ...(participatedAsSubadmin && { participantOptIn: true }),
               });
           }
+          if (colName === "participants" && !isManualEntryProfile(d.data())) {
+            const data = d.data();
+            // Already out of the cohort (a repeat run, or someone who didn't
+            // come back last time): leave it, so lastCohortEndedAt keeps the
+            // end of the last cohort they were actually in.
+            if (
+              data.type == null &&
+              data.user_type == null &&
+              data.capacityDecision == null
+            ) {
+              return null;
+            }
+            // Keep the profile (name, contact info, pastPartners, ...) so a
+            // returning participant re-registers with their answers prefilled.
+            // Removing type and user_type takes them out of this cohort
+            // everywhere: gates, PreProgram, Rematching and matching all key
+            // off those fields.
+            return (batch) =>
+              batch.update(d.ref, {
+                type: deleteField(),
+                user_type: deleteField(),
+                capacityDecision: deleteField(),
+                lastCohortEndedAt: serverTimestamp(),
+              });
+          }
+          // Manual-entry participants can't log in to re-register, so they
+          // are still deleted, as are all docs in the other collections.
           return (batch) => batch.delete(d.ref);
         });
-        await commitInChunks(db, ops);
+        await commitInChunks(
+          db,
+          ops.filter((op): op is BatchOp => op !== null),
+        );
       }
 
-      // Clear last cohort's vectors after their Firestore docs are gone. If
-      // this fails, the leftover vectors point at deleted participants, which
-      // Create Matches already skips.
+      // 3. Clear last cohort's vectors. If this fails, the admin can retry;
+      // re-registering upserts a fresh vector anyway.
       await clearMatchingIndex();
 
-      // Reset config doc
+      // 4. Reset config doc
       const configRef = doc(db, "config", "programState");
       await setDoc(
         configRef,
@@ -896,6 +992,16 @@ const PreProgram = () => {
         // don't override it.
         manual: true,
       });
+
+      if (newStatus === "Approved" && isPastPairRow(match)) {
+        setBanner({
+          message:
+            "Match approved. Note: these two were partners in a previous cohort.",
+          type: "warning",
+        });
+        setTimeout(() => setBanner(null), 6000);
+        return;
+      }
 
       setBanner({
         message: `Match marked as ${newStatus} successfully.`,
@@ -1147,6 +1253,14 @@ const PreProgram = () => {
                         <option value="Approved">Approved</option>
                         <option value="Separate">Separate</option>
                       </select>
+                    )}
+                    {isPastPairRow(m) && (
+                      <span
+                        className={styles.pastPartnerTag}
+                        title="These two were partners in a previous cohort."
+                      >
+                        Past partners
+                      </span>
                     )}
                   </td>
                   <td>{m.approvedBy || "—"}</td>

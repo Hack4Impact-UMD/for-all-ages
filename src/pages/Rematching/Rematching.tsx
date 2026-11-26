@@ -18,6 +18,7 @@ import {
 import { auth, db, computeMatchScore, getUser } from "../../firebase";
 import type { Form, Question, RematchingParticipant } from "../../types";
 import { useAuth } from "../../auth/AuthProvider";
+import { readPastPartners } from "../../utils/pastPartners";
 
 export type { RematchingParticipant } from "../../types";
 
@@ -52,6 +53,16 @@ const buildMatchableQuestionEntries = (
   });
   return entries;
 };
+
+// True if a and b were partners in an earlier cohort (either list counts).
+const werePartners = (
+  a: RematchingParticipant | null,
+  b: RematchingParticipant | null,
+): boolean =>
+  !!a &&
+  !!b &&
+  ((a.pastPartners?.includes(b.id) ?? false) ||
+    (b.pastPartners?.includes(a.id) ?? false));
 
 const normalizePronouns = (value?: string | null): string =>
   (value ?? "").trim().toLowerCase().replace(/\\/g, "/");
@@ -238,6 +249,9 @@ export default function Rematching() {
 
         if (waitlistedIds.has(id)) return;
 
+        // End Program deletes user_type, and role is "Participant" or an
+        // admin role, so a past participant who hasn't re-registered is
+        // skipped here.
         const rawRole = (data.user_type ?? data.userType ?? data.role ?? "") as string;
         const userType = normalizeRole(rawRole);
         const userUid = (data.userUid ?? id) as string;
@@ -277,6 +291,7 @@ export default function Rematching() {
           preferenceScores,
           pronouns: data.pronouns ?? null,
           matchableAnswers: responseAnswers,
+          pastPartners: readPastPartners(data),
         };
         if (userType === "student") studentsList.push(participant);
         else adultsList.push(participant);
@@ -322,6 +337,7 @@ export default function Rematching() {
           preferenceScores,
           pronouns: participantDoc.pronouns ?? null,
           matchableAnswers: responseAnswers,
+          pastPartners: readPastPartners(participantDoc),
         };
 
         if (userType === "student") {
@@ -464,10 +480,12 @@ export default function Rematching() {
 
   const handleStudentClick = (student: RematchingParticipant) => {
     if (student.type !== "student") return;
+    if (werePartners(student, selectedAdult)) return;
     setSelectedStudent((prev) => (prev?.id === student.id ? null : student));
   };
   const handleAdultClick = (adult: RematchingParticipant) => {
     if (adult.type !== "adult") return;
+    if (werePartners(selectedStudent, adult)) return;
     setSelectedAdult((prev) => (prev?.id === adult.id ? null : adult));
   };
 
@@ -478,6 +496,11 @@ export default function Rematching() {
       setLoadError(
         "Manual rematching only allows student to older adult pairs.",
       );
+      return;
+    }
+
+    if (werePartners(selectedStudent, selectedAdult)) {
+      setLoadError("These two were partners in a previous cohort.");
       return;
     }
 
@@ -658,6 +681,7 @@ export default function Rematching() {
             onParticipantClick={handleStudentClick}
             isStudentColumn={true}
             compatibilityScores={studentCompatibilityScores}
+            counterpart={selectedAdult}
             showWaitlisted={showWaitlistedStudents}
             onToggleWaitlisted={setShowWaitlistedStudents}
           />
@@ -687,6 +711,7 @@ export default function Rematching() {
             onParticipantClick={handleAdultClick}
             isStudentColumn={false}
             compatibilityScores={adultCompatibilityScores}
+            counterpart={selectedStudent}
             showWaitlisted={showWaitlistedAdults}
             onToggleWaitlisted={setShowWaitlistedAdults}
           />
@@ -739,6 +764,8 @@ interface ParticipantColumnProps {
   onParticipantClick: (participant: RematchingParticipant) => void;
   isStudentColumn: boolean;
   compatibilityScores?: Record<string, number | null>;
+  /** The person selected in the other column; their past partners are disabled. */
+  counterpart: RematchingParticipant | null;
   showWaitlisted: boolean;
   onToggleWaitlisted: (show: boolean) => void;
 }
@@ -753,6 +780,7 @@ function ParticipantColumn({
   onParticipantClick,
   isStudentColumn,
   compatibilityScores,
+  counterpart,
   showWaitlisted,
   onToggleWaitlisted,
 }: ParticipantColumnProps) {
@@ -794,6 +822,7 @@ function ParticipantColumn({
               compatibilityPercentage={
                 compatibilityScores?.[participant.id] ?? null
               }
+              isPastPartner={werePartners(participant, counterpart)}
             />
           );
         })}

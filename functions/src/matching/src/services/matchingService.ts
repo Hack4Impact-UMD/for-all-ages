@@ -3,6 +3,8 @@ import { fetchAllParticipants } from './participantRetrieval.js';
 import { calculateAllPairwiseScores } from './scoreCalculation.js';
 import { hungarianMatching, getUnmatchedParticipants } from '../algorithms/hungarianMatching.js';
 import { enrichMatches, calculateStatistics } from './postProcessing.js';
+import { loadCohortProfiles } from './pastPartners.js';
+import { buildPastPairSet, removePastPairs } from '../utils/pastPairs.js';
 import type { MatchingConfig, MatchingResult } from '../types/matching.types.js';
 import { DEFAULT_MATCHING_CONFIG } from '../types/matching.types.js';
 
@@ -38,12 +40,31 @@ export class MatchingService {
       logger.info('\n[Phase 2] Data Retrieval');
       const fetched = await fetchAllParticipants();
       const excludeSet = new Set(excludeIds);
-      const students = fetched.students.filter(p => !excludeSet.has(p.id));
-      const seniors = fetched.seniors.filter(p => !excludeSet.has(p.id));
       const { excluded } = fetched;
       if (excludeSet.size > 0) {
         logger.info(`  Excluding ${excludeSet.size} already-matched participants`);
       }
+
+      // Pinecone has no pastPartners, and a vector can outlive End Program
+      // (if clearing the index failed). Read each participant's doc: skip
+      // past participants who haven't re-registered, and collect past pairs.
+      const profiles = await loadCohortProfiles(
+        [...fetched.students, ...fetched.seniors].map(p => p.id)
+      );
+      const isActive = (id: string) => {
+        if (excludeSet.has(id)) return false;
+        const profile = profiles.get(id);
+        if (profile && !profile.inCohort) {
+          excluded.push({ id, reason: 'Not registered for the current cohort' });
+          return false;
+        }
+        return true;
+      };
+      const students = fetched.students.filter(p => isActive(p.id));
+      const seniors = fetched.seniors.filter(p => isActive(p.id));
+      const pastPairs = buildPastPairSet(
+        profiles, students.map(s => s.id), seniors.map(s => s.id)
+      );
       
       if (students.length === 0 || seniors.length === 0) {
         throw new MatchingInputError('No participants found for matching');
@@ -52,7 +73,15 @@ export class MatchingService {
       logger.info(`  Retrieved: ${students.length} students, ${seniors.length} seniors`);
 
       logger.info('\n[Phase 3] Score Calculation');
-      const scores = calculateAllPairwiseScores(students, seniors, this.config);
+      // Drop past pairs before the cost matrix: a pair with no score costs
+      // far more than any real pair, so the solver only lands on one when
+      // nothing else is left, and such assignments are discarded.
+      const { kept: scores, blocked: blockedScores } = removePastPairs(
+        calculateAllPairwiseScores(students, seniors, this.config), pastPairs
+      );
+      if (blockedScores > 0) {
+        logger.info(`  Blocked ${blockedScores} past-partner pairs`);
+      }
 
       if (scores.length === 0) {
         throw new MatchingInputError('No similarity scores calculated');
@@ -61,7 +90,14 @@ export class MatchingService {
       logger.info(`  Calculated ${scores.length} pairwise scores`);
 
       logger.info('\n[Phase 4] Hungarian Matching');
-      const matches = hungarianMatching(scores, students, seniors);
+      // Safety net: a past pair never comes back as a match. Both people end
+      // up unmatched instead.
+      const { kept: matches, blocked: blockedMatches } = removePastPairs(
+        hungarianMatching(scores, students, seniors), pastPairs
+      );
+      if (blockedMatches > 0) {
+        logger.warn(`  Removed ${blockedMatches} past-partner matches after assignment`);
+      }
       logger.info(`  Created ${matches.length} matches`);
 
       logger.info('\n[Phase 5] Post-Processing');

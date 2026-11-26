@@ -3,11 +3,13 @@ export default function LongInput({
   required,
   className,
   id,
+  defaultValue,
 }: {
   name: string;
   required: boolean;
   className?: string;
   id?: string;
+  defaultValue?: string;
 }) {
   return (
     <textarea
@@ -15,6 +17,7 @@ export default function LongInput({
       name={name}
       maxLength={1000}
       rows={5}
+      defaultValue={defaultValue}
       required={required}
       className={className}
     />

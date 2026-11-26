@@ -28,6 +28,15 @@ import { db, upsertUser } from "../../firebase";
 import { useAuth } from "../../auth/AuthProvider";
 import { isAdminRole } from "../../utils/roles";
 import { useLocation, useNavigate } from "react-router-dom";
+import {
+  buildPrefill,
+  isBasicInfoQuestion,
+  isDisplayNameQuestion,
+  isEmailQuestion,
+  questionSnapshot,
+  type Prefill,
+  type PrefillMap,
+} from "./prefill";
 
 
 // ---------------------------------------------------------------------------
@@ -40,13 +49,17 @@ function QuestionRenderer({
   name,
   previewMode = false,
   enforceAgeLimits = true,
+  prefill,
 }: {
   question: Question;
   name: string;
   previewMode?: boolean;
   enforceAgeLimits?: boolean;
+  /** A returning participant's saved answer, used as the initial value. */
+  prefill?: Prefill;
 }) {
   const { type, title, description, options, min, max, required } = question;
+  const text = prefill?.kind === "text" ? prefill.value : undefined;
   const requiredMark = required ? <span className={styles.requiredStar}> *</span> : null;
 
   const labelContent = (
@@ -80,21 +93,21 @@ function QuestionRenderer({
       return withDisabledState(
         <div className={styles.fieldGroup}>
           {labelContent}
-          <ShortInput name={name} required={required} className={styles.fieldInput} />
+          <ShortInput name={name} required={required} className={styles.fieldInput} defaultValue={text} />
         </div>
       );
     case "medium_input":
       return withDisabledState(
         <div className={styles.fieldGroup}>
           {labelContent}
-          <MediumInput name={name} required={required} className={styles.fieldInput} />
+          <MediumInput name={name} required={required} className={styles.fieldInput} defaultValue={text} />
         </div>
       );
     case "long_input":
       return withDisabledState(
         <div className={styles.fieldGroup}>
           {labelContent}
-          <LongInput name={name} required={required} className={styles.fieldTextarea} />
+          <LongInput name={name} required={required} className={styles.fieldTextarea} defaultValue={text} />
         </div>
       );
     case "Dropdown":
@@ -106,6 +119,7 @@ function QuestionRenderer({
             options={options ?? []}
             required={required}
             className={styles.fieldSelect}
+            defaultValue={text}
           />
         </div>
       );
@@ -118,6 +132,8 @@ function QuestionRenderer({
             options={options ?? []}
             required={required}
             className={styles.fieldSelect}
+            defaultValue={prefill?.kind === "other" ? prefill.option : text}
+            defaultOther={prefill?.kind === "other" ? prefill.text : undefined}
           />
         </div>
       );
@@ -130,6 +146,7 @@ function QuestionRenderer({
             min={min ?? 1}
             max={max ?? 5}
             required={required}
+            defaultValue={prefill?.kind === "number" ? prefill.value : undefined}
           />
         </div>
       );
@@ -137,7 +154,7 @@ function QuestionRenderer({
       return withDisabledState(
         <div className={styles.fieldGroup}>
           {labelContent}
-          <RadioInput name={name} options={options ?? []} required={required} />
+          <RadioInput name={name} options={options ?? []} required={required} defaultValue={text} />
         </div>
       );
     case "Date":
@@ -145,14 +162,14 @@ function QuestionRenderer({
         <div className={styles.fieldGroup}>
           {labelContent}
           {enforceAgeLimits && isDateOfBirthQuestion(question) ? (
-            <DateInput name={name} required={required} min={yearsAgo(MAX_AGE)} max={yearsAgo(MIN_AGE)} />
+            <DateInput name={name} required={required} min={yearsAgo(MAX_AGE)} max={yearsAgo(MIN_AGE)} defaultValue={text} />
           ) : (
-            <DateInput name={name} required={required} />
+            <DateInput name={name} required={required} defaultValue={text} />
           )}
         </div>
       );
     case "phoneNumber":
-      return withDisabledState(<PhoneNumberInput name={name} required={required} />);
+      return withDisabledState(<PhoneNumberInput name={name} required={required} defaultValue={text} />);
     case "text":
       return (
         <TextDisplay title={title + requiredMark} description={description} />
@@ -165,6 +182,7 @@ function QuestionRenderer({
             name={name}
             options={options ?? []}
             required={required}
+            defaultValues={prefill?.kind === "multiple" ? prefill.values : undefined}
           />
         </div>
       );
@@ -179,7 +197,11 @@ function QuestionRenderer({
               </span>
             )}
           </span>
-          <AddressInput namePrefix={name} required={required} />
+          <AddressInput
+            namePrefix={name}
+            required={required}
+            defaultValue={prefill?.kind === "address" ? prefill.value : undefined}
+          />
         </div>
       );
     case "profilePicture":
@@ -193,7 +215,7 @@ function QuestionRenderer({
       return withDisabledState(
         <div className={styles.fieldGroup}>
           {labelContent}
-          <ShortInput name={name} required={required} className={styles.fieldInput} />
+          <ShortInput name={name} required={required} className={styles.fieldInput} defaultValue={text} />
         </div>
       );
   }
@@ -212,6 +234,7 @@ function FormRenderer({
   previewMode = false,
   hideSectionTitles = false,
   enforceAgeLimits = true,
+  prefill,
 }: {
   form: Form;
   currentStep: number;
@@ -219,6 +242,7 @@ function FormRenderer({
   previewMode?: boolean;
   hideSectionTitles?: boolean;
   enforceAgeLimits?: boolean;
+  prefill?: PrefillMap;
 }) {
   return (
     <>
@@ -232,15 +256,19 @@ function FormRenderer({
           {section.title && !hideSectionTitles && (
             <h2 className={styles.cardTitle}>{section.title}</h2>
           )}
-          {section.questions.map((question, questionIndex) => (
-            <QuestionRenderer
-              key={questionIndex}
-              question={question}
-              name={`s${sectionIndex}_q${questionIndex}`}
-              previewMode={previewMode}
-              enforceAgeLimits={enforceAgeLimits}
-            />
-          ))}
+          {section.questions.map((question, questionIndex) => {
+            const name = `s${sectionIndex}_q${questionIndex}`;
+            return (
+              <QuestionRenderer
+                key={questionIndex}
+                question={question}
+                name={name}
+                previewMode={previewMode}
+                enforceAgeLimits={enforceAgeLimits}
+                prefill={prefill?.[name]}
+              />
+            );
+          })}
           {sectionIndex === currentStep && navFooter}
         </div>
       ))}
@@ -294,6 +322,7 @@ const RegistrationNew = ({
   const manualFullName = (
     (location.state as { name?: string } | null)?.name ?? ""
   ).trim();
+  const userUid = user?.uid ?? null;
   const manualUserIdRef = useRef<string>(doc(collection(db, "participants")).id);
 
   const formRef = useRef<HTMLFormElement>(null);
@@ -303,6 +332,7 @@ const RegistrationNew = ({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(previewInitialStep ?? 0);
   const [showAgeWarningModal, setShowAgeWarningModal] = useState(false);
+  const [prefill, setPrefill] = useState<PrefillMap>({});
   const pendingContinue = useRef<(() => Promise<void>) | null>(null);
 
   useEffect(() => {
@@ -312,31 +342,76 @@ const RegistrationNew = ({
       return;
     }
 
+    // Inputs only read their default value on first render, so wait for the
+    // user before loading anything.
+    if (authLoading) return;
+    let cancelled = false;
+
+    // A returning participant's saved profile and answers, used to prefill
+    // the form. The FormResponse is read even when the participant doc is
+    // missing: one left over from an earlier cohort still has their answers.
+    const loadSaved = async (): Promise<{
+      participant: Participant | null;
+      questions: Questions[];
+    }> => {
+      if (isManualEntry || !userUid) return { participant: null, questions: [] };
+      try {
+        const [participantSnap, formResponseSnap] = await Promise.all([
+          getDoc(doc(db, "participants", userUid)),
+          getDoc(doc(db, "FormResponse", userUid)),
+        ]);
+        const saved = formResponseSnap.data() as Partial<FormResponse> | undefined;
+        return {
+          participant: participantSnap.exists()
+            ? (participantSnap.data() as Participant)
+            : null,
+          questions: Array.isArray(saved?.questions) ? saved.questions : [],
+        };
+      } catch (err) {
+        // Prefill is a convenience: fall back to an empty form.
+        console.error("Error loading saved answers:", err);
+        return { participant: null, questions: [] };
+      }
+    };
+
     const fetchForm = async () => {
       try {
-        const docRef = doc(db, "config", "registrationForm");
-        const docSnap = await getDoc(docRef);
+        const [docSnap, saved] = await Promise.all([
+          getDoc(doc(db, "config", "registrationForm")),
+          loadSaved(),
+        ]);
+        if (cancelled) return;
+        let loadedForm: Form | null = null;
         if (docSnap.exists()) {
           const data = docSnap.data();
           if (data.sections && Array.isArray(data.sections)) {
-            setForm(data as Form);
+            loadedForm = data as Form;
           } else if (data.questions && Array.isArray(data.questions)) {
-            setForm({
+            loadedForm = {
               sections: [{ title: data.title || "Registration", questions: data.questions }],
-            });
+            };
           }
         } else {
           console.error("No registrationForm document found");
         }
+        setForm(loadedForm);
+        setPrefill(
+          loadedForm
+            ? buildPrefill(loadedForm, saved.questions, saved.participant)
+            : {},
+        );
       } catch (err) {
         console.error("Error fetching form:", err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     fetchForm();
-  }, [previewForm, previewMode]);
+    return () => {
+      cancelled = true;
+    };
+  }, [previewForm, previewMode, authLoading, userUid, isManualEntry]);
 
   useEffect(() => {
     if (!previewMode || typeof previewInitialStep !== "number") {
@@ -363,28 +438,6 @@ const RegistrationNew = ({
       });
     });
     return entries;
-  };
-
-  const isDisplayNameQuestion = (question: Question): boolean => {
-    const title = question.title.toLowerCase();
-    return title.includes("display name") || title === "name";
-  };
-
-  const isEmailQuestion = (question: Question): boolean => {
-    return question.title.toLowerCase().includes("email");
-  };
-
-  const isBasicInfoQuestion = (question: Question): boolean => {
-    if (question.type === "address" || question.type === "phoneNumber") {
-      return true;
-    }
-    if (
-      isDisplayNameQuestion(question) ||
-      isEmailQuestion(question)
-    ) {
-      return true;
-    }
-    return false;
   };
 
   const getDateOfBirth = (formData: FormData, formConfig: Form): string | null => {
@@ -558,7 +611,14 @@ const RegistrationNew = ({
           return;
         }
 
-        questions.push({ title: question.title, answer, type: questionType });
+        // Save what the question looked like, so a returning participant's
+        // answer is only prefilled if the question hasn't changed since.
+        questions.push({
+          title: question.title,
+          answer,
+          type: questionType,
+          ...questionSnapshot(question),
+        });
     });
 
     return {
@@ -940,6 +1000,13 @@ const RegistrationNew = ({
         </div>
       </div>}
 
+      {!previewMode && Object.keys(prefill).length > 0 && (
+        <div className={styles.prefillBanner} role="status">
+          Welcome back! We&rsquo;ve filled in your answers from last time.
+          Please review them before submitting.
+        </div>
+      )}
+
       {/* Form sections -- one visible at a time */}
       <FormRenderer
         form={form}
@@ -947,6 +1014,7 @@ const RegistrationNew = ({
         previewMode={previewMode}
         hideSectionTitles={previewMode && compactPreview}
         enforceAgeLimits={!isManualEntry}
+        prefill={prefill}
         navFooter={
           <>
             {!previewMode && submitError && (

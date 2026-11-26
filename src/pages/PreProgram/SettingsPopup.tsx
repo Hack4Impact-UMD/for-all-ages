@@ -328,7 +328,8 @@ export default function SettingsPopup({
             {confirmAction === "endProgram" && (
               <>
                 <h3 className={styles.confirmTitle}>End Program</h3>
-                <p className={styles.confirmText}>This will permanently delete all participants, logs, weeks, and matches, and reset the program config. This cannot be undone.</p>
+                <p className={styles.confirmText}>This will permanently delete all matches, logs, weeks, and the waitlist, and reset the program config. Participants entered manually by an admin are deleted too. This cannot be undone.</p>
+                <p className={styles.confirmText}>Other participant profiles are kept. Participants will need to re-register for the next cohort, and their previous answers will be pre-filled.</p>
                 <p className={styles.confirmText}>We recommend exporting your data first.</p>
                 <div className={styles.confirmActions} style={{ marginBottom: 14 }}>
                   <button className={styles.exportBtn} onClick={onExportData} disabled={endingProgram}>

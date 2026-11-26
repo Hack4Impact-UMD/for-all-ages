@@ -46,6 +46,18 @@ import { normalizeUniversityName } from "../../utils/university";
 
 type RoleFilter = "All" | Role | "Participant";
 type GroupFilter = "All" | "Student" | "Adult";
+type RegistrationFilter = "All" | "Registered" | "Returning";
+
+// End Program keeps a participant's profile but clears type and user_type,
+// and stamps lastCohortEndedAt. Until they register again they belong to no
+// cohort.
+function isReturningProfile(data: ParticipantDoc): boolean {
+  return (
+    data.type !== "Participant" &&
+    toAssignableRole(data.role) === "Participant" &&
+    data.lastCohortEndedAt != null
+  );
+}
 
 function formatAddress(address?: RawAddress | null): string | null {
   if (!address) return null;
@@ -104,6 +116,8 @@ export default function AdminDashboard() {
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("All");
   const [groupFilter, setGroupFilter] = useState<GroupFilter>("All");
+  const [registrationFilter, setRegistrationFilter] =
+    useState<RegistrationFilter>("All");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isParticipantModalOpen, setIsParticipantModalOpen] = useState(false);
   const location = useLocation();
@@ -187,6 +201,7 @@ export default function AdminDashboard() {
               user_type: normaliseUserType(data.user_type ?? null),
               university: data.university ?? null,
               registered: data.type === "Participant",
+              returning: isReturningProfile(data),
               participantOptIn: data.participantOptIn === true,
               userUid: data.userUid ?? null,
               hasAuthAccount: data.hasAuthAccount,
@@ -268,6 +283,12 @@ export default function AdminDashboard() {
       );
     }
 
+    if (registrationFilter === "Registered") {
+      list = list.filter((user) => user.registered === true);
+    } else if (registrationFilter === "Returning") {
+      list = list.filter((user) => user.returning === true);
+    }
+
     if (term) {
       list = list.filter((admin) => {
         return (
@@ -280,11 +301,12 @@ export default function AdminDashboard() {
       });
     }
     return list;
-  }, [admins, searchTerm, roleFilter, groupFilter]);
+  }, [admins, searchTerm, roleFilter, groupFilter, registrationFilter]);
 
   useEffect(() => {
     if (roleFilter === "Admin") {
       setGroupFilter("All");
+      setRegistrationFilter("All");
     }
   }, [roleFilter]);
 
@@ -514,6 +536,29 @@ export default function AdminDashboard() {
                 </select>
               </div>
             )}
+
+            {roleFilter !== "Admin" && (
+              <div className={styles.filterField}>
+                <label
+                  className={styles.fieldLabel}
+                  htmlFor="registration-filter"
+                >
+                  Registration
+                </label>
+                <select
+                  id="registration-filter"
+                  value={registrationFilter}
+                  onChange={(e) =>
+                    setRegistrationFilter(e.target.value as RegistrationFilter)
+                  }
+                  className={styles.selectInput}
+                >
+                  <option value="All">All</option>
+                  <option value="Registered">Registered this cohort</option>
+                  <option value="Returning">Returning, not registered</option>
+                </select>
+              </div>
+            )}
           </div>
         </section>
 
@@ -665,6 +710,15 @@ export default function AdminDashboard() {
                               <option value="student">Student</option>
                               <option value="adult">Older Adult</option>
                             </select>
+                          ) : admin.returning ? (
+                            // Kept from an earlier cohort; not in this one
+                            // until they register again.
+                            <span
+                              className={styles.returningBadge}
+                              title="Took part in an earlier cohort and hasn't registered for this one yet."
+                            >
+                              Returning, not registered
+                            </span>
                           ) : admin.role === "Participant" ? (
                             // Placement needs a finished registration.
                             <span>Registration incomplete</span>

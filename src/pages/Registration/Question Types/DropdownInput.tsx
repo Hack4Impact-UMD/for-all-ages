@@ -3,14 +3,16 @@ export default function DropdownInput({
   options,
   required,
   className,
+  defaultValue,
 }: {
   name: string;
   options: string[];
   required: boolean;
   className?: string;
+  defaultValue?: string;
 }) {
   return (
-    <select name={name} required={required} className={className} defaultValue="">
+    <select name={name} required={required} className={className} defaultValue={defaultValue ?? ""}>
       <option value="">
         Select an option
       </option>

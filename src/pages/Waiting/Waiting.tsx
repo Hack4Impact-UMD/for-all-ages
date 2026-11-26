@@ -39,6 +39,20 @@ export default function Waiting() {
 
   const isLoading = loading || participantLoading || programStateLoading || waitlistLoading;
 
+  // A past participant whose profile End Program kept (no type) hasn't
+  // registered for this cohort, so there's nothing to wait for yet.
+  useEffect(() => {
+    if (isLoading || !user || !participant) return;
+    if (isWaitlisted) return;
+    if (
+      participant.type == null &&
+      participant.user_type == null &&
+      participant.role === "Participant"
+    ) {
+      navigate("/registration", { replace: true });
+    }
+  }, [isLoading, user, participant, isWaitlisted, navigate]);
+
   useEffect(() => {
     if (!programState || isLoading) return;
     if (isWaitlisted) return;
