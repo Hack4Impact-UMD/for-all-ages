@@ -408,3 +408,19 @@ describe("Sub-admin participation toggle", () => {
     expect(await screen.findByText("This sub-admin has already registered.")).toBeTruthy();
   });
 });
+
+describe("Users page banner from router state", () => {
+  it("shows a banner passed by the page that sent the admin back", async () => {
+    render(
+      <MemoryRouter
+        initialEntries={[
+          { pathname: "/admin/creator", state: { banner: { type: "success", message: "Ada Lovelace was registered." } } },
+        ]}
+      >
+        <AdminCreator />
+      </MemoryRouter>,
+    );
+    await emit();
+    expect(screen.getByText("Ada Lovelace was registered.")).toBeTruthy();
+  });
+});
