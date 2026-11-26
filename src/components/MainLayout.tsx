@@ -1,7 +1,17 @@
 import Navbar from "./Navbar";
 import { Outlet } from "react-router-dom";
+import { useAuth } from "../auth/AuthProvider";
+import AdminContact from "./AdminContact";
 
 export default function MainLayout() {
+  const { user, isAdmin, isSubadmin, loading, participantLoading } = useAuth();
+  const showAdminContact =
+    !loading &&
+    !participantLoading &&
+    Boolean(user) &&
+    !isAdmin &&
+    !isSubadmin;
+
   return (
     <div>
       <div style={{
@@ -16,6 +26,7 @@ export default function MainLayout() {
       <div style={{ paddingTop: "80px"}}>
         <Outlet />
       </div>
+      {showAdminContact && <AdminContact userEmail={user?.email} />}
     </div>
   )
 }

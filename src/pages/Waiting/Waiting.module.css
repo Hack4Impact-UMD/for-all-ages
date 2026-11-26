@@ -61,46 +61,6 @@
     font-weight: 600;
 }
 
-.messageButton {
-    position: fixed;
-    right: 32px;
-    bottom: 32px;
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    background: #ffffff;
-    color: #0f6fb8;
-    border: none;
-    border-radius: 999px;
-    padding: 0.75rem 1.5rem;
-    font-size: 1rem;
-    font-weight: 600;
-    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
-    cursor: pointer;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-    z-index: 5;
-}
-
-.messageButton:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 18px 32px rgba(0, 0, 0, 0.18);
-}
-
-.messageButton:focus-visible {
-    outline: 3px solid rgba(15, 111, 184, 0.35);
-    outline-offset: 4px;
-}
-
-.messageIcon {
-    display: grid;
-    place-items: center;
-}
-
-.messageIcon svg {
-    width: 1.5rem;
-    height: 1.5rem;
-}
-
 .statusTitle {
     margin: 0 0 12px 0;
     color: #1a5ca9;
