@@ -9,7 +9,7 @@ import {
   userTypeForAge,
   yearsAgo,
 } from "../../utils/age";
-import type { Form, Question, Section, FormResponse, Participant, Questions, RawAddress } from "../../types";
+import type { BannerState, Form, Question, Section, FormResponse, Participant, Questions, RawAddress } from "../../types";
 import { useRef, useState, useEffect } from "react";
 import ShortInput from "./Question Types/ShortInput";
 import MediumInput from "./MediumInput";
@@ -804,11 +804,20 @@ const RegistrationNew = ({
         // Everything succeeded: mark registration complete.
         await setDoc(participantDocRef, { type: "Participant" }, { merge: true });
 
-        if (shouldWaitlist) {
+        if (isManualEntry) {
+          // The admin never belongs on /waiting or the user dashboard: send
+          // them back to Users, which shows the outcome as a banner.
+          const banner: BannerState = {
+            type: "success",
+            message: shouldWaitlist
+              ? `${manualFullName} was registered and added to the waitlist (the program is full).`
+              : `${manualFullName} was registered.`,
+          };
+          navigate("/admin/creator", { replace: true, state: { banner } });
+        } else if (shouldWaitlist) {
           navigate("/waiting", { replace: true });
         } else {
-          // Navigate to dashboard
-          navigate(isManualEntry ? "/admin/creator" : "/user/dashboard", { replace: true });
+          navigate("/user/dashboard", { replace: true });
         }
       };
 

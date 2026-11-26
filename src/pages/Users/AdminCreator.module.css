@@ -391,6 +391,13 @@
 .fieldHint {
   margin: 0;
   font-size: 0.8rem;
+  color: #475569;
+}
+
+/* Inline validation and blocking messages under a field. */
+.fieldError {
+  margin: 0;
+  font-size: 0.8rem;
   color: #be123c;
 }
 

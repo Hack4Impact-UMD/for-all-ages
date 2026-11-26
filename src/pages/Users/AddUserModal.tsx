@@ -335,7 +335,7 @@ export default function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps
               required
             />
             {!emailValid && trimmedEmail.length > 0 ? (
-              <p className={styles.fieldHint}>Enter a valid email address.</p>
+              <p className={styles.fieldError}>Enter a valid email address.</p>
             ) : null}
           </div>
 
@@ -380,7 +380,7 @@ export default function AddAdminModal({ onClose, onSuccess }: AddAdminModalProps
                 />
                 Also a participant
               </label>
-              <p className={styles.fieldHint} style={{ color: "#475569" }}>
+              <p className={styles.fieldHint}>
                 They will fill out the registration form after signing in
                 and be matched like any other student.
               </p>

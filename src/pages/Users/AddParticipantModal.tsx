@@ -93,7 +93,7 @@ export default function AddParticipantModal({ onClose }: AddParticipantModalProp
         </header>
 
         <form className={styles.modalForm} onSubmit={handleSubmit}>
-          <p className={styles.fieldHint} style={{ color: "#475569" }}>
+          <p className={styles.fieldHint}>
             For someone who can't register themselves. No login is created;
             you'll fill out the registration form for them next, and they'll be
             matched like any other participant.
@@ -117,7 +117,7 @@ export default function AddParticipantModal({ onClose }: AddParticipantModalProp
               disabled={closed}
             />
             {closed ? (
-              <p className={styles.fieldHint}>
+              <p className={styles.fieldError}>
                 {programStateLoading ? "Checking program capacity…" : "Program is full."}
               </p>
             ) : null}

@@ -8,6 +8,7 @@ import {
   type Unsubscribe,
 } from "firebase/firestore";
 import { FaPen, FaTrash } from "react-icons/fa";
+import { useLocation, useNavigate } from "react-router-dom";
 import layoutStyles from "../Dashboard/Dashboard.module.css";
 import styles from "./AdminCreator.module.css";
 import {
@@ -105,7 +106,13 @@ export default function AdminDashboard() {
   const [groupFilter, setGroupFilter] = useState<GroupFilter>("All");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isParticipantModalOpen, setIsParticipantModalOpen] = useState(false);
-  const [banner, setBanner] = useState<BannerState | null>(null);
+  const location = useLocation();
+  const navigate = useNavigate();
+  // Pages that send the admin back here (e.g. a finished manual
+  // registration) pass the outcome as a banner in router state.
+  const [banner, setBanner] = useState<BannerState | null>(
+    () => (location.state as { banner?: BannerState } | null)?.banner ?? null,
+  );
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [placingId, setPlacingId] = useState<string | null>(null);
   const [optInId, setOptInId] = useState<string | null>(null);
@@ -150,6 +157,14 @@ export default function AdminDashboard() {
   const dismissBanner = useCallback(() => {
     setBanner(null);
   }, []);
+
+  // Show a router-state banner once: clear it so a refresh or Back doesn't
+  // bring it back.
+  useEffect(() => {
+    if ((location.state as { banner?: BannerState } | null)?.banner) {
+      navigate(location.pathname, { replace: true, state: null });
+    }
+  }, [location.state, location.pathname, navigate]);
 
   useEffect(() => {
     let unsubscribe: Unsubscribe | undefined;
