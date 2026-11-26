@@ -740,7 +740,7 @@
   cursor: not-allowed;
 }
 
-.endRegistrationBtn {
+.openRegistrationBtn {
   padding: 10px 20px;
   border-radius: 9999px;
   border: 2px solid #0f6bb1;
@@ -753,16 +753,16 @@
   transition: background 0.2s ease, box-shadow 0.2s ease;
 }
 
-.endRegistrationBtn:hover:not(:disabled) {
+.openRegistrationBtn:hover:not(:disabled) {
   background: #eaf3fb;
 }
 
-.endRegistrationBtn:focus-visible {
+.openRegistrationBtn:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px rgba(15, 107, 177, 0.25);
 }
 
-.endRegistrationBtn:disabled {
+.openRegistrationBtn:disabled {
   background: #f1f4f8;
   border-color: rgba(15, 107, 177, 0.15);
   color: rgba(15, 79, 134, 0.6);
