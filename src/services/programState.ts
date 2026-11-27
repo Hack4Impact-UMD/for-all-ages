@@ -38,7 +38,7 @@ export async function endProgram() {
   });
 }
 
-export async function endRegistration() {
+export async function openRegistration() {
   await updateDoc(programStateRef, {
     accepting_registrations: true,
   });
@@ -60,7 +60,7 @@ export async function unfinalizeMatches() {
 
 /**
  * The registration form is only editable during the "edit period" — after
- * End Program has run and before End Registration has been clicked.
+ * End Program has run and before Open Registration has been clicked.
  */
 export async function isRegistrationFormEditable(): Promise<boolean> {
   const snap = await getDoc(programStateRef);

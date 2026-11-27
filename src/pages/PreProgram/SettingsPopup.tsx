@@ -4,7 +4,7 @@ import type { ProgramState } from "../../types";
 import React, { useEffect, useState } from "react";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../../firebase";
-import { endRegistration } from "../../services/programState";
+import { openRegistration } from "../../services/programState";
 import SendIcon from "@mui/icons-material/Send";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 
@@ -64,9 +64,9 @@ export default function SettingsPopup({
   const [autoApprovalThreshold, setAutoApprovalThreshold] = useState(program?.autoApprovalThreshold ?? 80);
   const [originalThreshold, setOriginalThreshold] = useState(program?.autoApprovalThreshold ?? 80);
   const [changed, setChanged] = useState(false);
-  const [endingRegistration, setEndingRegistration] = useState(false);
-  const [confirmingEndRegistration, setConfirmingEndRegistration] = useState(false);
-  const [endRegistrationError, setEndRegistrationError] = useState<string | null>(null);
+  const [openingRegistration, setOpeningRegistration] = useState(false);
+  const [confirmingOpenRegistration, setConfirmingOpenRegistration] = useState(false);
+  const [openRegistrationError, setOpenRegistrationError] = useState<string | null>(null);
 
   useEffect(() => {
     const threshold = program?.autoApprovalThreshold ?? 80;
@@ -76,8 +76,8 @@ export default function SettingsPopup({
     setOriginalThreshold(threshold);
     setChanged(false);
     setConfirmAction(null);
-    setConfirmingEndRegistration(false);
-    setEndRegistrationError(null);
+    setConfirmingOpenRegistration(false);
+    setOpenRegistrationError(null);
   }, [program, isOpened]);
 
   useEffect(() => {
@@ -114,20 +114,20 @@ export default function SettingsPopup({
     setConfirmAction(matchesFinalized ? "unfinalize" : "finalize");
   };
 
-  const handleEndRegistration = async () => {
+  const handleOpenRegistration = async () => {
     if (!program || !inEditPeriod) return;
 
     try {
-      setEndRegistrationError(null);
-      setEndingRegistration(true);
-      await endRegistration();
+      setOpenRegistrationError(null);
+      setOpeningRegistration(true);
+      await openRegistration();
       setProgram((prev: ProgramState | null) => (prev ? { ...prev, accepting_registrations: true } : prev));
-      setConfirmingEndRegistration(false);
+      setConfirmingOpenRegistration(false);
     } catch (error) {
-      console.error("Failed to end registration:", error);
-      setEndRegistrationError("Failed to end registration. Please try again.");
+      console.error("Failed to open registration:", error);
+      setOpenRegistrationError("Failed to open registration. Please try again.");
     } finally {
-      setEndingRegistration(false);
+      setOpeningRegistration(false);
     }
   };
 
@@ -260,32 +260,32 @@ export default function SettingsPopup({
         <div className={styles.settingsRow}>
           <p>Registration Form: </p>
           <button
-            className={styles.endRegistrationBtn}
-            onClick={() => setConfirmingEndRegistration(true)}
-            disabled={!inEditPeriod || endingRegistration}
+            className={styles.openRegistrationBtn}
+            onClick={() => setConfirmingOpenRegistration(true)}
+            disabled={!inEditPeriod || openingRegistration}
             title={!inEditPeriod ? (program?.accepting_registrations ? "Registration form is locked and open to the public." : "End Program to begin the registration edit period first.") : undefined}
           >
-            {program?.accepting_registrations ? "Registration Locked" : endingRegistration ? "Ending Registration..." : "End Registration"}
+            {program?.accepting_registrations ? "Registration Open" : openingRegistration ? "Opening Registration..." : "Open Registration"}
           </button>
         </div>
 
-        {confirmingEndRegistration && (
+        {confirmingOpenRegistration && (
           <div className={styles.confirmRegistration}>
             <p className={styles.confirmRegistrationText}>
-              This locks the registration form (no more edits) and opens registration to the public. This cannot be undone until the next End Program.
+              This opens registration to the public and locks the registration form, so it can no longer be edited. The form stays locked until the next End Program.
             </p>
             <div className={styles.confirmRegistrationActions}>
-              <button className={styles.endRegistrationBtn} onClick={handleEndRegistration} disabled={endingRegistration}>
-                {endingRegistration ? "Ending..." : "Yes, end registration"}
+              <button className={styles.openRegistrationBtn} onClick={handleOpenRegistration} disabled={openingRegistration}>
+                {openingRegistration ? "Opening..." : "Yes, open registration"}
               </button>
-              <button className={styles.endRegistrationBtn} onClick={() => setConfirmingEndRegistration(false)} disabled={endingRegistration}>
+              <button className={styles.openRegistrationBtn} onClick={() => setConfirmingOpenRegistration(false)} disabled={openingRegistration}>
                 Cancel
               </button>
             </div>
           </div>
         )}
 
-        {endRegistrationError && <p className={styles.warning}>{endRegistrationError}</p>}
+        {openRegistrationError && <p className={styles.warning}>{openRegistrationError}</p>}
 
         {program?.started || program?.matches_final ? <p className={styles.warning}>One or more settings may not be editable if the program has started or matches have been made final.</p> : <></>}
       </div>

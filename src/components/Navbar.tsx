@@ -99,7 +99,7 @@ export default function Navbar({ navItems }: NavbarProps) {
   const programStarted = Boolean(programState?.started);
 
   // The registration form is only editable during the "edit period" —
-  // after End Program and before End Registration.
+  // after End Program and before Open Registration.
   const registrationFormEditable = Boolean(
     programState && !programState.started && !programState.accepting_registrations,
   );
